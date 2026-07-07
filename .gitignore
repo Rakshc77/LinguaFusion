@@ -1,0 +1,43 @@
+# Python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.env
+downloads
+
+# Runtime/generated files
+temp/
+*.wav
+*.mp3
+reader_output_*.wav
+reader_segment_*.wav
+reader_speed_*.wav
+translation_output_*.wav
+
+# Local storage with user data/secrets
+backend/storage/*.db
+backend/storage/*.sqlite
+backend/storage/ai_providers.json
+backend/storage/corrections.json
+storage/
+
+# Large local models stay outside release ZIPs
+models/
+
+
+# Large model/audio/output files
+models/
+*.wav
+*.mp3
+*.mp4
+*.log
+
+# VS Code optional
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
+debug/
+tools/whispercpp/Release/
