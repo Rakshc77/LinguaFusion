@@ -98,3 +98,7 @@ LinguaFusion is intended to run locally. Local models, generated audio, user cor
 Current public version: `1.0.0-beta.5`
 
 This is an active development project. Some workflows, especially OCR table reconstruction, document layout preservation, and speech alignment, are best-effort and may vary by input quality and installed local models.
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
