@@ -93,3 +93,7 @@ dist_*/
 build_*/
 .codex-remote-attachments/
 .superdesign/
+
+# Local agent helper docs
+CLAUDE.md
+AGENTS.md

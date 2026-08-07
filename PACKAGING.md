@@ -36,7 +36,7 @@ for errors:
 
 If it crashes on a missing CUDA DLL (cublas64_12.dll, cudnn64_9.dll, etc.)
 -- this is the exact same class of problem solved earlier for the
-source-run case (see CLAUDE.md, "Windows DLL gotcha"). PyInstaller's
+source-run case (see Windows DLL resolution docs, "Windows DLL gotcha"). PyInstaller's
 `collect_all()` in the .spec file *should* bundle these automatically
 since they're real files in site-packages, but frozen-app DLL loading has
 its own quirks separate from the namespace-package issue we fixed before.
