@@ -146,3 +146,36 @@ python desktop/main.py
 
 - **LinguaFusion**: Developed by the LinguaFusion Core Engineering Team.
 - **Underlying AI Frameworks**: PyTorch, Faster-Whisper, CTranslate2, NLLB-200, RapidOCR, Tesseract, Piper TTS, Meta MMS.
+
+```powershell
+python -m uvicorn backend.server:app --reload --host 0.0.0.0 --port 8000
+```
+
+In a second terminal, start the desktop app:
+
+```powershell
+python .\desktop\main.py
+```
+
+Health check:
+
+```text
+http://localhost:8000/health
+```
+
+See `README_RUN_WINDOWS.md` for a more detailed Windows run guide.
+
+## Privacy and local files
+
+LinguaFusion is intended to run locally. Local models, generated audio, user correction data, runtime databases, logs, and temporary files should remain outside the public repository. Keep them excluded through `.gitignore`.
+
+## Status
+
+Current public version: `1.0.0-beta.5`
+
+This is an active development project. Some workflows, especially OCR table reconstruction, document layout preservation, and speech alignment, are best-effort and may vary by input quality and installed local models.
+
+## License
+
+This project is licensed under the MIT License. See the `LICENSE` file for details.
+
