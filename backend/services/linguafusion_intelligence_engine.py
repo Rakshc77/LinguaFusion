@@ -141,21 +141,16 @@ def _whisper_music_candidates(audio_path: Path, language: str) -> Dict[str, obje
 
 
 def _online_candidates_for_music(text: str, language: str, smart_mode: str) -> List[Dict[str, object]]:
-    if (smart_mode or "offline").lower() in {"offline", "none", ""}:
-        return []
-    status = provider_status()
-    # If no semantic provider is configured, LanguageTool alone is not enough for lyric semantics.
-    comparison = compare_online_corrections(text, language)
-    candidates: List[Dict[str, object]] = []
-    for c in comparison.get("candidates", []):
-        provider = str(c.get("provider", "online"))
-        candidate_text = c.get("text", "") or ""
-        if not candidate_text:
-            continue
-        refined = refine_lyrics_transcript(candidate_text)
-        if refined and not reject_bad_candidate(refined):
-            candidates.append(_candidate(provider, refined, bool(c.get("ok", True)), c.get("error")))
-    return candidates
+    # Semantic LLM correction (Ollama/etc.) is intentionally NOT used for music.
+    # Testing showed it can "correct" an already-hallucinated ASR phrase into a
+    # different but equally wrong, plausible-sounding phrase (e.g. a mis-heard
+    # lyric getting rewritten into an unrelated proper noun). The overlap
+    # guardrail in free_online_correction_service only checks fidelity to the
+    # raw ASR text, which can't detect this since the raw ASR text was already
+    # wrong. The chunked + whole-file + dedupe pipeline above is more reliable
+    # for lyrics than an LLM rewrite pass, so we skip semantic correction here
+    # regardless of the smart_mode setting.
+    return []
 
 
 def transcribe_with_lfie(
@@ -218,9 +213,26 @@ def transcribe_with_lfie(
     if not whisper_result.get("ok"):
         return whisper_result
     raw_text = str(whisper_result.get("text", "") or "")
+    if not raw_text.strip():
+        return {
+            **whisper_result,
+            "ok": False,
+            "error": "No speech was detected in the audio.",
+            "provider": "whisper_raw",
+            "engine": "lfie_v1_speech",
+        }
     offline_text = normalize_transcript_text(raw_text)
     candidates: List[Dict[str, object]] = [_candidate("whisper_raw", raw_text), _candidate("offline_lfie", offline_text)]
-    if smart_mode not in {"offline", "none", ""}:
+    correction_skipped_reason = None
+    if whisper_result.get("vad_fallback_used"):
+        # If Silero rejected the whole file but an unfiltered Whisper retry
+        # recovered text, the audio is commonly singing, music-backed speech,
+        # or another non-standard signal. Semantic LLM correction is unsafe in
+        # exactly that situation: on a real lyrics recording Ollama rewrote
+        # "dark and windy day" as "dark and stormy night" and invented other
+        # plausible-sounding substitutions. Preserve the ASR result instead.
+        correction_skipped_reason = "Semantic correction skipped after VAD fallback to avoid music/lyrics rewrites."
+    elif smart_mode not in {"offline", "none", ""}:
         smart = smart_correct_text(offline_text, smart_mode, str(whisper_result.get("language", language)))
         if smart.get("text"):
             candidates.append(_candidate(str(smart.get("provider", "smart")), smart.get("text", ""), bool(smart.get("ok", True)), smart.get("error")))
@@ -234,10 +246,14 @@ def transcribe_with_lfie(
         "offline_text": offline_text,
         "language": whisper_result.get("language", language),
         "model": whisper_result.get("model"),
+        "duration": whisper_result.get("duration"),
+        "segments": whisper_result.get("segments", []),
+        "vad_fallback_used": bool(whisper_result.get("vad_fallback_used", False)),
         "provider": best.get("provider", "offline_lfie"),
         "engine": "lfie_v1_speech",
         "music_mode": False,
         "corrections_applied": final_text != raw_text,
+        "correction_skipped_reason": correction_skipped_reason,
         "quality": transcript_quality_report(raw_text, final_text),
         "provider_status": provider_status(),
         "candidates": [

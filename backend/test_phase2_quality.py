@@ -11,6 +11,7 @@ from backend.services.speech_quality_service import normalize_transcript_text
 from backend.services.translation_service import high_confidence_translation_override, translate_with_views
 from backend.services.language_service import detect_text_language
 from backend.services.piper_service import split_text_for_mixed_tts
+from backend.services.whisper_service import ASR_HOTWORDS
 
 
 def assert_no_latin(text: str):
@@ -18,6 +19,7 @@ def assert_no_latin(text: str):
 
 
 def main():
+    assert "LinguaFusion" in ASR_HOTWORDS
     source = "Country roads take me home to the place I belong, west virginia"
     normalized = source_quality_normalize(source)
     assert "Country Roads" in normalized
@@ -60,6 +62,8 @@ def main():
     assert names_translation["translated_text"] == "राजर्षि ने नई दिल्ली में अमित शाह से मुलाकात की।", names_translation
 
     assert normalize_transcript_text("Raiarshi lives in Melzungen near west virginia") == "Rajarshi lives in Melsungen near West Virginia"
+    assert normalize_transcript_text("Lingdua Fusion performs private speech recognition.") == "LinguaFusion performs private speech recognition."
+    assert normalize_transcript_text("Lengdua Fusion performs private speech recognition.") == "LinguaFusion performs private speech recognition."
     german = normalize_transcript_text(
         "Heute teste ich auf Links-Fusion, deutschische Sätze, Ausnahmen und Eigennahmen korrekt erkennt. "
         "Besonders wichtig sind Wörter wie Baden-Wuttenburg, Nordrhein-Westfalen, Fraunhofer HHI und Kulturinstitut für Technologie."

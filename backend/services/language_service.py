@@ -11,9 +11,11 @@ except Exception as exc:  # pragma: no cover - depends on local install
 else:
     LANGDETECT_IMPORT_ERROR = None
 
-SUPPORTED_LANGS = {"en", "de", "es", "hi"}
+SUPPORTED_LANGS = {"en", "de", "es", "hi", "ar", "or"}
 
 DEVANAGARI_RE = re.compile(r"[\u0900-\u097F]")
+ARABIC_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
+ODIA_RE = re.compile(r"[\u0B00-\u0B7F]")
 LATIN_TOKEN_RE = re.compile(r"[A-Za-zÀ-ÿ]+(?:[-'][A-Za-zÀ-ÿ]+)?")
 
 # These are deliberately small and conservative. They are not a full language
@@ -48,10 +50,14 @@ def _tokens(text: str) -> List[str]:
 def _score_tokens(raw_text: str) -> Tuple[Dict[str, int], List[str]]:
     tokens = _tokens(raw_text)
     raw_lower = (raw_text or "").lower()
-    scores = {"en": 0, "de": 0, "es": 0, "hi": 0}
+    scores = {"en": 0, "de": 0, "es": 0, "hi": 0, "ar": 0, "or": 0}
 
     if DEVANAGARI_RE.search(raw_text or ""):
         scores["hi"] += 6
+    if ARABIC_RE.search(raw_text or ""):
+        scores["ar"] += 6
+    if ODIA_RE.search(raw_text or ""):
+        scores["or"] += 6
     if GERMAN_CHAR_RE.search(raw_text or ""):
         scores["de"] += 3
     if SPANISH_CHAR_RE.search(raw_text or ""):
@@ -82,8 +88,12 @@ def _heuristic_detect(text: str) -> Dict[str, object]:
 
     if scores["hi"] > 0:
         return {"ok": True, "language": "hi", "confidence": 0.85, "error": None, "method": "heuristic"}
+    if scores["ar"] > 0:
+        return {"ok": True, "language": "ar", "confidence": 0.9, "error": None, "method": "script_heuristic"}
+    if scores["or"] > 0:
+        return {"ok": True, "language": "or", "confidence": 0.9, "error": None, "method": "script_heuristic"}
 
-    ranked = sorted(((lang, score) for lang, score in scores.items() if lang != "hi"), key=lambda item: item[1], reverse=True)
+    ranked = sorted(((lang, score) for lang, score in scores.items() if lang not in {"hi", "ar", "or"}), key=lambda item: item[1], reverse=True)
     best_lang, best_score = ranked[0]
     second_lang, second_score = ranked[1]
 

@@ -9,7 +9,7 @@ except Exception:  # pragma: no cover - optional display helper
     def unidecode(value: str) -> str:
         return unicodedata.normalize("NFKD", value or "").encode("ascii", "ignore").decode("ascii")
 
-SUPPORTED_LANGS = {"en", "de", "es", "hi"}
+SUPPORTED_LANGS = {"en", "de", "es", "hi", "ar", "or"}
 URL_PATTERN = re.compile(r"https?://\S+|www\.\S+|[\w\.-]+@[\w\.-]+\.\w+", re.IGNORECASE)
 LATIN_WORD_RE = re.compile(r"[A-Za-zÀ-ÿ]+(?:['’-][A-Za-zÀ-ÿ]+)?")
 

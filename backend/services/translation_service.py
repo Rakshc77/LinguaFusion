@@ -26,11 +26,8 @@ from backend.services.entity_protection_service import (
 from backend.services.transliteration_service import transliterate_text, normalize_native_output
 from backend.services.language_service import detect_text_language
 
-DIRECT_PAIRS = {
-    ("en", "de"), ("de", "en"),
-    ("en", "es"), ("es", "en"),
-    ("en", "hi"), ("hi", "en"),
-}
+APP_LANGS = {"en", "de", "es", "hi", "ar", "or"}
+DIRECT_PAIRS = {(source, target) for source in APP_LANGS for target in APP_LANGS if source != target}
 
 
 def normalize_lang(lang: str) -> str:
@@ -98,10 +95,25 @@ def high_confidence_translation_override(text: str, source_lang: str, target_lan
     return None
 
 
+_INSTALLED_LANGUAGES_CACHE = None
+
+
+def _get_installed_languages_cached():
+    """Argos's installed-language registry doesn't change while the server is
+    running, but get_language() was calling get_installed_languages() on every
+    single translation (twice per call: source + target, and once per line in
+    batch/document translation). For a multi-line document that's dozens of
+    redundant registry scans. Cache it once per process instead."""
+    global _INSTALLED_LANGUAGES_CACHE
+    if _INSTALLED_LANGUAGES_CACHE is None:
+        _INSTALLED_LANGUAGES_CACHE = argostranslate.translate.get_installed_languages()
+    return _INSTALLED_LANGUAGES_CACHE
+
+
 def get_language(code: str):
     if argostranslate is None:
         raise RuntimeError(f"Argos Translate is not installed: {ARGOS_IMPORT_ERROR}")
-    installed_languages = argostranslate.translate.get_installed_languages()
+    installed_languages = _get_installed_languages_cached()
     normalized = normalize_lang(code)
     try:
         return next(lang for lang in installed_languages if lang.code == normalized)
@@ -110,10 +122,29 @@ def get_language(code: str):
         raise RuntimeError(f"Argos language model not installed for '{normalized}'. Installed languages: {installed}") from exc
 
 
+_TRANSLATION_OBJECT_CACHE: dict = {}
+
+
+def _get_translation_cached(source_lang: str, target_lang: str):
+    key = (normalize_lang(source_lang), normalize_lang(target_lang))
+    cached = _TRANSLATION_OBJECT_CACHE.get(key)
+    if cached is None:
+        source = get_language(source_lang)
+        target = get_language(target_lang)
+        cached = source.get_translation(target)
+        _TRANSLATION_OBJECT_CACHE[key] = cached
+    return cached
+
+
 def direct_translate(text: str, source_lang: str, target_lang: str) -> str:
-    source = get_language(source_lang)
-    target = get_language(target_lang)
-    translation = source.get_translation(target)
+    try:
+        from backend.services.nllb_translation_service import nllb_translate, is_available as nllb_is_available
+        if nllb_is_available():
+            return nllb_translate(text, source_lang, target_lang)
+    except Exception:
+        pass  # Fall through to Argos below -- NLLB not set up, or a transient failure.
+
+    translation = _get_translation_cached(source_lang, target_lang)
     return translation.translate(text)
 
 
@@ -200,7 +231,7 @@ def _translate_with_views_single(text: str, source_lang: str, target_lang: str) 
     if source_lang == "auto":
         detected_source = detect_text_language(normalized_source)
         source_lang = detected_source.get("language") if detected_source.get("ok") else "en"
-        if source_lang not in {"en", "de", "es", "hi"}:
+        if source_lang not in APP_LANGS:
             source_lang = "en"
 
     override = high_confidence_translation_override(normalized_source, source_lang, target_lang)
@@ -296,16 +327,16 @@ def _segment_source_language(segment: str, requested_source_lang: str) -> str:
     detected = detect_text_language(segment)
     detected_lang = detected.get("language") if detected.get("ok") else None
     if requested == "auto":
-        return detected_lang if detected_lang in {"en", "de", "es", "hi"} else "en"
+        return detected_lang if detected_lang in APP_LANGS else "en"
 
     # Mixed import files often arrive after the UI has auto-selected the dominant
     # document language. Re-check each sentence so English/German/Spanish chunks
     # can still use the right bridge route.
     if detected.get("is_mixed"):
         langs = detected.get("languages") or []
-        if langs and langs[0] in {"en", "de", "es", "hi"}:
+        if langs and langs[0] in APP_LANGS:
             return langs[0]
-    if detected_lang in {"en", "de", "es", "hi"} and detected_lang != requested:
+    if detected_lang in APP_LANGS and detected_lang != requested:
         confidence = float(detected.get("confidence") or 0)
         # Prefer the detected language when the requested language is probably
         # stale from an imported mixed-language document.

@@ -1,3 +1,4 @@
+import re
 from pathlib import Path
 from tempfile import NamedTemporaryFile
 from typing import Dict, Tuple
@@ -18,19 +19,32 @@ def _font_candidates() -> list[Path]:
     candidates = [
         Path(r"C:\Windows\Fonts\Nirmala.ttf"),
         Path(r"C:\Windows\Fonts\NirmalaB.ttf"),
+        Path(r"C:\Windows\Fonts\NirmalaS.ttf"),
         Path(r"C:\Windows\Fonts\Mangal.ttf"),
         Path(r"C:\Windows\Fonts\Kokila.ttf"),
         Path(r"C:\Windows\Fonts\Aparajita.ttf"),
         Path(r"C:\Windows\Fonts\Utsaah.ttf"),
         Path(r"C:\Windows\Fonts\arialuni.ttf"),
+        Path(r"C:\Windows\Fonts\NirmalaUI.ttf"),
+        Path(r"C:\Windows\Fonts\Nirmala.ttc"),
+        Path(r"C:\Windows\Fonts\mangal.ttf"),
+        Path(r"C:\Windows\Fonts\kokila.ttf"),
+        Path(r"C:\Windows\Fonts\utsaah.ttf"),
+        Path(r"C:\Windows\Fonts\aparaj.ttf"),
         Path("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf"),
-        Path("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"),
+        Path("/usr/share/fonts/truetype/noto/NotoSansDevanagariUI-Regular.ttf"),
+        Path("/usr/share/fonts/truetype/noto/NotoSansDevanagariUI.ttf"),
+        Path("/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf"),
         Path("/usr/share/fonts/truetype/freefont/FreeSerif.ttf"),
         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
     ]
     for font_dir in [Path(r"C:\Windows\Fonts"), Path("/usr/share/fonts"), Path("/usr/local/share/fonts")]:
         if font_dir.exists():
-            patterns = ["*Nirmala*.ttf", "*Mangal*.ttf", "*NotoSansDevanagari*.ttf", "*Kokila*.ttf", "*Aparajita*.ttf", "*Utsaah*.ttf", "*FreeSerif*.ttf"]
+            patterns = [
+                "*Nirmala*.ttf", "*Nirmala*.ttc", "*Nirmala*.otf", "*Mangal*.ttf", "*Mangal*.ttc", "*NotoSansDevanagari*.ttf", "*NotoSansDevanagari*.otf",
+                "*Lohit*Devanagari*.ttf", "*Kokila*.ttf", "*Kokila*.ttc", "*Aparajita*.ttf", "*Aparaj*.ttf",
+                "*Utsaah*.ttf", "*FreeSerif*.ttf", "*DejaVuSans.ttf",
+            ]
             for pattern in patterns:
                 candidates.extend(font_dir.rglob(pattern))
     seen = set()
@@ -165,146 +179,258 @@ def _append_pdf_text(story, text: str, style, available_width_pt: float = 470):
         story.append(Paragraph(escape(clean), style))
 
 
-def _resolve_source_language(text: str, source_lang: str) -> str:
-    source_lang = normalize_lang(source_lang)
-    if source_lang and source_lang != "auto":
-        return source_lang
 
-    detected = detect_text_language(text)
+def _devanagari_pdf_font_path() -> Path | None:
+    """Return a font that is known to contain real Devanagari glyphs.
+
+    Do not fall back to generic Latin fonts such as DejaVuSans here: those can
+    render Hindi as black boxes, which is worse than a controlled export error.
+    """
+    preferred_patterns = (
+        "nirmala", "mangal", "notosansdevanagari", "lohit-devanagari",
+        "kokila", "aparajita", "utsaah"
+    )
+    candidates = [p for p in _font_candidates() if any(pattern in p.name.lower() for pattern in preferred_patterns)]
+    for font_path in candidates:
+        if not font_path.exists():
+            continue
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            sample = "कृपया हिंदी परीक्षण"
+            font = ImageFont.truetype(str(font_path), 34)
+            img = Image.new("RGB", (520, 110), "white")
+            draw = ImageDraw.Draw(img)
+            draw.text((12, 20), sample, fill="black", font=font)
+            # A valid Devanagari font creates many ink pixels. A tofu/box-only
+            # rendering creates only a few repeated rectangular outlines. This
+            # threshold is intentionally conservative.
+            gray = img.convert("L")
+            pixels = gray.get_flattened_data() if hasattr(gray, "get_flattened_data") else gray.getdata()
+            ink = sum(1 for px in pixels if px < 245)
+            if ink > 1200:
+                return font_path
+        except Exception:
+            continue
+    return None
+
+
+def _latin_pdf_image_font_path() -> Path | None:
+    candidates = [
+        Path(r"C:\Windows\Fonts\SegoeUI.ttf"),
+        Path(r"C:\Windows\Fonts\Arial.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"),
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return None
+
+
+def _script_runs(text: str):
+    for match in re.finditer(r"[\u0900-\u097F\u200c\u200d]+|[^\u0900-\u097F\u200c\u200d]+", text or ""):
+        run = match.group(0)
+        if run:
+            yield run, bool(re.search(r"[\u0900-\u097F]", run))
+
+
+def _measure_mixed_text(draw, text: str, font_latin, font_deva) -> int:
+    width = 0
+    for run, is_deva in _script_runs(text):
+        font = font_deva if is_deva else font_latin
+        try:
+            bbox = draw.textbbox((0, 0), run, font=font)
+            width += max(0, bbox[2] - bbox[0])
+        except Exception:
+            width += len(run) * 12
+    return width
+
+
+def _draw_mixed_text(draw, xy, text: str, font_latin, font_deva, fill="black"):
+    x, y = xy
+    for run, is_deva in _script_runs(text):
+        font = font_deva if is_deva else font_latin
+        draw.text((x, y), run, fill=fill, font=font)
+        try:
+            bbox = draw.textbbox((0, 0), run, font=font)
+            x += max(0, bbox[2] - bbox[0])
+        except Exception:
+            x += len(run) * 12
+
+def _wrap_text_pixels(draw, text: str, font_latin, font_deva, max_px: int) -> list[str]:
+    words = re.split(r"(\s+)", (text or "").strip())
+    lines: list[str] = []
+    current = ""
+    for token in words:
+        candidate = current + token
+        if current and _measure_mixed_text(draw, candidate, font_latin, font_deva) > max_px:
+            lines.append(current.strip())
+            current = token.strip()
+        else:
+            current = candidate
+    if current.strip():
+        lines.append(current.strip())
+    out: list[str] = []
+    for line in lines or [""]:
+        if _measure_mixed_text(draw, line, font_latin, font_deva) <= max_px:
+            out.append(line)
+            continue
+        chunk = ""
+        for ch in line:
+            candidate = chunk + ch
+            if chunk and _measure_mixed_text(draw, candidate, font_latin, font_deva) > max_px:
+                out.append(chunk)
+                chunk = ch
+            else:
+                chunk = candidate
+        if chunk:
+            out.append(chunk)
+    return out or [""]
+
+def _write_devanagari_safe_image_pdf(text: str, output_suffix: str, title: str = "LinguaFusion Translation") -> Path | None:
+    """Create an image-based PDF for Devanagari-heavy exports.
+
+    ReportLab/Windows font fallback can show Hindi as black boxes. For Hindi
+    PDF exports, an image-based PDF is preferable to an unreadable PDF. This is
+    used only when Devanagari is present and the requested output is PDF.
+    """
+    if output_suffix != ".pdf":
+        return None
+    from backend.services.complex_script_pdf_service import contains_complex_script, write_unicode_pdf
+    if contains_complex_script(text or ""):
+        return write_unicode_pdf(text, title)
+    if not _contains_devanagari(text or ""):
+        return None
+    font_deva_path = _devanagari_pdf_font_path()
+    font_latin_path = _latin_pdf_image_font_path()
+    if font_deva_path is None or font_latin_path is None:
+        return None
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        out = Path(NamedTemporaryFile(delete=False, suffix=".pdf").name)
+        dpi = 150
+        page_w, page_h = 1240, 1754
+        margin_x, margin_y = 90, 80
+        max_w = page_w - 2 * margin_x
+        font_body_latin = ImageFont.truetype(str(font_latin_path), 28)
+        font_body_deva = ImageFont.truetype(str(font_deva_path), 28, layout_engine=getattr(ImageFont, "Layout", ImageFont).RAQM if hasattr(getattr(ImageFont, "Layout", None), "RAQM") else None)
+        font_title_latin = ImageFont.truetype(str(font_latin_path), 42)
+        font_title_deva = ImageFont.truetype(str(font_deva_path), 42, layout_engine=getattr(ImageFont, "Layout", ImageFont).RAQM if hasattr(getattr(ImageFont, "Layout", None), "RAQM") else None)
+        line_h = 44
+        gap = 18
+        pages = []
+
+        def new_page():
+            img = Image.new("RGB", (page_w, page_h), "white")
+            return img, ImageDraw.Draw(img), margin_y
+
+        img, draw, y = new_page()
+        _draw_mixed_text(draw, (margin_x, y), title, font_title_latin, font_title_deva)
+        y += 72
+        for block in (text or "").splitlines():
+            if not block.strip():
+                y += gap
+                continue
+            wrapped = _wrap_text_pixels(draw, block.strip(), font_body_latin, font_body_deva, max_w)
+            for line in wrapped:
+                if y + line_h > page_h - margin_y:
+                    pages.append(img)
+                    img, draw, y = new_page()
+                _draw_mixed_text(draw, (margin_x, y), line, font_body_latin, font_body_deva)
+                y += line_h
+            y += 8
+        pages.append(img)
+        pages[0].save(out, "PDF", resolution=dpi, save_all=True, append_images=pages[1:])
+        return out
+    except Exception:
+        return None
+
+
+
+
+def _resolve_source_language(text: str, source_lang: str) -> str:
+    """Resolve Auto only once per document/export request."""
+    src = normalize_lang(source_lang or "auto")
+    if src and src != "auto":
+        return src
+    detected = detect_text_language(text or "")
     if detected.get("ok") and detected.get("language"):
-        return detected["language"]
+        return normalize_lang(detected.get("language"))
     return "en"
 
 
-def _translate_piece(text: str, source_lang: str, target_lang: str, cache: Dict[Tuple[str, str, str], str]) -> str:
-    if not text or not text.strip():
-        return text
+def _looks_atomic_value(text: str) -> bool:
+    """Return True for values that should not be translated inside tables."""
+    value = (text or "").strip()
+    if not value:
+        return True
+    if re.fullmatch(r"[-+]?\d+(?:[.,]\d+)?(?:\s*(?:EUR|USD|GBP|%|GHz|MHz|kHz|dBm|ns|min|kg|bar|pcs))?", value, re.I):
+        return True
+    if re.fullmatch(r"\d{4}-\d{2}-\d{2}|\d{1,2}:\d{2}|[A-Z]-?\d+[A-Z0-9-]*|N/A", value, re.I):
+        return True
+    if re.fullmatch(r"[A-Z]{2,}(?:[/-][A-Z0-9]+)*", value):
+        return True
+    return False
 
-    key = (text, source_lang, target_lang)
+
+def _translate_piece(text: str, source_lang: str, target_lang: str, cache: Dict[Tuple[str, str, str], str]) -> str:
+    """Translate a small text piece with a safe fallback.
+
+    Document export should never fail because one cell/line has a weak route.
+    If the local translation route fails, preserve the original text rather than
+    breaking the export workflow.
+    """
+    clean = (text or "").strip()
+    if not clean or _looks_atomic_value(clean):
+        return clean
+    key = (clean, source_lang, target_lang)
     if key in cache:
         return cache[key]
-
-    result = translate_with_views(text, source_lang, target_lang)
-    if not result.get("ok"):
-        raise RuntimeError(result.get("error") or "Translation failed")
-
-    translated = result.get("translated_text", "")
+    try:
+        result = translate_with_views(clean, source_lang, target_lang)
+        translated = (result.get("translated_text") or "").strip() if result.get("ok") else ""
+        if not translated:
+            translated = clean
+    except Exception:
+        translated = clean
     cache[key] = translated
     return translated
 
 
-def _translate_line_preserving_pipes(line: str, source_lang: str, target_lang: str, cache: Dict[Tuple[str, str, str], str]) -> str:
-    if not line.strip():
-        return line
-    if "|" not in line:
-        return _translate_piece(line.strip(), source_lang, target_lang, cache)
-    if line.strip().replace("|", "").replace("-", "").replace(":", "").strip() == "":
-        return line
-    leading = line[: len(line) - len(line.lstrip())]
-    trailing = line[len(line.rstrip()):]
-    cells = line.strip().split("|")
-    out_cells = []
-    for cell in cells:
-        core = cell.strip()
-        if not core:
-            out_cells.append("")
-        elif core in {"---", ":---", "---:", ":---:"}:
-            out_cells.append(core)
-        else:
-            out_cells.append(_translate_piece(core, source_lang, target_lang, cache))
-    return leading + " | ".join(out_cells) + trailing
-
-
-def translate_text_file_preserving_lines(file_path: Path, source_lang: str, target_lang: str, output_suffix: str) -> Path:
-    # CSV files are converted to a pipe-table representation first so DOCX/PDF
-    # exports can render them as real tables instead of plain paragraphs.
-    raw_text = extract_csv_text(file_path) if file_path.suffix.lower() == ".csv" else read_plain_text(file_path)
-    resolved_source = _resolve_source_language(raw_text, source_lang)
-    cache: Dict[Tuple[str, str, str], str] = {}
-
-    translated_lines = []
-    for line in raw_text.splitlines():
-        if not line.strip():
-            translated_lines.append("")
-            continue
-
-        leading = line[: len(line) - len(line.lstrip())]
-        trailing = line[len(line.rstrip()):]
-        core = line.strip()
-        if "|" in core:
-            translated_lines.append(_translate_line_preserving_pipes(line, resolved_source, target_lang, cache))
-        else:
-            translated_lines.append(leading + _translate_piece(core, resolved_source, target_lang, cache) + trailing)
-
-    return _write_translated_text_output("\n".join(translated_lines), output_suffix)
-
-
-def _replace_paragraph_text(paragraph, new_text: str) -> None:
-    """Replace paragraph text while preserving paragraph style and first-run character style."""
-    if paragraph.runs:
-        first_run = paragraph.runs[0]
-        for run in paragraph.runs:
-            run.text = ""
-        first_run.text = new_text
-    else:
-        paragraph.add_run(new_text)
-
-
-def translate_docx_preserving_layout(file_path: Path, source_lang: str, target_lang: str, output_suffix: str) -> Path:
-    source_doc = Document(file_path)
-    full_text = "\n".join(p.text for p in source_doc.paragraphs if p.text.strip())
-    resolved_source = _resolve_source_language(full_text, source_lang)
-    cache: Dict[Tuple[str, str, str], str] = {}
-
-    for paragraph in source_doc.paragraphs:
-        original = paragraph.text
-        if original.strip():
-            translated = _translate_piece(original, resolved_source, target_lang, cache)
-            _replace_paragraph_text(paragraph, translated)
-
-    for table in source_doc.tables:
-        for row in table.rows:
-            for cell in row.cells:
-                for paragraph in cell.paragraphs:
-                    original = paragraph.text
-                    if original.strip():
-                        translated = _translate_piece(original, resolved_source, target_lang, cache)
-                        _replace_paragraph_text(paragraph, translated)
-
-    if output_suffix in {".txt", ".pdf"}:
-        lines = []
-        for paragraph in source_doc.paragraphs:
-            if paragraph.text.strip():
-                lines.append(paragraph.text)
-        for table in source_doc.tables:
-            for row in table.rows:
-                cells = [cell.text.strip().replace("\n", " ") for cell in row.cells]
-                if any(cells):
-                    lines.append(" | ".join(cells))
-        return _write_translated_text_output("\n".join(lines), output_suffix)
-
-    out = Path(NamedTemporaryFile(delete=False, suffix=".docx").name)
-    source_doc.save(out)
-    return out
+def _is_pipe_separator(line: str) -> bool:
+    cells = [cell.strip() for cell in (line or "").strip().strip("|").split("|")]
+    return len(cells) >= 2 and all(re.fullmatch(r":?-{2,}:?", c or "") for c in cells)
 
 
 def _is_pipe_table_line(line: str) -> bool:
-    stripped = (line or "").strip()
-    return "|" in stripped and len([c for c in stripped.split("|") if c.strip()]) >= 2
-
-
-def _is_pipe_separator(line: str) -> bool:
-    stripped = (line or "").strip()
-    if not stripped or "|" not in stripped:
+    value = (line or "").strip()
+    if not value or "|" not in value:
         return False
-    compact = stripped.replace("|", "").replace("-", "").replace(":", "").replace(" ", "")
-    return compact == ""
+    if _is_pipe_separator(value):
+        return True
+    cells = [cell.strip() for cell in value.strip("|").split("|")]
+    return len(cells) >= 2 and any(cells)
 
 
 def _split_pipe_cells(line: str) -> list[str]:
-    stripped = (line or "").strip().strip("|")
-    return [cell.strip() for cell in stripped.split("|")]
+    return [cell.strip() for cell in (line or "").strip().strip("|").split("|")]
 
+
+def _translate_line_preserving_pipes(line: str, source_lang: str, target_lang: str, cache: Dict[Tuple[str, str, str], str]) -> str:
+    if _is_pipe_separator(line):
+        return line
+    cells = _split_pipe_cells(line)
+    translated_cells = [_translate_piece(cell, source_lang, target_lang, cache) for cell in cells]
+    return " | ".join(translated_cells)
+
+
+def translate_text_file_preserving_lines(file_path: Path, source_lang: str, target_lang: str, output_suffix: str) -> Path:
+    suffix = file_path.suffix.lower()
+    if suffix == ".csv":
+        text = extract_csv_text(file_path)
+    else:
+        text = read_plain_text(file_path)
+    return translate_extracted_text_preserving_blocks(text, source_lang, target_lang, output_suffix, title="LinguaFusion Translation")
 
 def _blocks_with_pipe_tables(text: str):
     """Yield ('paragraph', str) or ('table', rows) while preserving table runs."""
@@ -371,6 +497,9 @@ def _write_translated_text_output(translated_text: str, output_suffix: str, titl
         return out
 
     if output_suffix == ".pdf":
+        image_pdf = _write_devanagari_safe_image_pdf(translated_text, output_suffix, title=title)
+        if image_pdf is not None:
+            return image_pdf
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import getSampleStyleSheet
         from reportlab.lib.units import cm

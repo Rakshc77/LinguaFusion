@@ -21,6 +21,7 @@ COMMON_SENTENCE_FIXES = [
 
     # LinguaFusion Phase 2 speech-test vocabulary.
     (re.compile(r"\b(?:lingua|lengua)[-\s]?frischen\b", re.IGNORECASE), "LinguaFusion"),
+    (re.compile(r"\bl[ie]ngdua[-\s]+fusion\b", re.IGNORECASE), "LinguaFusion"),
     (re.compile(r"\blingua\s+fusion\b", re.IGNORECASE), "LinguaFusion"),
     (re.compile(r"\blingua[-\s]+fusion\b", re.IGNORECASE), "LinguaFusion"),
     (re.compile(r"\blink[s]?[-\s]?fusion\b", re.IGNORECASE), "LinguaFusion"),

@@ -1,43 +1,16 @@
-# Public Repository Checklist
+# Publication Checklist
 
-Use this checklist before publishing the repository.
-
-## Keep
-
-```text
-backend/
-desktop/
-scripts/
-tools/              only source files or setup instructions
-README.md
-DESIGN.md
-README_RUN_WINDOWS.md
-RELEASE_NOTES.md
-requirements.txt
-VERSION
-.gitignore
-.gitattributes
-```
-
-## Exclude
-
-```text
-.venv/
-venv/
-models/
-downloads/
-storage/
-temp/
-debug/
-__pycache__/
-*.wav
-*.mp3
-*.mp4
-*.log
-*.db
-.env
-```
-
-## Final manual check
-
-Before publishing, search the full repository for private data, local machine paths, account names, credentials, personal examples, generated outputs, and internal development notes. Remove or rewrite anything that is not meant for public viewing.
+- [ ] `.venv/` is excluded
+- [ ] `models/` is excluded
+- [ ] runtime storage and temp folders are excluded
+- [ ] no local keys or provider configs are committed
+- [ ] `/health` reports `1.0-rc2.12-ui-consumer-polish`
+- [ ] backend tests pass
+- [ ] desktop starts
+- [ ] medium-width UI layout is stable
+- [ ] Translate, Reader, OCR, Speech, Notes, and Settings have no horizontal workflow scrolling
+- [ ] playback controls remain accessible by vertical scrolling where needed
+- [ ] playback-related buttons show visible icons
+- [ ] OCR page does not show excessive empty spacing before the controls/result area
+- [ ] desktop window icon appears in the title bar and Windows taskbar
+- [ ] icon options are reviewed under `desktop/assets/icon_options/`

@@ -1,48 +1,24 @@
-# LinguaFusion Release Notes
+# Release Notes
 
-## Current public version
+## 1.0-rc2.12-ui-consumer-polish
 
-`1.0.0-beta.5`
+Phase 5 workflow-fit refinement. This build tightens the medium-width layout across workflow pages, improves OCR spacing, applies native media icons to playback-related buttons, and adds multiple taskbar-safe LinguaFusion icon concepts.
 
-## Current capabilities
+Changes:
 
-- Local speech transcription for recorded or imported audio
-- Translation for supported language pairs
-- Reader mode with text-to-speech playback
-- OCR support for images and scanned PDFs
-- Format-aware document export where supported
-- Correction memory for recurring transcription or spelling issues
-- Backend diagnostics through a local health endpoint
+- Translate/Reader/Speech waveform cards now stay inside the same proportional content band as the main workflow controls.
+- Horizontal page scrolling remains disabled.
+- Playback buttons use native media icons so compact controls do not render as empty boxes.
+- OCR controls were reorganized into a compact row to remove excessive empty space.
+- The scroll cue is only shown on pages where lower playback controls may require vertical scrolling.
+- New icon options are included in `desktop/assets/icon_options/`; Option A is applied as the default app and taskbar icon.
 
-## Speech workflow
+Known limitation: ultra-compact/mobile-style layout remains deferred.
 
-- Audio can be routed into the speech workflow for transcription.
-- Long audio can be processed in chunks and merged into one transcript.
-- Local correction memory can normalize recurring recognition errors.
-- Speech output can be reused for translation, reading, notes, or export.
 
-## Translation workflow
+## 1.0-rc2.13-ui-consumer-polish-lock
 
-- Imported text is segmented for more stable translation.
-- Paragraph and line structure are preserved where practical.
-- Mixed-language text can be routed per segment when automatic source detection is enabled.
-- Helper views are displayed only when relevant to the selected target language.
-
-## Reader workflow
-
-- Reader mode imports text and document content.
-- TTS can route supported language segments to suitable local voices.
-- Cursor-based reading and highlighting are approximate and depend on generated audio duration.
-
-## OCR and document workflow
-
-- OCR supports images and scanned PDFs as a best-effort workflow.
-- CSV, pipe-table text, and table-like document content can be exported in a more structured form where practical.
-- PDF and DOCX layout preservation is best-effort and depends on the source document.
-
-## Known limitations
-
-- Offline translation quality depends on the installed local models.
-- OCR table reconstruction is not guaranteed to be exact.
-- Complex PDF layout preservation remains limited.
-- Reader highlighting is approximate because exact word-level TTS timestamps are not available.
+- Uses icon option B as the app/taskbar icon.
+- Applies the Windows AppUserModelID before QApplication startup for more reliable taskbar branding.
+- Restores visible blue/white playback glyphs without native black Qt media icons.
+- Tightens the OCR empty-state layout and removes the grey control cutout behind the Extract action.

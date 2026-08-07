@@ -1,0 +1,256 @@
+<!doctype html>
+<html lang="en" data-theme="soft-ui" data-mode="light" data-font="modern">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f5f7fb">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
+  <meta name="apple-mobile-web-app-title" content="LinguaFusion">
+  <title>LinguaFusion Mobile</title>
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="apple-touch-icon" href="/app-assets/linguafusion_icon_512.png">
+  <link rel="icon" type="image/png" href="/app-assets/linguafusion_icon_512.png">
+  <link rel="shortcut icon" href="/app-assets/linguafusion.ico">
+  <link rel="stylesheet" href="linguafusion-themes.css?v=1.0.26">
+  <link rel="stylesheet" href="app.css?v=1.0.26">
+  <link rel="stylesheet" href="linguafusion-structure.css?v=1.0.26">
+  <link rel="stylesheet" href="linguafusion-motion.css?v=1.0.26">
+  <script type="module">
+    import { initTheme, initFont, applyTheme, applyFont, toggleMode, LF_THEMES, LF_FONTS } from './linguafusion-themes.js?v=1.0.26';
+    window.LF_THEMES = LF_THEMES;
+    window.LF_FONTS = LF_FONTS;
+    window.applyTheme = applyTheme;
+    window.applyFont = applyFont;
+    window.toggleMode = toggleMode;
+    initTheme({ platform: 'mobile' });
+    initFont();
+  </script>
+</head>
+<body class="lf-app">
+  <header class="app-header">
+    <div class="brand-mark" aria-hidden="true">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+    </div>
+    <div class="brand-copy"><strong>LinguaFusion</strong><span>Private PC-powered translation</span></div>
+    <button id="themeButton" class="icon-button" aria-label="Quick theme switch">
+      <svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 2a10 10 0 0 0 0 20z" fill="currentColor"/></svg>
+    </button>
+    <button id="connectionButton" class="connection-pill" type="button"><span></span><b>PC</b></button>
+  </header>
+
+  <section id="offlineBanner" class="offline-banner" role="status" aria-live="polite" hidden>
+    <div><strong>PC backend is offline</strong><span>Start LinguaFusion on the PC, then retry. This page will reconnect automatically.</span></div>
+    <button id="retryConnection" type="button">Retry</button>
+  </section>
+
+  <main>
+    <section id="translateView" class="view active lf-screen-enter" aria-labelledby="translateTitle">
+      <div class="view-heading"><div><p class="eyebrow">TRANSLATE</p><h1 id="translateTitle" class="lf-heading">Text translation</h1></div><span class="privacy-chip lf-badge">● On your PC</span></div>
+      <div class="language-row">
+        <label class="lf-label">From<select id="sourceLanguage"></select></label>
+        <button id="swapLanguages" class="swap-button" aria-label="Swap languages">
+          <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M8 3 4 7l4 4"/><path d="M4 7h16"/><path d="m16 21 4-4-4-4"/><path d="M20 17H4"/></svg>
+        </button>
+        <label class="lf-label">To<select id="targetLanguage"></select></label>
+      </div>
+      <article class="translation-card lf-card">
+        <div class="pane-label"><strong>Source text</strong><span id="sourceCount">0 characters</span></div>
+        <textarea id="sourceText" dir="auto" placeholder="Type or paste text"></textarea>
+        <div class="pane-actions">
+          <button id="speechShortcut" class="quiet-button">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+            Speech
+          </button>
+          <label class="quiet-button file-label" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14.5 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7.5L14.5 2z"/><polyline points="14 2 14 8 20 8"/><line x1="12" y1="18" x2="12" y2="12"/><polyline points="9 15 12 12 15 15"/></svg>
+            Import file
+            <input id="translateFile" type="file" accept=".txt,.md,.pdf,.docx,.rtf,.html,.csv,.json,.xml" style="display:none;">
+          </label>
+          <label class="quiet-button file-label" style="display:inline-flex;align-items:center;gap:6px;cursor:pointer;">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/></svg>
+            Batch translate
+            <input id="batchTranslateFile" type="file" multiple accept=".txt,.md,.pdf,.docx" style="display:none;">
+          </label>
+          <button id="clearSource" class="quiet-button">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg>
+            Clear
+          </button>
+        </div>
+      </article>
+      <button id="translateButton" class="primary-button">Translate</button>
+      <article class="translation-card output-card lf-card lf-translation">
+        <div class="pane-label"><strong>Translation</strong><span id="outputCount">0 characters</span></div>
+        <div id="translatedText" class="output-text" dir="auto" tabindex="0">Your translation will appear here.</div>
+        <div class="pane-actions">
+          <button id="listenTranslation" class="quiet-button">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"/><path d="M15.54 8.46a5 5 0 0 1 0 7.07"/></svg>
+            Listen
+          </button>
+          <button id="copyTranslation" class="quiet-button">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy
+          </button>
+          <select id="translateExportFormat" class="export-dropdown">
+            <option value="docx">DOCX (.docx)</option>
+            <option value="pdf">PDF (.pdf)</option>
+            <option value="txt">Text (.txt)</option>
+            <option value="md">Markdown (.md)</option>
+          </select>
+          <button id="exportTranslate" class="quiet-button">
+            <svg viewBox="0 0 24 24" width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+            Export
+          </button>
+        </div>
+      </article>
+    </section>
+
+    <section id="speechView" class="view lf-screen-enter lf-speech" aria-labelledby="speechTitle">
+      <div class="lf-signature" aria-hidden="true"></div>
+      <div class="view-heading lf-speech-head"><div><p class="eyebrow">SPEECH</p><h1 id="speechTitle" class="lf-heading">Record and transcribe</h1></div><span class="privacy-chip lf-badge">● GPU on PC</span></div>
+      <div class="language-row two lf-speech-controls"><label class="lf-label">Speech language<select id="speechLanguage"></select></label><label class="lf-label">Translate to<select id="speechTarget"></select></label></div>
+      <article class="recorder-card lf-card lf-recorder" aria-live="polite">
+        <div id="recordingPulse" class="recording-pulse"></div>
+        <strong id="recordingTime" class="lf-heading">00:00</strong>
+        <div id="speechWaveform" class="speech-waveform" aria-hidden="true"></div>
+        <button id="recordButton" class="record-button lf-record" aria-label="Start recording">Start recording</button>
+        <p id="speechStatus" class="speech-status" role="status">Ready to record a WAV sample.</p>
+        <ol id="speechStages" class="speech-stages" aria-label="Speech processing progress">
+          <li data-speech-stage="listening"><span></span>Listening</li>
+          <li data-speech-stage="processing"><span></span>Processing</li>
+          <li data-speech-stage="translating"><span></span>Translating</li>
+          <li data-speech-stage="complete"><span></span>Complete</li>
+        </ol>
+        <label class="file-button"><span id="speechFileName">Import audio</span><input id="speechFile" type="file" accept="audio/*"></label>
+      </article>
+      <div class="lf-result">
+      <article id="speechTranscriptCard" class="translation-card lf-card speech-result-card"><div class="pane-label"><strong>Transcript</strong><span class="result-state" aria-hidden="true"></span></div><div id="speechTranscript" class="output-text compact" dir="auto">No transcript yet.</div><div class="pane-actions"><select id="speechExportFormat" class="export-dropdown"><option value="srt">Subtitles (.srt)</option><option value="vtt">Subtitles (.vtt)</option><option value="docx">DOCX (.docx)</option><option value="pdf">PDF (.pdf)</option><option value="txt">Text (.txt)</option></select><button id="exportSpeech" class="quiet-button">⤓ Export</button></div></article>
+      <article id="speechTranslationCard" class="translation-card lf-card lf-translation speech-result-card"><div class="pane-label"><strong>Translation</strong><span class="result-state" aria-hidden="true"></span></div><div id="speechTranslation" class="output-text compact" dir="auto">No translation yet.</div></article>
+      </div>
+    </section>
+
+    <section id="ocrView" class="view lf-screen-enter" aria-labelledby="ocrTitle">
+      <div class="view-heading"><div><p class="eyebrow">SCAN</p><h1 id="ocrTitle" class="lf-heading">Extract text</h1></div><span class="privacy-chip lf-badge">● Private OCR</span></div>
+      <div class="language-row two"><label class="lf-label">OCR language<select id="ocrLanguage"></select></label><label class="lf-label">Translate to<select id="ocrTargetLanguage"></select></label></div>
+      <label class="drop-zone lf-card"><strong id="ocrFileName">Choose an image or PDF</strong><input id="ocrFile" type="file" accept="image/*,.pdf" capture="environment"><small>Photos, screenshots and scanned documents · maximum 50 MB</small></label>
+      <label class="quiet-button file-label" style="display:flex;align-items:center;justify-content:center;margin-bottom:10px;cursor:pointer;">📁 Batch OCR & Translate Images/PDFs<input id="batchOcrFile" type="file" multiple accept="image/*,.pdf" style="display:none;"></label>
+      <div style="display:flex;gap:10px;margin-bottom:12px;">
+        <button id="ocrButton" class="primary-button" style="flex:1;">Extract text</button>
+        <button id="ocrTranslateButton" class="primary-button" style="flex:1;">Extract & Translate</button>
+      </div>
+      <article class="translation-card lf-card"><div class="pane-label"><strong>Extracted text</strong></div><div id="ocrText" class="output-text tall" dir="auto">Text from the selected file will appear here.</div><div class="pane-actions"><button id="copyOcr" class="quiet-button">▣ Copy</button><select id="ocrExportFormat" class="export-dropdown"><option value="docx">DOCX (.docx)</option><option value="pdf">PDF (.pdf)</option><option value="txt">Text (.txt)</option></select><button id="exportOcr" class="quiet-button">⤓ Export</button></div></article>
+      <article id="ocrTranslationCard" class="translation-card lf-card lf-translation" style="display:none;margin-top:12px;"><div class="pane-label"><strong>Translation</strong></div><div id="ocrTranslationText" class="output-text tall" dir="auto">Translation will appear here.</div><div class="pane-actions"><button id="copyOcrTranslation" class="quiet-button">▣ Copy</button><button id="exportOcrTranslation" class="quiet-button">⤓ Export Translation</button></div></article>
+    </section>
+
+    <section id="readerView" class="view lf-screen-enter" aria-labelledby="readerTitle">
+      <div class="view-heading"><div><p class="eyebrow">READER</p><h1 id="readerTitle" class="lf-heading">Documents and TTS</h1></div><span class="privacy-chip lf-badge">● Language-aware</span></div>
+      <label class="field-label lf-label">Document language<select id="readerLanguage"></select></label>
+      <label class="drop-zone lf-card"><strong id="readerFileName">Choose a document</strong><input id="readerFile" type="file" accept=".txt,.md,.pdf,.docx,.rtf,.html,.csv,.json,.xml"><small>TXT, MD, PDF, DOCX and more · maximum 100 MB</small></label>
+      <button id="readerImportButton" class="primary-button">Open document</button>
+      <article class="translation-card lf-card"><div class="pane-label"><strong>Reader</strong></div><textarea id="readerText" class="reader-text" dir="auto" placeholder="Document text"></textarea><div class="pane-actions"><button id="readerListen" class="quiet-button">▷ Listen</button><button id="readerTranslate" class="quiet-button">⇄ Translate</button><select id="readerExportFormat" class="export-dropdown"><option value="docx">DOCX (.docx)</option><option value="pdf">PDF (.pdf)</option><option value="txt">Text (.txt)</option></select><button id="exportReader" class="quiet-button">⤓ Export</button></div></article>
+    </section>
+
+    <section id="tasksView" class="view lf-screen-enter" aria-labelledby="tasksTitle">
+      <div class="view-heading"><div><p class="eyebrow">TASK CENTER</p><h1 id="tasksTitle" class="lf-heading">Background workflows</h1></div><span class="privacy-chip lf-badge">● Permission controlled</span></div>
+      <article class="settings-card lf-card task-composer task-planner">
+        <h2>Ask LinguaFusion</h2>
+        <p class="muted">Describe a multi-step task normally. Your PC's local Ollama model creates a preview, but nothing runs until you confirm it.</p>
+        <label class="lf-label">What should LinguaFusion do?<textarea id="agentNaturalRequest" dir="auto" placeholder="Translate Good morning to Odia, then save it as a note called Greeting"></textarea></label>
+        <div class="task-plan-actions">
+          <button id="createAgentPlan" class="primary-button">Create safe plan</button>
+          <button id="confirmAgentPlan" class="quiet-button" disabled>Confirm &amp; queue</button>
+          <button id="discardAgentPlan" class="quiet-button">Discard</button>
+        </div>
+        <div id="agentPlanPreview" class="task-plan-preview" role="status" aria-live="polite">Proposed steps and permissions will appear here for review.</div>
+      </article>
+      <article class="settings-card lf-card task-composer">
+        <h2>Queue a translation</h2>
+        <p class="muted">Runs on your PC while you continue using the app. Saving a note waits for approval from the PC owner.</p>
+        <div class="language-row two">
+          <label class="lf-label">From<select id="taskSourceLanguage"></select></label>
+          <label class="lf-label">To<select id="taskTargetLanguage"></select></label>
+        </div>
+        <label class="lf-label">Text<textarea id="taskText" dir="auto" placeholder="Text to translate in the background"></textarea></label>
+        <label class="task-check"><input id="taskSaveNote" type="checkbox"> Save the result as a local note</label>
+        <label class="lf-label">Note title<input id="taskNoteTitle" type="text" maxlength="240" placeholder="Background translation"></label>
+        <button id="queueTaskTranslation" class="primary-button">Queue translation</button>
+        <label class="file-button task-audio-button"><span id="taskAudioName">Queue audio transcription</span><input id="taskAudioFile" type="file" accept="audio/*,.wav,.mp3,.m4a,.flac,.ogg,.webm,.aac,.mp4"></label>
+      </article>
+      <div class="task-list-heading"><div><h2>Task activity</h2><p id="taskCenterStatus" class="muted" role="status">Loading tasks…</p></div><button id="refreshTasks" class="quiet-button">Refresh</button></div>
+      <div id="taskList" class="task-list" aria-live="polite"></div>
+    </section>
+
+    <section id="settingsView" class="view lf-screen-enter" aria-labelledby="settingsTitle">
+      <div class="view-heading"><div><p class="eyebrow">SETTINGS</p><h1 id="settingsTitle" class="lf-heading">Connect & Customization</h1></div></div>
+      
+      <article class="settings-card lf-card">
+        <h2>Appearance</h2>
+        <p class="muted" style="margin-bottom:12px;font-size:13px;">Choose a phone-optimized look and a font independently. Changing one never resets the other.</p>
+        <label class="lf-label">Phone look
+          <select id="themeDropdown" style="height:48px;font-size:14px;font-weight:700;margin-top:4px;">
+            <option value="soft-ui">Soft UI</option>
+          </select>
+        </label>
+        <label class="lf-label">Font
+          <select id="fontDropdown" style="height:48px;font-size:14px;font-weight:700;margin-top:4px;">
+            <option value="modern">Modern Sans</option>
+          </select>
+        </label>
+        <label class="lf-label">Motion
+          <select id="motionDropdown" style="height:48px;font-size:14px;font-weight:700;margin-top:4px;">
+            <option value="system">Follow phone setting</option>
+            <option value="full">Full motion</option>
+            <option value="reduced">Reduced motion</option>
+            <option value="off">Motion off</option>
+          </select>
+        </label>
+      </article>
+
+      <article class="settings-card lf-card">
+        <h2>Connect to your PC</h2>
+        <label>PC or public address<input id="serverUrl" type="url" inputmode="url" placeholder="https://linguafusion.example.com"></label>
+        <label>Pairing key <span id="keyStatusBadge" style="font-size:12px;font-weight:700;color:#10B981;margin-left:6px;"></span>
+          <input id="apiKey" type="password" autocomplete="off" placeholder="Received from a one-time invitation">
+        </label>
+        <div style="display:flex;gap:10px;margin-top:12px;">
+          <button id="saveConnection" class="primary-button" style="flex:1;">Save and test connection</button>
+          <button id="clearKey" class="quiet-button" style="display:none;padding:10px 14px;border:1px solid rgba(239,68,68,0.3);color:#EF4444;">Clear key</button>
+        </div>
+        <p id="connectionDetail" class="muted" role="status" aria-live="polite">Use a one-time owner invitation from anywhere, or connect on the same private network.</p>
+      </article>
+
+      <article class="settings-card lf-card"><h2>Install on Android or iPhone</h2><p class="muted"><b>Android:</b> Tap Chrome menu → <b>Install app</b> or <b>Add to Home Screen</b> for a native standalone app.<br><b>iPhone/iPad:</b> Tap Safari Share → <b>Add to Home Screen</b>.<br>Both give you a standalone phone app icon that connects to your PC backend anywhere in the world!</p></article>
+      <article class="settings-card lf-card warning"><h2>Secure connections</h2><p>Internet access must use the owner's HTTPS tunnel. Never expose port 8000 directly on the router.</p></article>
+    </section>
+  </main>
+
+  <nav class="bottom-nav" aria-label="Main features">
+    <button data-view="translateView" class="active" aria-current="page">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m5 8 6 6"/><path d="m4 14 6-6 2-3"/><path d="M2 5h12"/><path d="M7 2h1"/><path d="m22 22-5-10-5 10"/><path d="M14 18h6"/></svg>
+      Translate
+    </button>
+    <button data-view="speechView">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 2a3 3 0 0 0-3 3v7a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3Z"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><line x1="12" x2="12" y1="19" y2="22"/></svg>
+      Speech
+    </button>
+    <button data-view="ocrView">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7V5a2 2 0 0 1 2-2h2"/><path d="M17 3h2a2 2 0 0 1 2 2v2"/><path d="M21 17v2a2 2 0 0 1-2 2h-2"/><path d="M7 21H5a2 2 0 0 1-2-2v-2"/><rect x="7" y="7" width="10" height="10" rx="1"/></svg>
+      Scan
+    </button>
+    <button data-view="readerView">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 19.5v-15A2.5 2.5 0 0 1 6.5 2H20v20H6.5a2.5 2.5 0 0 1 0-5H20"/><path d="M6 6h10"/><path d="M6 10h10"/></svg>
+      Reader
+    </button>
+    <button data-view="tasksView">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/><path d="M8 3 5 6"/><path d="m16 3 3 3"/></svg>
+      Tasks
+    </button>
+    <button data-view="settingsView">
+      <svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1Z"/></svg>
+      Settings
+    </button>
+  </nav>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script type="module" src="app.js?v=1.0.26"></script>
+</body>
+</html>

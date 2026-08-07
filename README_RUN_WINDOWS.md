@@ -1,114 +1,60 @@
-# LinguaFusion Windows Run Guide
+# Running LinguaFusion on Windows
 
-This guide explains how to run LinguaFusion locally on Windows from VS Code or PowerShell.
-
-## 1. Open the project
-
-Open the project folder in VS Code:
+From the project root:
 
 ```powershell
-cd <LinguaFusion project folder>
-code .
+.\scripts\start_backend.ps1
 ```
 
-## 2. Create a virtual environment
+In another terminal:
 
 ```powershell
-python -m venv .venv
+.\scripts\start_desktop.ps1
 ```
 
-Activate it:
+The regular backend listens only on this PC. Before starting GPU inference,
+confirm the MSI Afterburner **-500 MHz memory-clock offset** is active.
 
-```powershell
-.\.venv\Scripts\activate
-```
-
-## 3. Install dependencies
-
-```powershell
-pip install -r requirements.txt
-```
-
-## 4. Add local runtime assets
-
-Large runtime assets are intentionally not included in the repository. Depending on which features you use, place local models and tools in the expected project folders, for example:
-
-```text
-models/whisper/
-models/piper/
-tools/whispercpp/
-```
-
-Generated files and local runtime data should stay untracked.
-
-## 5. Start the backend
-
-```powershell
-python -m uvicorn backend.server:app --reload --host 0.0.0.0 --port 8000
-```
-
-Open this URL to check the backend:
+Check health:
 
 ```text
 http://localhost:8000/health
 ```
 
-The response should show a JSON health or diagnostics payload.
-
-## 6. Start the desktop app
-
-Open a second terminal, activate the same virtual environment, and run:
-
-```powershell
-.\.venv\Scripts\activate
-python .\desktop\main.py
-```
-
-## 7. Optional helper scripts
-
-The repository may include helper scripts for common startup commands:
-
-```powershell
-.\scripts\start_backend.ps1
-.\scripts\start_desktop.ps1
-```
-
-## 8. Files that should remain local
-
-Keep these out of public Git commits:
+Expected version:
 
 ```text
-.venv/
-models/
-downloads/
-storage/
-temp/
-debug/
-__pycache__/
-*.wav
-*.mp3
-*.mp4
-*.log
+1.0-rc2.12-ui-consumer-polish
 ```
 
-## Troubleshooting
+## Connect an Android, iPhone or iPad
 
-### `git` is not recognized
-
-Install Git for Windows and restart VS Code. GitHub Desktop can still publish the repository even if the Git CLI is not available in the terminal.
-
-### Backend does not start
-
-Check that the virtual environment is activated and that dependencies were installed with:
+Use the separate LAN launcher. Install the native app first, then scan the QR
+card and choose **Open LinguaFusion**. The app exchanges a one-use token and
+stores the PC connection automatically:
 
 ```powershell
-pip install -r requirements.txt
+.\scripts\start_mobile_backend.ps1
 ```
 
-### Desktop opens but backend features fail
+- Android: install
+  `android\LinguaFusionMobile\dist\LinguaFusionMobile-debug.apk`, scan a fresh
+  QR, and allow microphone access when Speech is first used. Version 1.1 uses
+  native WAV recording and remembers the connection.
+- iPhone/iPad PWA: choose **Open the browser version** below the QR card, then
+  in Safari tap Share and **Add to Home Screen**. Plain LAN HTTP supports
+  imported audio but not live browser microphone capture.
+- Native iOS: open `ios\LinguaFusionMobile\LinguaFusionMobile.xcodeproj` on a
+  Mac, select an Apple Development team, and build to the device. Version 1.1
+  accepts the same QR and records through native AVFoundation.
 
-Confirm the backend is running and that `http://localhost:8000/health` returns a valid response.
+Keep the devices on a trusted private network. The pairing key protects API
+requests, but plain LAN HTTP is not suitable for exposure to the public
+internet; use a private VPN or an HTTPS reverse proxy for remote access.
 
-### Speech, TTS, or OCR features fail
+Previously paired phones reconnect without another QR or key. To add or reset
+a phone, start with:
 
-Check that the required local models and tools are installed in the expected folders and available to the backend.
+```powershell
+.\scripts\start_mobile_backend.ps1 -PairNewPhone
+```

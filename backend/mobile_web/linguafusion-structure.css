@@ -1,0 +1,176 @@
+/* Theme-specific layout signatures for the phone Speech workspace.
+   Color and typography live in linguafusion-themes.css; this layer is only
+   structure, so look and font can be changed independently. */
+
+.lf-speech {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.view.lf-speech:not(.active) {
+  display: none;
+}
+
+.view.lf-speech.active {
+  display: flex;
+}
+
+.lf-speech-head {
+  grid-area: head;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.lf-speech-controls {
+  grid-area: controls;
+  display: flex;
+  gap: 10px;
+}
+
+.lf-recorder {
+  grid-area: recorder;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.lf-result {
+  grid-area: result;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.lf-signature {
+  display: none;
+}
+
+[data-theme="brutalist"] .lf-speech-controls > *,
+[data-theme="brutalist"] .lf-recorder,
+[data-theme="brutalist"] .lf-result > * {
+  border: 3px solid #000;
+  border-radius: 0;
+  box-shadow: 4px 4px 0 #000;
+}
+
+[data-theme="brutalist"] .lf-result > .lf-translation {
+  background: var(--lf-accent-2);
+}
+
+[data-theme="sunset"] .lf-speech-head,
+[data-theme="sunset"] .lf-speech-controls {
+  color: #fff;
+}
+
+[data-theme="sunset"] .lf-speech-controls > * {
+  background: rgba(255, 255, 255, .2);
+  color: #fff;
+}
+
+[data-theme="sunset"] .lf-result {
+  margin-top: 6px;
+  padding: 22px 20px;
+  border-radius: 28px 28px 0 0;
+  background: #fff;
+  box-shadow: 0 -10px 30px -18px rgba(242, 78, 122, .4);
+}
+
+[data-theme="glass-dark"] .lf-recorder,
+[data-theme="glass-dark"] .lf-result > * {
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25);
+}
+
+[data-theme="material"] .lf-speech-controls {
+  gap: 12px;
+}
+
+[data-theme="material"] .lf-result {
+  gap: 14px;
+}
+
+[data-theme="warm-editorial"] .lf-signature {
+  display: block;
+  padding: 2px 0 8px;
+  border-bottom: 3px double var(--lf-text);
+  color: var(--lf-text-muted);
+  font-family: var(--lf-label-font);
+  font-size: 11px;
+  letter-spacing: .05em;
+  text-align: center;
+}
+
+[data-theme="warm-editorial"] .lf-signature::before {
+  content: "PRIVATE · LOCAL · ON YOUR PC";
+}
+
+[data-theme="candy"] .lf-recorder {
+  transform: rotate(-.35deg);
+}
+
+[data-theme="soft-ui"] .lf-recorder {
+  border-color: transparent;
+  box-shadow: 8px 8px 18px #c9ccd2, -8px -8px 18px #fff;
+}
+
+/* Neon Arcade */
+[data-theme="neon-arcade"] .lf-speech {
+  background: radial-gradient(120% 70% at 50% 100%,#1a0730 0%,#0a0612 60%);
+  padding: 12px;
+  border-radius: 16px;
+}
+[data-theme="neon-arcade"] .lf-card {
+  box-shadow: 0 0 18px -4px rgba(34,211,238,.4), inset 0 0 18px -8px rgba(34,211,238,.4);
+  border: 1.5px solid rgba(34,211,238,.5);
+}
+[data-theme="neon-arcade"] .lf-translation {
+  box-shadow: 0 0 18px -4px rgba(255,47,176,.45), inset 0 0 18px -8px rgba(255,47,176,.4);
+  border: 1.5px solid rgba(255,47,176,.6);
+}
+
+/* Warm Minimal */
+[data-theme="warm-minimal"] .lf-speech {
+  text-align: center;
+  align-items: center;
+}
+[data-theme="warm-minimal"] .lf-recorder {
+  justify-content: center;
+  border: 1px solid var(--lf-accent);
+  border-radius: 999px;
+  padding: 10px 20px;
+}
+
+/* Bold Mono */
+[data-theme="bold-mono"] .lf-speech-controls > *,
+[data-theme="bold-mono"] .lf-recorder,
+[data-theme="bold-mono"] .lf-result > * {
+  border: 2px solid #000;
+  border-radius: 0;
+}
+[data-theme="bold-mono"] .lf-translation {
+  background: #000;
+  color: #fff;
+}
+
+/* Nature Calm */
+[data-theme="nature-calm"] .lf-card,
+[data-theme="nature-calm"] .lf-translation {
+  border-radius: 20px;
+  border: none;
+}
+[data-theme="nature-calm"] .lf-translation {
+  background: var(--lf-xlate-bg);
+  color: var(--lf-xlate-text);
+}
+
+@media (max-width: 430px) {
+  .lf-speech-controls {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+  }
+
+  [data-theme="sunset"] .lf-result {
+    margin-inline: -16px;
+  }
+}

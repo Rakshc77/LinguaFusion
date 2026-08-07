@@ -1,0 +1,12 @@
+# Copy this file to your cloudflared configuration directory and replace the
+# three placeholders. The final catch-all prevents accidental publication of
+# any other local service.
+tunnel: YOUR-TUNNEL-UUID
+credentials-file: C:\Users\YOUR_NAME\.cloudflared\YOUR-TUNNEL-UUID.json
+
+ingress:
+  - hostname: linguafusion.example.com
+    service: http://127.0.0.1:8000
+    originRequest:
+      connectTimeout: 10s
+  - service: http_status:404

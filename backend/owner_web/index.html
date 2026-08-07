@@ -1,0 +1,64 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+  <meta name="theme-color" content="#f6f8fc">
+  <title>LinguaFusion Friend Access</title>
+  <link rel="stylesheet" href="./owner.css">
+</head>
+<body>
+  <header class="topbar">
+    <div class="brand"><span>文</span><div><strong>LinguaFusion</strong><small>Friend access control</small></div></div>
+    <div id="backendState" class="state"><i></i><b>Locked</b></div>
+  </header>
+
+  <main>
+    <section id="unlockView" class="unlock-card">
+      <p class="eyebrow">OWNER ONLY</p>
+      <h1>Manage who can use your PC</h1>
+      <p>Enter the admin key shown by the friend-backend launcher. This key is never sent to your friends.</p>
+      <label>Admin key<input id="adminKey" type="password" autocomplete="current-password" spellcheck="false"></label>
+      <button id="unlockButton" class="primary">Open dashboard</button>
+      <p id="unlockError" class="error" role="alert"></p>
+    </section>
+
+    <section id="dashboardView" hidden>
+      <div class="page-heading">
+        <div><p class="eyebrow">REMOTE ACCESS</p><h1>Friends and devices</h1><p>Pause access temporarily or revoke a device permanently.</p></div>
+        <button id="lockButton" class="quiet">Lock dashboard</button>
+      </div>
+
+      <div class="summary" aria-label="Access summary">
+        <article><b id="totalCount">0</b><span>Paired devices</span></article>
+        <article><b id="enabledCount">0</b><span>Allowed</span></article>
+        <article><b id="onlineCount">0</b><span>Active now</span></article>
+      </div>
+
+      <section class="panel invite-panel">
+        <div><p class="eyebrow">NEW INVITATION</p><h2>Create a one-time QR code</h2><p>The QR expires and creates one individually controllable device.</p></div>
+        <div class="invite-grid">
+          <label>Friend or device name<input id="friendLabel" placeholder="Sam's iPhone" maxlength="80"></label>
+          <label>Public HTTPS address<input id="publicUrl" type="url" placeholder="https://linguafusion.example.com" spellcheck="false"></label>
+          <label>Expires after<select id="expiresMinutes"><option value="10">10 minutes</option><option value="15" selected>15 minutes</option><option value="30">30 minutes</option><option value="60">60 minutes</option></select></label>
+          <button id="createPairing" class="primary">Generate invitation</button>
+        </div>
+      </section>
+
+      <section id="pairingCard" class="panel pairing-card" hidden>
+        <div><p class="eyebrow">READY TO SCAN</p><h2 id="pairingTitle">Friend invitation</h2><p id="pairingExpiry"></p></div>
+        <img id="pairingQr" alt="One-time LinguaFusion pairing QR code">
+        <div class="pairing-actions"><button id="copyAppLink" class="quiet">Copy app link</button><button id="copyWebLink" class="quiet">Copy browser fallback</button><button id="closePairing" class="quiet">Close</button></div>
+      </section>
+
+      <section class="panel">
+        <div class="list-heading"><div><p class="eyebrow">DEVICES</p><h2>Who can connect</h2></div><button id="refreshButton" class="quiet">Refresh</button></div>
+        <div id="emptyState" class="empty">No friends have paired yet. Create an invitation above.</div>
+        <div id="clientList" class="client-list" aria-live="polite"></div>
+      </section>
+    </section>
+  </main>
+  <div id="toast" class="toast" role="status" aria-live="polite"></div>
+  <script src="./owner.js" defer></script>
+</body>
+</html>

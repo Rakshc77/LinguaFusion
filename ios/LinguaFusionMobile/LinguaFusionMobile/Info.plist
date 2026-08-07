@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0"><dict>
+    <key>CFBundleDisplayName</key><string>LinguaFusion</string>
+    <key>CFBundleIdentifier</key><string>$(PRODUCT_BUNDLE_IDENTIFIER)</string>
+    <key>CFBundleInfoDictionaryVersion</key><string>6.0</string>
+    <key>CFBundleName</key><string>$(PRODUCT_NAME)</string>
+    <key>CFBundlePackageType</key><string>APPL</string>
+    <key>CFBundleShortVersionString</key><string>1.4</string>
+    <key>CFBundleVersion</key><string>4</string>
+    <key>CFBundleURLTypes</key><array><dict>
+        <key>CFBundleURLName</key><string>com.linguafusion.mobile.pairing</string>
+        <key>CFBundleURLSchemes</key><array><string>linguafusion</string></array>
+    </dict></array>
+    <key>LSRequiresIPhoneOS</key><true/>
+    <key>NSAppTransportSecurity</key><dict><key>NSAllowsLocalNetworking</key><true/></dict>
+    <key>NSLocalNetworkUsageDescription</key><string>LinguaFusion connects to your PC on the private network for offline translation, speech, OCR and TTS.</string>
+    <key>NSMicrophoneUsageDescription</key><string>LinguaFusion records speech that is transcribed privately by your PC.</string>
+    <key>NSCameraUsageDescription</key><string>LinguaFusion can photograph documents for private OCR on your PC.</string>
+    <key>UILaunchScreen</key><dict><key>UIColorName</key><string></string></dict>
+    <key>UISupportedInterfaceOrientations</key><array><string>UIInterfaceOrientationPortrait</string><string>UIInterfaceOrientationLandscapeLeft</string><string>UIInterfaceOrientationLandscapeRight</string></array>
+</dict></plist>

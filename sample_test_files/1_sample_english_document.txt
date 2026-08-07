@@ -1,0 +1,8 @@
+LinguaFusion Offline Assistant
+LinguaFusion is a private, local-first artificial intelligence assistant that runs 100% on your own hardware.
+Features:
+- Whisper Speech-to-Text with live correction
+- NLLB-200 Neural Machine Translation
+- RapidOCR text extraction from photos and documents
+- Offline TTS Audio Reader
+All computations stay strictly on your local graphics card with zero cloud servers involved.

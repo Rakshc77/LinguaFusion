@@ -21,19 +21,32 @@ def _font_candidates() -> list[Path]:
     candidates = [
         Path(r"C:\Windows\Fonts\Nirmala.ttf"),
         Path(r"C:\Windows\Fonts\NirmalaB.ttf"),
+        Path(r"C:\Windows\Fonts\NirmalaS.ttf"),
         Path(r"C:\Windows\Fonts\Mangal.ttf"),
         Path(r"C:\Windows\Fonts\Kokila.ttf"),
         Path(r"C:\Windows\Fonts\Aparajita.ttf"),
         Path(r"C:\Windows\Fonts\Utsaah.ttf"),
         Path(r"C:\Windows\Fonts\arialuni.ttf"),
+        Path(r"C:\Windows\Fonts\NirmalaUI.ttf"),
+        Path(r"C:\Windows\Fonts\Nirmala.ttc"),
+        Path(r"C:\Windows\Fonts\mangal.ttf"),
+        Path(r"C:\Windows\Fonts\kokila.ttf"),
+        Path(r"C:\Windows\Fonts\utsaah.ttf"),
+        Path(r"C:\Windows\Fonts\aparaj.ttf"),
         Path("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Regular.ttf"),
-        Path("/usr/share/fonts/truetype/noto/NotoSans-Regular.ttf"),
+        Path("/usr/share/fonts/truetype/noto/NotoSansDevanagariUI-Regular.ttf"),
+        Path("/usr/share/fonts/truetype/noto/NotoSansDevanagariUI.ttf"),
+        Path("/usr/share/fonts/truetype/lohit-devanagari/Lohit-Devanagari.ttf"),
         Path("/usr/share/fonts/truetype/freefont/FreeSerif.ttf"),
         Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
     ]
     for font_dir in [Path(r"C:\Windows\Fonts"), Path("/usr/share/fonts"), Path("/usr/local/share/fonts")]:
         if font_dir.exists():
-            patterns = ["*Nirmala*.ttf", "*Mangal*.ttf", "*NotoSansDevanagari*.ttf", "*Kokila*.ttf", "*Aparajita*.ttf", "*Utsaah*.ttf", "*FreeSerif*.ttf"]
+            patterns = [
+                "*Nirmala*.ttf", "*Nirmala*.ttc", "*Nirmala*.otf", "*Mangal*.ttf", "*Mangal*.ttc", "*NotoSansDevanagari*.ttf", "*NotoSansDevanagari*.otf",
+                "*Lohit*Devanagari*.ttf", "*Kokila*.ttf", "*Kokila*.ttc", "*Aparajita*.ttf", "*Aparaj*.ttf",
+                "*Utsaah*.ttf", "*FreeSerif*.ttf", "*DejaVuSans.ttf",
+            ]
             for pattern in patterns:
                 candidates.extend(font_dir.rglob(pattern))
     seen = set()
@@ -167,6 +180,164 @@ def _append_pdf_text(story, text: str, style, available_width_pt: float = 470):
         from xml.sax.saxutils import escape
         story.append(Paragraph(escape(clean), style))
 
+
+
+def _devanagari_pdf_font_path() -> Path | None:
+    """Return a font that is known to contain real Devanagari glyphs.
+
+    Do not fall back to generic Latin fonts such as DejaVuSans here: those can
+    render Hindi as black boxes, which is worse than a controlled export error.
+    """
+    preferred_patterns = (
+        "nirmala", "mangal", "notosansdevanagari", "lohit-devanagari",
+        "kokila", "aparajita", "utsaah"
+    )
+    candidates = [p for p in _font_candidates() if any(pattern in p.name.lower() for pattern in preferred_patterns)]
+    for font_path in candidates:
+        if not font_path.exists():
+            continue
+        try:
+            from PIL import Image, ImageDraw, ImageFont
+            sample = "कृपया हिंदी परीक्षण"
+            font = ImageFont.truetype(str(font_path), 34)
+            img = Image.new("RGB", (520, 110), "white")
+            draw = ImageDraw.Draw(img)
+            draw.text((12, 20), sample, fill="black", font=font)
+            # A valid Devanagari font creates many ink pixels. A tofu/box-only
+            # rendering creates only a few repeated rectangular outlines. This
+            # threshold is intentionally conservative.
+            gray = img.convert("L")
+            pixels = gray.get_flattened_data() if hasattr(gray, "get_flattened_data") else gray.getdata()
+            ink = sum(1 for px in pixels if px < 245)
+            if ink > 1200:
+                return font_path
+        except Exception:
+            continue
+    return None
+
+
+def _latin_pdf_image_font_path() -> Path | None:
+    candidates = [
+        Path(r"C:\Windows\Fonts\SegoeUI.ttf"),
+        Path(r"C:\Windows\Fonts\Arial.ttf"),
+        Path("/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"),
+        Path("/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf"),
+    ]
+    for p in candidates:
+        if p.exists():
+            return p
+    return None
+
+
+def _script_runs(text: str):
+    for match in re.finditer(r"[\u0900-\u097F\u200c\u200d]+|[^\u0900-\u097F\u200c\u200d]+", text or ""):
+        run = match.group(0)
+        if run:
+            yield run, bool(re.search(r"[\u0900-\u097F]", run))
+
+
+def _measure_mixed_text(draw, text: str, font_latin, font_deva) -> int:
+    width = 0
+    for run, is_deva in _script_runs(text):
+        font = font_deva if is_deva else font_latin
+        try:
+            bbox = draw.textbbox((0, 0), run, font=font)
+            width += max(0, bbox[2] - bbox[0])
+        except Exception:
+            width += len(run) * 12
+    return width
+
+
+def _draw_mixed_text(draw, xy, text: str, font_latin, font_deva, fill="black"):
+    x, y = xy
+    for run, is_deva in _script_runs(text):
+        font = font_deva if is_deva else font_latin
+        draw.text((x, y), run, fill=fill, font=font)
+        try:
+            bbox = draw.textbbox((0, 0), run, font=font)
+            x += max(0, bbox[2] - bbox[0])
+        except Exception:
+            x += len(run) * 12
+
+def _wrap_text_pixels(draw, text: str, font_latin, font_deva, max_px: int) -> list[str]:
+    words = re.split(r"(\s+)", (text or "").strip())
+    lines: list[str] = []
+    current = ""
+    for token in words:
+        candidate = current + token
+        if current and _measure_mixed_text(draw, candidate, font_latin, font_deva) > max_px:
+            lines.append(current.strip())
+            current = token.strip()
+        else:
+            current = candidate
+    if current.strip():
+        lines.append(current.strip())
+    out: list[str] = []
+    for line in lines or [""]:
+        if _measure_mixed_text(draw, line, font_latin, font_deva) <= max_px:
+            out.append(line)
+            continue
+        chunk = ""
+        for ch in line:
+            candidate = chunk + ch
+            if chunk and _measure_mixed_text(draw, candidate, font_latin, font_deva) > max_px:
+                out.append(chunk)
+                chunk = ch
+            else:
+                chunk = candidate
+        if chunk:
+            out.append(chunk)
+    return out or [""]
+
+def _write_devanagari_safe_image_pdf(text: str, title: str = "LinguaFusion Reader Export") -> Path | None:
+    from backend.services.complex_script_pdf_service import contains_complex_script, write_unicode_pdf
+    if contains_complex_script(text or ""):
+        return write_unicode_pdf(text, title)
+    if not _contains_devanagari(text or ""):
+        return None
+    font_deva_path = _devanagari_pdf_font_path()
+    font_latin_path = _latin_pdf_image_font_path()
+    if font_deva_path is None or font_latin_path is None:
+        return None
+    try:
+        from PIL import Image, ImageDraw, ImageFont
+        out = Path(NamedTemporaryFile(delete=False, suffix=".pdf").name)
+        dpi = 150
+        page_w, page_h = 1240, 1754
+        margin_x, margin_y = 90, 80
+        max_w = page_w - 2 * margin_x
+        font_body_latin = ImageFont.truetype(str(font_latin_path), 28)
+        font_body_deva = ImageFont.truetype(str(font_deva_path), 28, layout_engine=getattr(ImageFont, "Layout", ImageFont).RAQM if hasattr(getattr(ImageFont, "Layout", None), "RAQM") else None)
+        font_title_latin = ImageFont.truetype(str(font_latin_path), 42)
+        font_title_deva = ImageFont.truetype(str(font_deva_path), 42, layout_engine=getattr(ImageFont, "Layout", ImageFont).RAQM if hasattr(getattr(ImageFont, "Layout", None), "RAQM") else None)
+        line_h = 44
+        gap = 18
+        pages = []
+
+        def new_page():
+            img = Image.new("RGB", (page_w, page_h), "white")
+            return img, ImageDraw.Draw(img), margin_y
+
+        img, draw, y = new_page()
+        _draw_mixed_text(draw, (margin_x, y), title, font_title_latin, font_title_deva)
+        y += 72
+        for block in (text or "").splitlines():
+            if not block.strip():
+                y += gap
+                continue
+            wrapped = _wrap_text_pixels(draw, block.strip(), font_body_latin, font_body_deva, max_w)
+            for line in wrapped:
+                if y + line_h > page_h - margin_y:
+                    pages.append(img)
+                    img, draw, y = new_page()
+                _draw_mixed_text(draw, (margin_x, y), line, font_body_latin, font_body_deva)
+                y += line_h
+            y += 8
+        pages.append(img)
+        pages[0].save(out, "PDF", resolution=dpi, save_all=True, append_images=pages[1:])
+        return out
+    except Exception:
+        return None
 
 def format_duration_label(seconds: int | float) -> str:
     """Return a commercial-looking duration such as '2 min 41 sec'."""
@@ -337,6 +508,9 @@ def export_reader_document(text: str, output_format: str, title: str = "LinguaFu
         doc.save(out)
         return out
     if output_format == "pdf":
+        image_pdf = _write_devanagari_safe_image_pdf(text, title=title)
+        if image_pdf is not None:
+            return image_pdf
         from reportlab.lib.pagesizes import A4
         from reportlab.lib.styles import getSampleStyleSheet
         from reportlab.lib.units import cm

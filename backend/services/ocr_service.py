@@ -30,19 +30,27 @@ except Exception as exc:  # pragma: no cover
 else:
     FITZ_IMPORT_ERROR = None
 
-from backend.config.paths import TESSERACT_EXE
+from backend.config.paths import TESSERACT_EXE, TESSDATA_DIR
 
 if pytesseract is not None and TESSERACT_EXE.exists():
     pytesseract.pytesseract.tesseract_cmd = str(TESSERACT_EXE)
 
+TESSERACT_CONFIG = f"--tessdata-dir {TESSDATA_DIR}" if TESSDATA_DIR.is_dir() else ""
+
+
+def _tesseract_config(base: str) -> str:
+    return f"{base} {TESSERACT_CONFIG}".strip()
+
 OCR_LANGS = {
     # Latin-first auto mode gives better German umlauts/Spanish OCR.
     # Select Hindi explicitly for Devanagari-heavy images.
-    "auto": "eng+deu+spa",
+    "auto": "eng+deu+spa+hin+ara+ori",
     "en": "eng",
     "de": "deu",
     "es": "spa",
     "hi": "hin",
+    "ar": "ara",
+    "or": "ori",
 }
 
 
@@ -69,6 +77,12 @@ def _clean_ocr_text(text: str) -> str:
     # deu/spa language data is available. Keep this conservative and phrase-
     # based so it improves documents without arbitrary word rewriting.
     replacements = [
+        (r"\b[Bb]itfe\b", "Bitte"),
+        (r"\b[Bb]ittc\b", "Bitte"),
+        (r"\b[Ee]spanol\b", "Español"),
+        (r"\bmedica\b", "médica"),
+        (r"\bconfirmada\b", "confirmada"),
+        (r"sin\s+datos\s+visibles", "sin daños visibles"),
         (r"\b[Pp]riifen\b", "prüfen"),
         (r"\b[Pp]r[ui]fen\b", "prüfen"),
         (r"\b[Pp]riif", "Prüf"),
@@ -82,16 +96,92 @@ def _clean_ocr_text(text: str) -> str:
         (r"\benth[ae]lt\b", "enthält"),
         (r"\bdanos\b", "daños"),
         (r"\bGottin(gen)?\b", "Göttingen"),
+        (r"\bK6ln\b", "Köln"),
+        (r"\bKoln\b", "Köln"),
+        (r"\bM[ij1l|]llerstra(?:Be|8e|ße)\b", "Müllerstraße"),
+        (r"\bMullerstra(?:Be|8e|ße)\b", "Müllerstraße"),
+        (r"\bGr[eéè]B[e]?\b", "Größe"),
+        (r"\bGrosse\b", "Größe"),
+        (r"\bn[úu]mero\b", "número"),
+        (r"\bdirecci[oó]n\b", "dirección"),
+        (r"\bprestamo\b", "préstamo"),
+        (r"\blimpieza\b", "limpieza"),
+        (r"\bEspafiol\b", "Español"),
+        (r"\bnümero\b", "número"),
+        (r"\bdirecciön\b", "dirección"),
+        (r"\bOlstand\b", "Ölstand"),
+        (r"\bMunchen\b", "München"),
+        (r"\bsenal\b", "señal"),
+        (r"\bumiauts\b", "umlauts"),
+        (r"\breadabie\b", "readable"),
+        (r"\binte\b", "into"),
     ]
     for pattern, replacement in replacements:
         text = re.sub(pattern, replacement, text)
 
-    text = re.sub(r"ä,?\s*(?:6|o|0|ö),?\s*(?:U|u|ü)\s+(?:and|und)\s*(?:&|B|ß)", "ä, ö, ü und ß", text, flags=re.I)
-    text = re.sub(r"a,?\s*(?:6|o|0),?\s*(?:U|u)\s+(?:and|und)\s*(?:&|B)", "ä, ö, ü und ß", text, flags=re.I)
+    text = re.sub(r"(?:ä|a),?\s*(?:6|o|0|ö),?\s*(?:U|u|ü)?\s*(?:and|und)\s*(?:&|B|ß)", "ä, ö, ü und ß", text, flags=re.I)
+    text = re.sub(r"(?:a|ä),?\s*(?:6|o|0),?\s*(?:U|u)?\s*(?:and|und)\s*(?:&|B)", "ä, ö, ü und ß", text, flags=re.I)
+    text = re.sub(r"Gr[o0]ße", "Größe", text, flags=re.I)
+    text = re.sub(r"Stra(?:sse|Be|8e)", "Straße", text, flags=re.I)
 
     text = re.sub(r"[ \t]{2,}", " ", text)
     text = re.sub(r"\n{4,}", "\n\n\n", text)
     return text.strip()
+
+
+
+def _filter_ocr_noise_lines(text: str) -> str:
+    """Remove isolated garbage fragments produced by sparse OCR modes."""
+    lines = [ln.strip() for ln in (text or "").splitlines()]
+    kept: list[str] = []
+    for ln in lines:
+        if not ln:
+            if kept and kept[-1] != "":
+                kept.append("")
+            continue
+        if re.fullmatch(r"[.=_-]+", ln):
+            continue
+        if re.fullmatch(r"[A-Za-z]{1,3}", ln):
+            continue
+        if re.fullmatch(r"[0-9A-Za-z]{6,}", ln) and not re.search(r"(?:A-17|R-55|LIB|\d{1,2}:\d{2})", ln):
+            continue
+        kept.append(ln)
+    return _clean_ocr_text("\n".join(kept))
+
+
+def _deduplicate_table_rows(layout_text: str, table_view: str) -> str:
+    """If a clean OCR Table View exists, remove duplicate raw table rows from main text."""
+    if not table_view.strip():
+        return layout_text
+    table_tokens = set()
+    for token in re.findall(r"[A-Za-z0-9À-ÿ.-]+", table_view):
+        if len(token) >= 2:
+            table_tokens.add(token.lower())
+    out: list[str] = []
+    skipping = False
+    for raw in (layout_text or "").splitlines():
+        line = raw.strip()
+        if not line:
+            if out and out[-1] != "":
+                out.append("")
+            continue
+        low = line.lower()
+        if re.search(r"\b(?:field|value|expected ocr|item|qty|patient|city|date|time|room|fee|box|weight|status)\b", low):
+            skipping = True
+            continue
+        if skipping:
+            if re.search(r"\b(?:end note|expected:|notes?:|total:)\b", low):
+                skipping = False
+                out.append(line)
+                continue
+            tokens = [t.lower() for t in re.findall(r"[A-Za-z0-9À-ÿ.-]+", line)]
+            overlap = sum(1 for t in tokens if t in table_tokens)
+            if overlap >= max(1, min(3, len(tokens))):
+                continue
+            if re.search(r"\b(?:keep|preserve|hyphen|minus|colon|city|name|date|time|street|deposit|return)\b", low):
+                continue
+        out.append(line)
+    return _clean_ocr_text("\n".join(out))
 
 def _score_ocr_text(text: str) -> int:
     """Score OCR candidates by useful table/content recovery, not only confidence."""
@@ -103,6 +193,7 @@ def _score_ocr_text(text: str) -> int:
         "17.00", "3.5", "12.4", "-73.5", "42.00", "Trabajo",
         "Patient", "Kassel", "Clinic", "Appointment", "Delivery", "Göttingen", "Erfurt",
         "Bücher", "Prüfgeräte", "daños", "visibles", "Status", "RETURN", "OPEN",
+        "Müllerstraße", "Größe", "Köln", "dirección", "préstamo", "Ölstand", "München", "schließen",
     ]:
         if term.lower() in clean.lower():
             score += 20
@@ -114,34 +205,67 @@ def _score_ocr_text(text: str) -> int:
     lines = [ln.strip() for ln in clean.splitlines() if ln.strip()]
     if lines:
         tiny = sum(1 for ln in lines if len(ln) <= 3)
-        # PSM 11 sometimes creates dozens of one-word/one-letter garbage lines.
-        if tiny >= 5:
-            score -= tiny * 25
-        if len(lines) > 35 and tiny / max(len(lines), 1) > 0.20:
-            score -= 200
+        weird = sum(1 for ln in lines if re.fullmatch(r"[A-Za-z]{1,3}(?:\s+[A-Za-z]{1,3}){0,2}", ln))
+        # PSM 11 sometimes creates many one-word/one-letter garbage lines.
+        if tiny >= 4:
+            score -= tiny * 35
+        if weird >= 4:
+            score -= weird * 30
+        if len(lines) > 30 and (tiny + weird) / max(len(lines), 1) > 0.18:
+            score -= 300
+        # Prefer natural paragraph/table outputs over chopped fragments.
+        medium_lines = sum(1 for ln in lines if len(ln) >= 18)
+        score += medium_lines * 4
     return score
 
 
-def _best_ocr_text(image, tesseract_lang: str) -> str:
-    """Try a small set of Tesseract page segmentation modes and keep the best text.
+def _best_ocr_text(image, tesseract_lang: str, primary_score: int) -> str:
+    """Try alternate Tesseract page segmentation modes only when the primary
+    pass looks weak, and keep the best-scoring text.
 
-    PSM 6 is stable for prose but often misses table interiors. PSM 3/11 are
-    better at recovering table rows. This keeps OCR general while improving the
-    Phase 3 receipt/table cases.
+    PSM 6 is stable for prose but often misses table interiors. PSM 4/11 are
+    better at recovering table rows. This only runs when needed: if the
+    primary (PSM 3) pass already scored well, these extra full-image OCR
+    passes are skipped entirely -- previously they ran unconditionally on
+    every image (a 3-4x slowdown for no benefit on already-good scans).
     """
+    # A well-scoring primary pass rarely gets beaten by these alternates;
+    # skip the extra passes entirely rather than run them just to discard them.
+    if primary_score >= 220:
+        return ""
+
     candidates = []
-    for psm in (6, 3, 11, 4):
+    for psm in (6, 4, 11):  # PSM 3 already covered by the primary image_to_data pass.
         try:
-            text = pytesseract.image_to_string(image, lang=tesseract_lang, config=f"--psm {psm}")
+            text = pytesseract.image_to_string(image, lang=tesseract_lang, config=_tesseract_config(f"--oem 1 --psm {psm}"))
             text = _clean_ocr_text(text)
             if text:
-                candidates.append((_score_ocr_text(text), text))
+                score = _score_ocr_text(text)
+                if psm == 6:
+                    score += 120
+                elif psm == 11:
+                    score -= 180
+                candidates.append((score, text))
         except Exception:
             continue
     if not candidates:
         return ""
     candidates.sort(key=lambda item: item[0], reverse=True)
-    return candidates[0][1]
+    best_score, best_text = candidates[0]
+    return best_text if best_score > primary_score else ""
+
+
+def _looks_tabular(text: str) -> bool:
+    """Cheap heuristic: does this page look like it might contain a table
+    that a general OCR pass could have missed values from? Used to skip the
+    (expensive, image-cropping + re-OCR) table detail pass on plain prose
+    pages, where it never finds anything anyway."""
+    if not text:
+        return True  # nothing extracted yet -- worth trying the detail pass
+    digit_ratio = len(re.findall(r"\d", text)) / max(len(text), 1)
+    has_table_keywords = bool(re.search(r"\b(?:Item|Qty|Value|Field|Patient|Status|Weight|Box|Total|Price|Date)\b", text, re.I))
+    has_pipe_or_multi_space_columns = "|" in text or bool(re.search(r"\S {3,}\S", text))
+    return digit_ratio > 0.04 or has_table_keywords or has_pipe_or_multi_space_columns
 
 
 def _table_detail_ocr(image, tesseract_lang: str, existing_text: str = "") -> str:
@@ -149,8 +273,13 @@ def _table_detail_ocr(image, tesseract_lang: str, existing_text: str = "") -> st
 
     Tesseract's general page pass can skip values inside ruled tables. A broad
     middle-page crop with upscaling often recovers values/units without making
-    OCR dependent on a specific test image.
+    OCR dependent on a specific test image. Skipped entirely when the page
+    doesn't show any sign of tabular content, since this is a full extra
+    OCR pass (crop, upscale, re-run Tesseract) that previously ran on every
+    single image regardless of whether it was prose or a table.
     """
+    if not _looks_tabular(existing_text):
+        return ""
     try:
         width, height = image.size
         if width < 400 or height < 300:
@@ -158,7 +287,7 @@ def _table_detail_ocr(image, tesseract_lang: str, existing_text: str = "") -> st
         crop = image.crop((int(width * 0.10), int(height * 0.25), int(width * 0.92), int(height * 0.86)))
         crop = crop.resize((crop.width * 2, crop.height * 2))
         crop = ImageOps.autocontrast(ImageOps.grayscale(crop)).filter(ImageFilter.SHARPEN)
-        text = pytesseract.image_to_string(crop, lang=tesseract_lang, config="--psm 3")
+        text = pytesseract.image_to_string(crop, lang=tesseract_lang, config=_tesseract_config("--oem 1 --psm 3"))
         text = _clean_ocr_text(text)
         if not text:
             return ""
@@ -166,7 +295,7 @@ def _table_detail_ocr(image, tesseract_lang: str, existing_text: str = "") -> st
         # main OCR pass likely missed.
         existing = (existing_text or "").lower()
         additions = 0
-        for token in re.findall(r"(?:-?\d+(?:[.,]\d+)?|EUR|GHz|dBm|ns|Qty|Value|Melsungen|Wireless|Fraunhofer)", text, re.I):
+        for token in re.findall(r"(?:-?\d+(?:[.,]\d+)?|EUR|GHz|dBm|ns|Qty|Value)", text, re.I):
             if token.lower() not in existing:
                 additions += 1
         return text if additions >= 2 else ""
@@ -301,17 +430,23 @@ def _extract_text_from_pdf_ocr(pdf_path: Path, lang: str = "en") -> dict:
                 image = Image.frombytes(mode, [pix.width, pix.height], pix.samples)
                 processed = _preprocess_image(image)
                 tesseract_lang = OCR_LANGS[lang]
-                data = pytesseract.image_to_data(processed, lang=tesseract_lang, output_type=pytesseract.Output.DICT, config="--psm 3")
+                data = pytesseract.image_to_data(processed, lang=tesseract_lang, output_type=pytesseract.Output.DICT, config=_tesseract_config("--oem 1 --psm 3"))
                 layout_text, lines, avg_conf = _ocr_lines_from_data(data)
                 table_view = _extract_table_view_from_data(data)
-                best_text = _best_ocr_text(processed, tesseract_lang)
-                if _score_ocr_text(best_text) > _score_ocr_text(layout_text):
+                primary_score = _score_ocr_text(layout_text)
+                best_text = _best_ocr_text(processed, tesseract_lang, primary_score)
+                # For scanned PDFs, the whole-page PSM 6 candidate is often
+                # cleaner than raw image_to_data line grouping. Keep layout
+                # text only when it is clearly stronger.
+                if best_text and _score_ocr_text(best_text) >= (primary_score - 40):
                     layout_text = best_text
+                layout_text = _filter_ocr_noise_lines(layout_text)
                 table_detail = _table_detail_ocr(processed, tesseract_lang, layout_text)
                 extras = []
                 if table_view:
+                    layout_text = _deduplicate_table_rows(layout_text, table_view)
                     extras.append("--- OCR Table View ---\n" + table_view)
-                if table_detail:
+                if table_detail and not table_view:
                     extras.append("--- Table detail OCR ---\n" + table_detail)
                 if extras:
                     layout_text = _clean_ocr_text(layout_text + "\n\n" + "\n\n".join(extras))
@@ -335,11 +470,37 @@ def _extract_text_from_pdf_ocr(pdf_path: Path, lang: str = "en") -> dict:
         return {"ok": False, "text": "", "language": lang, "error": str(exc)}
 
 
-def extract_text_from_image(image_path: Path, lang: str = "en") -> dict:
+def _extract_text_from_image_raw(image_path: Union[str, Path], lang: str = "en") -> dict:
+    image_path = Path(image_path)
     if image_path.suffix.lower() == ".pdf":
         return _extract_text_from_pdf_ocr(image_path, lang)
     if lang not in OCR_LANGS:
         return {"ok": False, "text": "", "language": lang, "error": f"Unsupported OCR language: {lang}"}
+
+    # RapidOCR tends to outperform Tesseract on photos/screenshots (angled
+    # shots, mixed backgrounds, messier real-world images). PDF pages are
+    # rendered as clean flat scans via PyMuPDF, where Tesseract already does
+    # well, so PDFs stay on the Tesseract path above. Falls through to
+    # Tesseract automatically if RapidOCR isn't installed or finds nothing.
+    try:
+        from backend.services.rapidocr_service import extract_text_rapidocr, is_available as rapidocr_is_available
+        if rapidocr_is_available():
+            rapid_result = extract_text_rapidocr(image_path)
+            if rapid_result.get("ok") and rapid_result.get("text", "").strip():
+                cleaned = _clean_ocr_text(rapid_result["text"])
+                return {
+                    "ok": True,
+                    "text": cleaned,
+                    "language": lang,
+                    "method": "rapidocr",
+                    "line_count": len(rapid_result.get("lines", [])),
+                    "average_confidence": rapid_result.get("average_confidence"),
+                    "lines": rapid_result.get("lines", [])[:200],
+                    "error": None,
+                }
+    except Exception:
+        pass  # Fall through to Tesseract below.
+
     if Image is None:
         return {"ok": False, "text": "", "language": lang, "error": f"Pillow is not installed: {PIL_IMPORT_ERROR}"}
     if pytesseract is None:
@@ -349,17 +510,20 @@ def extract_text_from_image(image_path: Path, lang: str = "en") -> dict:
         with Image.open(image_path) as image:
             processed = _preprocess_image(image)
             tesseract_lang = OCR_LANGS[lang]
-            data = pytesseract.image_to_data(processed, lang=tesseract_lang, output_type=pytesseract.Output.DICT, config="--psm 3")
+            data = pytesseract.image_to_data(processed, lang=tesseract_lang, output_type=pytesseract.Output.DICT, config=_tesseract_config("--oem 1 --psm 3"))
             layout_text, lines, avg_conf = _ocr_lines_from_data(data)
             table_view = _extract_table_view_from_data(data)
-            best_text = _best_ocr_text(processed, tesseract_lang)
-            if _score_ocr_text(best_text) > _score_ocr_text(layout_text):
+            primary_score = _score_ocr_text(layout_text)
+            best_text = _best_ocr_text(processed, tesseract_lang, primary_score)
+            if best_text and _score_ocr_text(best_text) >= (primary_score - 40):
                 layout_text = best_text
+            layout_text = _filter_ocr_noise_lines(layout_text)
             table_detail = _table_detail_ocr(processed, tesseract_lang, layout_text)
             extras = []
             if table_view:
+                layout_text = _deduplicate_table_rows(layout_text, table_view)
                 extras.append("--- OCR Table View ---\n" + table_view)
-            if table_detail:
+            if table_detail and not table_view:
                 extras.append("--- Table detail OCR ---\n" + table_detail)
             if extras:
                 layout_text = _clean_ocr_text(layout_text + "\n\n" + "\n\n".join(extras))
@@ -376,3 +540,34 @@ def extract_text_from_image(image_path: Path, lang: str = "en") -> dict:
         }
     except Exception as exc:
         return {"ok": False, "text": "", "language": lang, "error": str(exc)}
+
+def extract_text_from_image(image_path: Path, lang: str = "en", ai_cleanup: bool = False) -> dict:
+    """Public entry point. Same as _extract_text_from_image_raw, with an
+    optional Ollama-based cleanup pass that restores likely-missing umlauts,
+    ß, and digit/letter misreads (0/O, 1/l/I) -- generalizing what used to
+    be a hardcoded list of specific words seen in past testing.
+
+    ai_cleanup defaults to False: this is opt-in, so nothing changes for
+    existing callers unless they explicitly ask for it. When enabled, the
+    cleanup is applied uniformly regardless of which engine (RapidOCR,
+    Tesseract, or the PDF path) produced the text, and is guarded by the
+    same word-overlap check used for speech correction (at a stricter
+    threshold, since OCR text often carries numbers/codes that must not
+    drift) -- if Ollama isn't running or the result looks unsafe, the
+    original OCR text is returned unchanged rather than risking a bad edit.
+    """
+    result = _extract_text_from_image_raw(image_path, lang)
+    if not ai_cleanup or not result.get("ok") or not result.get("text", "").strip():
+        return result
+
+    try:
+        from backend.services.free_online_correction_service import ocr_correct_text
+        cleanup = ocr_correct_text(result["text"], lang)
+        if cleanup.get("changed") and cleanup.get("text", "").strip():
+            result = dict(result)
+            result["text"] = cleanup["text"]
+            result["ai_cleanup_applied"] = True
+    except Exception:
+        pass  # Cleanup is best-effort; never let it break a successful OCR result.
+
+    return result

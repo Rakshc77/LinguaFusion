@@ -1,0 +1,682 @@
+/* ============================================================
+   LinguaFusion — Theme Framework
+   16 shortlisted looks as a single CSS custom-property contract.
+
+   HOW IT WORKS
+   - Every theme sets the same set of --lf-* variables.
+   - Switch themes by setting  <html data-theme="focus-light">.
+   - Components read tokens through the .lf-* helper classes below
+     (or map the tokens onto your existing components directly).
+   - This generalizes your current Settings > Appearance toggle
+     (Focus Light "A" / Night Studio "C") into a registry of 16.
+
+   THEME IDS (shortlist)
+     focus-light  terminal  warm-editorial  glass-aurora  candy
+     swiss  soft-ui  broadsheet  frosted-native  amber-studio
+     editorial-split  zen  material  brutalist  glass-dark  sunset
+   ============================================================ */
+
+/* Deliberately no remote font import. LinguaFusion remains fully usable
+   offline; the independent font selector below uses native platform stacks. */
+
+/* ---------- TOKEN CONTRACT (defaults = focus-light) ----------
+   Full-value tokens (border/shadow/background hold complete CSS
+   strings) so expressive themes — glass, neumorphic, brutalist —
+   can fully describe themselves without extra rules. */
+:root,
+[data-theme="focus-light"] {
+  /* palette */
+  --lf-app-bg:        #f5f7fb;
+  --lf-text:          #1e2530;
+  --lf-text-muted:    #98a2b3;
+  --lf-accent:        #2f6bff;
+  --lf-accent-2:      #2f6bff;
+  --lf-on-accent:     #ffffff;
+  --lf-success:       #0f9d68;
+  /* primary surface (cards/panels) */
+  --lf-surface-bg:    #ffffff;
+  --lf-surface-border:1px solid #e2e6ee;
+  --lf-surface-shadow:0 1px 3px rgba(30,50,90,.06);
+  --lf-surface-radius:12px;
+  --lf-backdrop:      none;
+  /* secondary panel used by the translation pane */
+  --lf-panel-bg:      #ffffff;
+  --lf-panel-text:    #1e2530;
+  /* translation pane */
+  --lf-xlate-bg:      #f0f5ff;
+  --lf-xlate-border:  1px solid #d9e5ff;
+  --lf-xlate-text:    #2b3a5c;
+  --lf-xlate-label:   #2f6bff;
+  /* record button */
+  --lf-record-bg:     #2f6bff;
+  --lf-record-radius: 50%;
+  --lf-record-shadow: 0 12px 26px -6px rgba(47,107,255,.55);
+  --lf-record-glyph:  #ffffff;
+  /* language/status chips + offline badge */
+  --lf-chip-bg:       #ffffff;
+  --lf-chip-border:   1px solid #e2e6ee;
+  --lf-badge-bg:      #e6f7f0;
+  --lf-badge-text:    #0f9d68;
+  /* waveform */
+  --lf-wave-color:    #2f6bff;
+  /* typography */
+  --lf-font-display:  'Inter', system-ui, sans-serif;
+  --lf-font-body:     'Inter', system-ui, sans-serif;
+  --lf-font-mono:     'IBM Plex Mono', ui-monospace, monospace;
+  --lf-heading-weight:700;
+  --lf-label-font:    'Inter', system-ui, sans-serif;
+  --lf-label-transform:uppercase;
+  --lf-label-spacing: .05em;
+}
+
+/* ---------- 1c  Local-first terminal (dark) ---------- */
+[data-theme="terminal"] {
+  --lf-app-bg:#080d08; --lf-text:#c7f0cf; --lf-text-muted:#4f7a58;
+  --lf-accent:#a9f5b8; --lf-accent-2:#f0e6b8; --lf-on-accent:#12220f; --lf-success:#7cfc98;
+  --lf-surface-bg:#0a110a; --lf-surface-border:1px solid #23401f; --lf-surface-shadow:none; --lf-surface-radius:4px; --lf-backdrop:none;
+  --lf-panel-bg:#0a110a; --lf-panel-text:#c7f0cf;
+  --lf-xlate-bg:#0a110a; --lf-xlate-border:1px solid #6d5a1f; --lf-xlate-text:#f0e6b8; --lf-xlate-label:#f0e6b8;
+  --lf-record-bg:#12220f; --lf-record-radius:3px; --lf-record-shadow:0 0 0 1px #2c5228; --lf-record-glyph:#a9f5b8;
+  --lf-chip-bg:transparent; --lf-chip-border:1px solid #2c5228; --lf-badge-bg:#12220f; --lf-badge-text:#a9f5b8;
+  --lf-wave-color:#7cfc98;
+  --lf-font-display:'IBM Plex Mono',monospace; --lf-font-body:'IBM Plex Mono',monospace; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:600; --lf-label-font:'IBM Plex Mono',monospace; --lf-label-transform:uppercase; --lf-label-spacing:.06em;
+}
+
+/* ---------- 1d  Warm editorial (light) ---------- */
+[data-theme="warm-editorial"] {
+  --lf-app-bg:#f4efe4; --lf-text:#2b2622; --lf-text-muted:#a89b84;
+  --lf-accent:#b04a2f; --lf-accent-2:#a05a3c; --lf-on-accent:#f4efe4; --lf-success:#a05a3c;
+  --lf-surface-bg:#f4efe4; --lf-surface-border:1px solid #e3dccb; --lf-surface-shadow:none; --lf-surface-radius:2px; --lf-backdrop:none;
+  --lf-panel-bg:#f4efe4; --lf-panel-text:#2b2622;
+  --lf-xlate-bg:#f4efe4; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#5b5344; --lf-xlate-label:#b04a2f;
+  --lf-record-bg:#b04a2f; --lf-record-radius:50%; --lf-record-shadow:0 10px 22px -6px rgba(176,74,47,.5); --lf-record-glyph:#f4efe4;
+  --lf-chip-bg:transparent; --lf-chip-border:0 solid transparent; --lf-badge-bg:transparent; --lf-badge-text:#a05a3c;
+  --lf-wave-color:#b04a2f;
+  --lf-font-display:'Fraunces',serif; --lf-font-body:'Fraunces',serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:600; --lf-label-font:'Instrument Serif',serif; --lf-label-transform:none; --lf-label-spacing:0;
+}
+
+/* ---------- 1e  Glass aurora (dark) ---------- */
+[data-theme="glass-aurora"] {
+  --lf-app-bg:radial-gradient(120% 100% at 0% 0%,#3b2b8f 0%,#1a1240 45%,#0e0a2a 100%); --lf-text:#eae7fb; --lf-text-muted:#b7aef0;
+  --lf-accent:#7c5cff; --lf-accent-2:#22d3ee; --lf-on-accent:#ffffff; --lf-success:#34d399;
+  --lf-surface-bg:rgba(255,255,255,.08); --lf-surface-border:1px solid rgba(255,255,255,.16); --lf-surface-shadow:none; --lf-surface-radius:16px; --lf-backdrop:blur(10px);
+  --lf-panel-bg:rgba(255,255,255,.08); --lf-panel-text:#eae7fb;
+  --lf-xlate-bg:linear-gradient(160deg,rgba(124,92,255,.22),rgba(34,211,238,.12)); --lf-xlate-border:1px solid rgba(255,255,255,.16); --lf-xlate-text:#f2f0ff; --lf-xlate-label:#a8f0e6;
+  --lf-record-bg:linear-gradient(135deg,#7c5cff,#22d3ee); --lf-record-radius:50%; --lf-record-shadow:0 10px 30px -4px rgba(124,92,255,.7); --lf-record-glyph:#ffffff;
+  --lf-chip-bg:rgba(255,255,255,.07); --lf-chip-border:1px solid rgba(255,255,255,.14); --lf-badge-bg:rgba(52,211,153,.16); --lf-badge-text:#bff7e6;
+  --lf-wave-color:#8fe9ff;
+  --lf-font-display:'Sora',sans-serif; --lf-font-body:'Sora',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'Sora',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.06em;
+}
+
+/* ---------- 1f  Candy / playful (light) ---------- */
+[data-theme="candy"] {
+  --lf-app-bg:#faf8ff; --lf-text:#2a2440; --lf-text-muted:#b3a8e6;
+  --lf-accent:#7c5cff; --lf-accent-2:#0ea371; --lf-on-accent:#ffffff; --lf-success:#0ea371;
+  --lf-surface-bg:#ffffff; --lf-surface-border:2px solid #efeaff; --lf-surface-shadow:0 6px 16px -8px rgba(124,92,255,.3); --lf-surface-radius:20px; --lf-backdrop:none;
+  --lf-panel-bg:#7c5cff; --lf-panel-text:#ffffff;
+  --lf-xlate-bg:#7c5cff; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#ffffff; --lf-xlate-label:#d6ccff;
+  --lf-record-bg:linear-gradient(135deg,#7c5cff,#a78bff); --lf-record-radius:50%; --lf-record-shadow:0 12px 26px -6px rgba(124,92,255,.6); --lf-record-glyph:#ffffff;
+  --lf-chip-bg:#f0ecff; --lf-chip-border:0 solid transparent; --lf-badge-bg:#d6f7e9; --lf-badge-text:#0ea371;
+  --lf-wave-color:#7c5cff;
+  --lf-font-display:'DM Sans',sans-serif; --lf-font-body:'DM Sans',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'DM Sans',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.02em;
+}
+
+/* ---------- 1g  Swiss / International (light) — see grid note ---------- */
+[data-theme="swiss"] {
+  --lf-app-bg:#f2f2f0; --lf-text:#111111; --lf-text-muted:#8a8a86;
+  --lf-accent:#e63329; --lf-accent-2:#111111; --lf-on-accent:#ffffff; --lf-success:#111111;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1px solid #d5d5d1; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#111111;
+  --lf-xlate-bg:#ffffff; --lf-xlate-border:1px solid #d5d5d1; --lf-xlate-text:#444444; --lf-xlate-label:#e63329;
+  --lf-record-bg:#e63329; --lf-record-radius:50%; --lf-record-shadow:none; --lf-record-glyph:#ffffff;
+  --lf-chip-bg:#ffffff; --lf-chip-border:1px solid #d5d5d1; --lf-badge-bg:transparent; --lf-badge-text:#e63329;
+  --lf-wave-color:#111111;
+  --lf-font-display:'Archivo',sans-serif; --lf-font-body:'Archivo',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:800; --lf-label-font:'Archivo',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.14em;
+}
+
+/* ---------- 1i  Soft-UI / neumorphic (light) ---------- */
+[data-theme="soft-ui"] {
+  --lf-app-bg:#e6e9ef; --lf-text:#42506e; --lf-text-muted:#9aa3b8;
+  --lf-accent:#5b73b3; --lf-accent-2:#5b73b3; --lf-on-accent:#ffffff; --lf-success:#0ea371;
+  --lf-surface-bg:#e6e9ef; --lf-surface-border:0 solid transparent; --lf-surface-shadow:inset 5px 5px 12px #c3c7cf, inset -5px -5px 12px #ffffff; --lf-surface-radius:18px; --lf-backdrop:none;
+  --lf-panel-bg:#e6e9ef; --lf-panel-text:#42506e;
+  --lf-xlate-bg:#e6e9ef; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#4a5670; --lf-xlate-label:#5b73b3;
+  --lf-record-bg:#e6e9ef; --lf-record-radius:50%; --lf-record-shadow:6px 6px 14px #c3c7cf, -6px -6px 14px #ffffff; --lf-record-glyph:#5b73b3;
+  --lf-chip-bg:#e6e9ef; --lf-chip-border:0 solid transparent; --lf-badge-bg:#e6e9ef; --lf-badge-text:#0ea371;
+  --lf-wave-color:#a7b1c9;
+  --lf-font-display:'Inter',sans-serif; --lf-font-body:'Inter',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'Inter',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.05em;
+  /* raised surface variant for elements that pop OUT rather than press IN */
+  --lf-surface-shadow-raised:5px 5px 12px #c3c7cf, -5px -5px 12px #ffffff;
+}
+
+/* ---------- 2b  Broadsheet (light) — see masthead note ---------- */
+[data-theme="broadsheet"] {
+  --lf-app-bg:#f6f1e4; --lf-text:#2b2622; --lf-text-muted:#6e6353;
+  --lf-accent:#8a3a1f; --lf-accent-2:#6e6353; --lf-on-accent:#f6f1e4; --lf-success:#6e6353;
+  --lf-surface-bg:#f6f1e4; --lf-surface-border:0 solid transparent; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#f6f1e4; --lf-panel-text:#2b2622;
+  --lf-xlate-bg:#f6f1e4; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#3a3428; --lf-xlate-label:#8a3a1f;
+  --lf-record-bg:#8a3a1f; --lf-record-radius:50%; --lf-record-shadow:none; --lf-record-glyph:#f6f1e4;
+  --lf-chip-bg:transparent; --lf-chip-border:0 solid transparent; --lf-badge-bg:transparent; --lf-badge-text:#6e6353;
+  --lf-wave-color:#2b2622;
+  --lf-font-display:'Fraunces',serif; --lf-font-body:'Fraunces',serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:600; --lf-label-font:'Instrument Serif',serif; --lf-label-transform:none; --lf-label-spacing:.02em;
+}
+
+/* ---------- 2f  Frosted native (light) ---------- */
+[data-theme="frosted-native"] {
+  --lf-app-bg:linear-gradient(135deg,#dfe6f0,#eef1f7); --lf-text:#1a2233; --lf-text-muted:#8a94a6;
+  --lf-accent:#2f6bff; --lf-accent-2:#2f6bff; --lf-on-accent:#ffffff; --lf-success:#0f9d68;
+  --lf-surface-bg:rgba(255,255,255,.72); --lf-surface-border:1px solid rgba(0,0,0,.06); --lf-surface-shadow:0 8px 24px -12px rgba(30,50,90,.25); --lf-surface-radius:14px; --lf-backdrop:blur(12px);
+  --lf-panel-bg:rgba(255,255,255,.55); --lf-panel-text:#1a2233;
+  --lf-xlate-bg:rgba(47,107,255,.08); --lf-xlate-border:1px solid rgba(47,107,255,.18); --lf-xlate-text:#2b3a5c; --lf-xlate-label:#2f6bff;
+  --lf-record-bg:#2f6bff; --lf-record-radius:50%; --lf-record-shadow:0 8px 18px -4px rgba(47,107,255,.55); --lf-record-glyph:#ffffff;
+  --lf-chip-bg:rgba(255,255,255,.7); --lf-chip-border:1px solid rgba(0,0,0,.06); --lf-badge-bg:rgba(15,157,104,.12); --lf-badge-text:#0f9d68;
+  --lf-wave-color:#2f6bff;
+  --lf-font-display:'Inter',sans-serif; --lf-font-body:'Inter',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'Inter',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.05em;
+}
+
+/* ---------- 2h  Amber studio (dark) ---------- */
+[data-theme="amber-studio"] {
+  --lf-app-bg:#17120c; --lf-text:#f5ecdb; --lf-text-muted:#8a7a5e;
+  --lf-accent:#f5a623; --lf-accent-2:#f5c06a; --lf-on-accent:#17120c; --lf-success:#f5c06a;
+  --lf-surface-bg:#1c150d; --lf-surface-border:1px solid #362a19; --lf-surface-shadow:none; --lf-surface-radius:12px; --lf-backdrop:none;
+  --lf-panel-bg:#120e09; --lf-panel-text:#f5ecdb;
+  --lf-xlate-bg:#22190e; --lf-xlate-border:1px solid #4a3818; --lf-xlate-text:#d8c4a4; --lf-xlate-label:#f5c06a;
+  --lf-record-bg:#f5a623; --lf-record-radius:50%; --lf-record-shadow:0 8px 20px -4px rgba(245,166,35,.5); --lf-record-glyph:#17120c;
+  --lf-chip-bg:#1f180f; --lf-chip-border:1px solid #362a19; --lf-badge-bg:#2a1f10; --lf-badge-text:#f5c06a;
+  --lf-wave-color:#f5a623;
+  --lf-font-display:'Inter',sans-serif; --lf-font-body:'Inter',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'Inter',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.05em;
+}
+
+/* ---------- 2i  Editorial split (light + dark rail) — see split note ---------- */
+[data-theme="editorial-split"] {
+  --lf-app-bg:#f4efe4; --lf-text:#2b2622; --lf-text-muted:#8a7f6b;
+  --lf-accent:#a05a3c; --lf-accent-2:#b04a2f; --lf-on-accent:#f4efe4; --lf-success:#a05a3c;
+  --lf-surface-bg:#f4efe4; --lf-surface-border:0 solid transparent; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#2b2622; --lf-panel-text:#f4efe4;   /* the dark control rail */
+  --lf-xlate-bg:#f4efe4; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#5b5344; --lf-xlate-label:#a05a3c;
+  --lf-record-bg:#a05a3c; --lf-record-radius:50%; --lf-record-shadow:none; --lf-record-glyph:#f4efe4;
+  --lf-chip-bg:transparent; --lf-chip-border:0 solid transparent; --lf-badge-bg:transparent; --lf-badge-text:#a05a3c;
+  --lf-wave-color:#b04a2f;
+  --lf-font-display:'Fraunces',serif; --lf-font-body:'Fraunces',serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:600; --lf-label-font:'Instrument Serif',serif; --lf-label-transform:none; --lf-label-spacing:0;
+}
+
+/* ---------- 2j  Zen focus (dark) — see zen note ---------- */
+[data-theme="zen"] {
+  --lf-app-bg:#0a0a0a; --lf-text:#f4f4f4; --lf-text-muted:#6f6f6f;
+  --lf-accent:#f4f4f4; --lf-accent-2:#f4f4f4; --lf-on-accent:#0a0a0a; --lf-success:#6f6f6f;
+  --lf-surface-bg:transparent; --lf-surface-border:0 solid transparent; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:transparent; --lf-panel-text:#d0d0d0;
+  --lf-xlate-bg:transparent; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#6f6f6f; --lf-xlate-label:#5a5a5a;
+  --lf-record-bg:#f4f4f4; --lf-record-radius:50%; --lf-record-shadow:none; --lf-record-glyph:#0a0a0a;
+  --lf-chip-bg:transparent; --lf-chip-border:0 solid transparent; --lf-badge-bg:transparent; --lf-badge-text:#6f6f6f;
+  --lf-wave-color:#a7b1c9;
+  --lf-font-display:'Inter',sans-serif; --lf-font-body:'Inter',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:200; --lf-label-font:'Inter',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.34em;
+}
+
+/* ---------- 2k  Material expressive (light) — see material note ---------- */
+[data-theme="material"] {
+  --lf-app-bg:#f3edf7; --lf-text:#1d1b20; --lf-text-muted:#7a757f;
+  --lf-accent:#6750a4; --lf-accent-2:#256a3f; --lf-on-accent:#ffffff; --lf-success:#256a3f;
+  --lf-surface-bg:#ffffff; --lf-surface-border:0 solid transparent; --lf-surface-shadow:none; --lf-surface-radius:24px; --lf-backdrop:none;
+  --lf-panel-bg:#6750a4; --lf-panel-text:#ffffff;
+  --lf-xlate-bg:#6750a4; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#ffffff; --lf-xlate-label:#d0bcff;
+  --lf-record-bg:#6750a4; --lf-record-radius:22px; --lf-record-shadow:0 10px 24px -6px rgba(103,80,164,.5); --lf-record-glyph:#ffffff;
+  --lf-chip-bg:#e8def8; --lf-chip-border:0 solid transparent; --lf-badge-bg:#d7f0dd; --lf-badge-text:#256a3f;
+  --lf-wave-color:#7c4dff;
+  --lf-font-display:'Inter',sans-serif; --lf-font-body:'Inter',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:600; --lf-label-font:'Inter',sans-serif; --lf-label-transform:none; --lf-label-spacing:.01em;
+}
+
+/* ---------- 2l  Neo-brutalist (light) — hard offset shadows ---------- */
+[data-theme="brutalist"] {
+  --lf-app-bg:#fff8e6; --lf-text:#000000; --lf-text-muted:#000000;
+  --lf-accent:#ffe14d; --lf-accent-2:#ff8ac4; --lf-on-accent:#000000; --lf-success:#000000;
+  --lf-surface-bg:#ffffff; --lf-surface-border:3px solid #000000; --lf-surface-shadow:4px 4px 0 #000000; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#ff8ac4; --lf-panel-text:#000000;
+  --lf-xlate-bg:#ff8ac4; --lf-xlate-border:3px solid #000000; --lf-xlate-text:#000000; --lf-xlate-label:#000000;
+  --lf-record-bg:#ffe14d; --lf-record-radius:0; --lf-record-shadow:4px 4px 0 #000000; --lf-record-glyph:#000000;
+  --lf-chip-bg:#ffffff; --lf-chip-border:3px solid #000000; --lf-badge-bg:#ffffff; --lf-badge-text:#000000;
+  --lf-wave-color:#000000;
+  --lf-font-display:'Archivo',sans-serif; --lf-font-body:'Archivo',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:900; --lf-label-font:'Archivo',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.06em;
+}
+
+/* ---------- 2m  Glass dark (dark) ---------- */
+[data-theme="glass-dark"] {
+  --lf-app-bg:radial-gradient(120% 90% at 100% 0%,#123a4a 0%,#0c1a2e 50%,#070d18 100%); --lf-text:#eaf6fb; --lf-text-muted:#7fa9c4;
+  --lf-accent:#22d3ee; --lf-accent-2:#3b82f6; --lf-on-accent:#03121a; --lf-success:#7ff0e0;
+  --lf-surface-bg:rgba(255,255,255,.07); --lf-surface-border:1px solid rgba(255,255,255,.13); --lf-surface-shadow:none; --lf-surface-radius:18px; --lf-backdrop:blur(10px);
+  --lf-panel-bg:rgba(255,255,255,.07); --lf-panel-text:#eaf6fb;
+  --lf-xlate-bg:linear-gradient(150deg,rgba(34,211,238,.2),rgba(59,130,246,.1)); --lf-xlate-border:1px solid rgba(255,255,255,.15); --lf-xlate-text:#f0fbff; --lf-xlate-label:#9ff0e6;
+  --lf-record-bg:linear-gradient(135deg,#22d3ee,#3b82f6); --lf-record-radius:50%; --lf-record-shadow:0 10px 26px -4px rgba(34,211,238,.5); --lf-record-glyph:#03121a;
+  --lf-chip-bg:rgba(255,255,255,.07); --lf-chip-border:1px solid rgba(255,255,255,.13); --lf-badge-bg:rgba(45,212,191,.14); --lf-badge-text:#7ff0e0;
+  --lf-wave-color:#8fe9ff;
+  --lf-font-display:'Inter',sans-serif; --lf-font-body:'Inter',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'Inter',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.05em;
+}
+
+/* ---------- 2o  Sunset (light, gradient bg + white sheet) ---------- */
+[data-theme="sunset"] {
+  --lf-app-bg:#fff1f4; --lf-text:#2a2230; --lf-text-muted:#8a7f88;
+  --lf-accent:#f24e7a; --lf-accent-2:#ffe4ec; --lf-on-accent:#ffffff; --lf-success:#e03865;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1px solid #fce4ec; --lf-surface-shadow:0 4px 14px rgba(242,78,122,.08); --lf-surface-radius:18px; --lf-backdrop:none;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#2a2230;
+  --lf-xlate-bg:#fff8f9; --lf-xlate-border:1px solid #fce4ec; --lf-xlate-text:#2a2230; --lf-xlate-label:#f24e7a;
+  --lf-record-bg:#f24e7a; --lf-record-radius:50%; --lf-record-shadow:0 12px 24px -4px rgba(242,78,122,.45); --lf-record-glyph:#ffffff;
+  --lf-chip-bg:#ffffff; --lf-chip-border:1px solid #fce4ec; --lf-badge-bg:#ffe4ec; --lf-badge-text:#e03865;
+  --lf-wave-color:#f24e7a;
+  --lf-font-display:system-ui,sans-serif; --lf-font-body:system-ui,sans-serif; --lf-font-mono:monospace;
+  --lf-heading-weight:700; --lf-label-font:system-ui,sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.04em;
+}
+
+/* ---------- Round 5 PC + Mobile Themes ---------- */
+
+/* Reading room */
+[data-theme="reading-room"] {
+  --lf-app-bg:#f7f3ea; --lf-text:#2a2119; --lf-text-muted:#6a5d4a;
+  --lf-accent:#b04a2f; --lf-accent-2:#5b3a52; --lf-on-accent:#f7f3ea; --lf-success:#5c7a3f;
+  --lf-surface-bg:#f7f3ea; --lf-surface-border:1px solid #e0d7c3; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#efe8d6; --lf-panel-text:#5b3a52;
+  --lf-xlate-bg:transparent; --lf-xlate-border:none; --lf-xlate-text:#6a5d4a; --lf-xlate-label:#b04a2f;
+  --lf-record-bg:#b04a2f; --lf-record-radius:50%; --lf-record-shadow:none; --lf-record-glyph:#f7f3ea;
+  --lf-chip-bg:transparent; --lf-chip-border:1px solid #e0d7c3; --lf-badge-bg:transparent; --lf-badge-text:#9a8f78;
+  --lf-wave-color:#5b3a52;
+  --lf-font-display:serif; --lf-font-body:serif; --lf-font-mono:monospace; --lf-heading-weight:400; --lf-label-font:serif; --lf-label-transform:uppercase; --lf-label-spacing:.34em;
+}
+[data-theme="reading-room"][data-mode="dark"], html[data-mode="dark"] [data-theme="reading-room"] {
+  --lf-app-bg:#1a1612; --lf-text:#f0e8dc; --lf-text-muted:#9a8b75;
+  --lf-surface-bg:#241f1a; --lf-surface-border:1px solid #383028;
+  --lf-panel-bg:#241f1a; --lf-panel-text:#f0e8dc;
+  --lf-xlate-bg:#1e1a15; --lf-xlate-border:1px solid #383028; --lf-xlate-text:#d8ccba;
+}
+
+/* Gallery */
+[data-theme="gallery"] {
+  --lf-app-bg:#0e0e10; --lf-text:#f2f2ee; --lf-text-muted:#5f5f63;
+  --lf-accent:#d8ff3d; --lf-accent-2:#d8ff3d; --lf-on-accent:#0e0e10; --lf-success:#d8ff3d;
+  --lf-surface-bg:#0e0e10; --lf-surface-border:1px solid #262628; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#161618; --lf-panel-text:#6a6a6e;
+  --lf-xlate-bg:transparent; --lf-xlate-border:none; --lf-xlate-text:#d8ff3d; --lf-xlate-label:#5f5f63;
+  --lf-record-bg:#d8ff3d; --lf-record-radius:50%; --lf-record-shadow:0 0 16px rgba(216,255,61,.6); --lf-record-glyph:#0e0e10;
+  --lf-chip-bg:transparent; --lf-chip-border:1px solid #262628; --lf-badge-bg:#d8ff3d; --lf-badge-text:#0e0e10;
+  --lf-wave-color:#d8ff3d;
+  --lf-font-display:sans-serif; --lf-font-body:sans-serif; --lf-font-mono:monospace; --lf-heading-weight:800; --lf-label-font:sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.2em;
+}
+[data-theme="gallery"][data-mode="light"], html[data-mode="light"] [data-theme="gallery"] {
+  --lf-app-bg:#f4f4f0; --lf-text:#111112; --lf-text-muted:#707075;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1px solid #dcdcd8;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#111112;
+  --lf-xlate-bg:#e8e8e2; --lf-xlate-border:1px solid #d0d0c8; --lf-xlate-text:#111112;
+}
+
+/* Aurora glass */
+[data-theme="aurora-glass"] {
+  --lf-app-bg:radial-gradient(90% 120% at 15% 0%,#1c3a4a 0%,#0c1018 55%),radial-gradient(80% 100% at 100% 100%,#2a2350 0%,transparent 60%); --lf-text:#eef3fb; --lf-text-muted:#8aa0c8;
+  --lf-accent:#2dd4bf; --lf-accent-2:#3b82f6; --lf-on-accent:#05201c; --lf-success:#7ff0e0;
+  --lf-surface-bg:rgba(255,255,255,.06); --lf-surface-border:1px solid rgba(255,255,255,.12); --lf-surface-shadow:none; --lf-surface-radius:18px; --lf-backdrop:blur(12px);
+  --lf-panel-bg:#121826; --lf-panel-text:#7c8bb0;
+  --lf-xlate-bg:linear-gradient(135deg,rgba(45,212,191,.18),rgba(59,130,246,.14)); --lf-xlate-border:1px solid rgba(45,212,191,.35); --lf-xlate-text:#eafbf7; --lf-xlate-label:#7ff0e0;
+  --lf-record-bg:linear-gradient(135deg,#2dd4bf,#3b82f6); --lf-record-radius:50%; --lf-record-shadow:0 8px 24px -6px rgba(45,212,191,.5); --lf-record-glyph:#ffffff;
+  --lf-chip-bg:rgba(255,255,255,.05); --lf-chip-border:1px solid rgba(255,255,255,.1); --lf-badge-bg:rgba(45,212,191,.14); --lf-badge-text:#7ff0e0;
+  --lf-wave-color:#2dd4bf;
+  --lf-font-display:sans-serif; --lf-font-body:sans-serif; --lf-font-mono:monospace; --lf-heading-weight:600; --lf-label-transform:uppercase; --lf-label-spacing:.1em;
+}
+[data-theme="aurora-glass"][data-mode="light"], html[data-mode="light"] [data-theme="aurora-glass"] {
+  --lf-app-bg:#f0f7fb; --lf-text:#081824; --lf-text-muted:#507088;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1px solid #d0e4f0;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#081824;
+  --lf-xlate-bg:#e0f0f8; --lf-xlate-border:1px solid #b8d8e8; --lf-xlate-text:#081824;
+}
+
+/* Editorial luxe */
+[data-theme="editorial-luxe"] {
+  --lf-app-bg:#f4efe4; --lf-text:#2a2118; --lf-text-muted:#9c8a63;
+  --lf-accent:#9c7a3c; --lf-accent-2:#7a5f2a; --lf-on-accent:#f4efe4; --lf-success:#7a8a4a;
+  --lf-surface-bg:transparent; --lf-surface-border:none; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#ece5d4; --lf-panel-text:#7a5f2a;
+  --lf-xlate-bg:transparent; --lf-xlate-border:none; --lf-xlate-text:#4a3f2c; --lf-xlate-label:#9c7a3c;
+  --lf-record-bg:#9c7a3c; --lf-record-radius:50%; --lf-record-shadow:none; --lf-record-glyph:#f4efe4;
+  --lf-chip-bg:transparent; --lf-chip-border:1px solid #ddd2ba; --lf-badge-bg:transparent; --lf-badge-text:#9c7a3c;
+  --lf-wave-color:#9c7a3c;
+  --lf-font-display:serif; --lf-font-body:serif; --lf-font-mono:monospace; --lf-heading-weight:500; --lf-label-font:serif; --lf-label-transform:uppercase; --lf-label-spacing:.12em;
+}
+[data-theme="editorial-luxe"][data-mode="dark"], html[data-mode="dark"] [data-theme="editorial-luxe"] {
+  --lf-app-bg:#1a1610; --lf-text:#f4efe4; --lf-text-muted:#a89670;
+  --lf-surface-bg:#241f17; --lf-surface-border:1px solid #3a3224;
+  --lf-panel-bg:#241f17; --lf-panel-text:#f4efe4;
+  --lf-xlate-bg:#1e1912; --lf-xlate-border:1px solid #3a3224; --lf-xlate-text:#e4dccb;
+}
+
+/* Technical Blueprint */
+[data-theme="blueprint"] {
+  --lf-app-bg:#0a1830; --lf-text:#eaf4ff; --lf-text-muted:#5f8fbf;
+  --lf-accent:#5fd0ff; --lf-accent-2:#7fb8e6; --lf-on-accent:#06223d; --lf-success:#5fd0ff;
+  --lf-surface-bg:transparent; --lf-surface-border:1px solid #2a4a75; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#0d2140; --lf-panel-text:#7fb8e6;
+  --lf-xlate-bg:transparent; --lf-xlate-border:1px solid #2a4a75; --lf-xlate-text:#9fd0f5; --lf-xlate-label:#5fd0ff;
+  --lf-record-bg:#5fd0ff; --lf-record-radius:2px; --lf-record-shadow:none; --lf-record-glyph:#06223d;
+  --lf-chip-bg:transparent; --lf-chip-border:1px solid #2a4a75; --lf-badge-bg:transparent; --lf-badge-text:#5fd0ff;
+  --lf-wave-color:#5fd0ff;
+  --lf-font-display:sans-serif; --lf-font-body:sans-serif; --lf-font-mono:monospace; --lf-heading-weight:600; --lf-label-font:monospace; --lf-label-transform:uppercase; --lf-label-spacing:.1em;
+}
+[data-theme="blueprint"][data-mode="light"], html[data-mode="light"] [data-theme="blueprint"] {
+  --lf-app-bg:#f0f6ff; --lf-text:#0a2040; --lf-text-muted:#48709a;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1px solid #b0d0f0;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#0a2040;
+  --lf-xlate-bg:#e3f0fc; --lf-xlate-border:1px solid #95c4f0; --lf-xlate-text:#061830;
+}
+
+/* Neon arcade */
+[data-theme="neon-arcade"] {
+  --lf-app-bg:radial-gradient(120% 70% at 50% 100%,#1a0730 0%,#0a0612 60%); --lf-text:#eafcff; --lf-text-muted:#8a7ab0;
+  --lf-accent:#ff2fb0; --lf-accent-2:#22d3ee; --lf-on-accent:#0a0612; --lf-success:#22d3ee;
+  --lf-surface-bg:transparent; --lf-surface-border:1.5px solid rgba(34,211,238,.5); --lf-surface-shadow:0 0 18px -4px rgba(34,211,238,.4), inset 0 0 18px -8px rgba(34,211,238,.4); --lf-surface-radius:14px; --lf-backdrop:none;
+  --lf-panel-bg:#140826; --lf-panel-text:#22d3ee;
+  --lf-xlate-bg:transparent; --lf-xlate-border:1.5px solid rgba(255,47,176,.6); --lf-xlate-text:#ffe6f6; --lf-xlate-label:#ff2fb0;
+  --lf-record-bg:#ff2fb0; --lf-record-radius:50%; --lf-record-shadow:0 0 26px rgba(255,47,176,.7); --lf-record-glyph:#0a0612;
+  --lf-chip-bg:transparent; --lf-chip-border:1px solid rgba(34,211,238,.5); --lf-badge-bg:transparent; --lf-badge-text:#22d3ee;
+  --lf-wave-color:#ff2fb0;
+  --lf-font-display:sans-serif; --lf-font-body:sans-serif; --lf-font-mono:monospace; --lf-heading-weight:600; --lf-label-transform:uppercase; --lf-label-spacing:.12em;
+}
+[data-theme="neon-arcade"][data-mode="light"], html[data-mode="light"] [data-theme="neon-arcade"] {
+  --lf-app-bg:#fcf0fa; --lf-text:#200530; --lf-text-muted:#804090;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1.5px solid #f090d0;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#200530;
+  --lf-xlate-bg:#fae4f5; --lf-xlate-border:1.5px solid #e070c0; --lf-xlate-text:#200530;
+}
+
+/* Warm minimal */
+[data-theme="warm-minimal"] {
+  --lf-app-bg:#f5f0e8; --lf-text:#2c2620; --lf-text-muted:#a89a86;
+  --lf-accent:#b0563a; --lf-accent-2:#b0563a; --lf-on-accent:#f5f0e8; --lf-success:#7a8a4a;
+  --lf-surface-bg:transparent; --lf-surface-border:none; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:transparent; --lf-panel-text:#b0563a;
+  --lf-xlate-bg:transparent; --lf-xlate-border:none; --lf-xlate-text:#5c5346; --lf-xlate-label:#b0563a;
+  --lf-record-bg:transparent; --lf-record-radius:50%; --lf-record-shadow:none; --lf-record-glyph:#b0563a;
+  --lf-chip-bg:transparent; --lf-chip-border:1px solid #e0d7c3; --lf-badge-bg:transparent; --lf-badge-text:#b0563a;
+  --lf-wave-color:#b0563a;
+  --lf-font-display:serif; --lf-font-body:serif; --lf-font-mono:monospace; --lf-heading-weight:500; --lf-label-font:serif; --lf-label-transform:uppercase; --lf-label-spacing:.24em;
+}
+[data-theme="warm-minimal"][data-mode="dark"], html[data-mode="dark"] [data-theme="warm-minimal"] {
+  --lf-app-bg:#1c1814; --lf-text:#f5f0e8; --lf-text-muted:#9e8e7a;
+  --lf-surface-bg:#26211c; --lf-surface-border:1px solid #3a332b;
+  --lf-panel-bg:#26211c; --lf-panel-text:#f5f0e8;
+  --lf-xlate-bg:#201b17; --lf-xlate-border:none; --lf-xlate-text:#e2d9cc;
+}
+
+/* Bold mono */
+[data-theme="bold-mono"] {
+  --lf-app-bg:#ffffff; --lf-text:#000000; --lf-text-muted:#555555;
+  --lf-accent:#000000; --lf-accent-2:#000000; --lf-on-accent:#ffffff; --lf-success:#000000;
+  --lf-surface-bg:#ffffff; --lf-surface-border:2px solid #000000; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#000000; --lf-panel-text:#ffffff;
+  --lf-xlate-bg:#000000; --lf-xlate-border:2px solid #000000; --lf-xlate-text:#ffffff; --lf-xlate-label:#ffffff;
+  --lf-record-bg:#000000; --lf-record-radius:0; --lf-record-shadow:none; --lf-record-glyph:#ffffff;
+  --lf-chip-bg:#ffffff; --lf-chip-border:2px solid #000000; --lf-badge-bg:#000000; --lf-badge-text:#ffffff;
+  --lf-wave-color:#000000;
+  --lf-font-display:monospace; --lf-font-body:monospace; --lf-font-mono:monospace; --lf-heading-weight:700; --lf-label-font:monospace; --lf-label-transform:uppercase; --lf-label-spacing:.08em;
+}
+[data-theme="bold-mono"][data-mode="dark"], html[data-mode="dark"] [data-theme="bold-mono"] {
+  --lf-app-bg:#000000; --lf-text:#ffffff; --lf-text-muted:#aaaaaa;
+  --lf-surface-bg:#000000; --lf-surface-border:2px solid #ffffff;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#000000;
+  --lf-xlate-bg:#ffffff; --lf-xlate-border:2px solid #ffffff; --lf-xlate-text:#000000; --lf-xlate-label:#000000;
+}
+
+/* Nature calm */
+[data-theme="nature-calm"] {
+  --lf-app-bg:#eef2ea; --lf-text:#2f3d2c; --lf-text-muted:#8ba085;
+  --lf-accent:#4a6b4a; --lf-accent-2:#4a6b4a; --lf-on-accent:#eef4ea; --lf-success:#4a6b4a;
+  --lf-surface-bg:#f7faf5; --lf-surface-border:none; --lf-surface-shadow:none; --lf-surface-radius:20px; --lf-backdrop:none;
+  --lf-panel-bg:#4a6b4a; --lf-panel-text:#eef4ea;
+  --lf-xlate-bg:#4a6b4a; --lf-xlate-border:none; --lf-xlate-text:#eef4ea; --lf-xlate-label:#c4d6bf;
+  --lf-record-bg:#4a6b4a; --lf-record-radius:50%; --lf-record-shadow:0 8px 20px -6px rgba(74,107,74,.55); --lf-record-glyph:#eef2ea;
+  --lf-chip-bg:#dde7d8; --lf-chip-border:none; --lf-badge-bg:#dde7d8; --lf-badge-text:#4a6b4a;
+  --lf-wave-color:#17604a;
+  --lf-font-display:serif; --lf-font-body:serif; --lf-font-mono:monospace; --lf-heading-weight:600; --lf-label-font:serif; --lf-label-transform:uppercase; --lf-label-spacing:.08em;
+}
+[data-theme="nature-calm"][data-mode="dark"], html[data-mode="dark"] [data-theme="nature-calm"] {
+  --lf-app-bg:#162014; --lf-text:#eef2ea; --lf-text-muted:#8ba085;
+  --lf-surface-bg:#202d1d; --lf-surface-border:none;
+  --lf-panel-bg:#202d1d; --lf-panel-text:#eef2ea;
+  --lf-xlate-bg:#2a3a27; --lf-xlate-border:none; --lf-xlate-text:#eef4ea;
+}
+
+/* ============================================================
+   COMPLETE 16-THEME COLOR MODE INVERSION CONTRACT
+   Inverts background, text, surfaces, borders, and inputs for all themes.
+   ============================================================ */
+
+/* 1. Focus Light — Dark Inversion */
+[data-theme="focus-light"][data-mode="dark"],
+html[data-mode="dark"] [data-theme="focus-light"] {
+  --lf-app-bg:#0b1019; --lf-text:#f0f4f9; --lf-text-muted:#8a96a8;
+  --lf-surface-bg:#141c2b; --lf-surface-border:1px solid #243247;
+  --lf-panel-bg:#141c2b; --lf-panel-text:#f0f4f9;
+  --lf-xlate-bg:#0f1929; --lf-xlate-border:1px solid #1e2f4a; --lf-xlate-text:#d0e1fd;
+  --lf-chip-bg:#141c2b; --lf-chip-border:1px solid #243247;
+}
+
+/* 2. Frosted Native — Dark Inversion */
+[data-theme="frosted-native"][data-mode="dark"],
+html[data-mode="dark"] [data-theme="frosted-native"] {
+  --lf-app-bg:#0e131d; --lf-text:#edf2fa; --lf-text-muted:#7e8b9f;
+  --lf-surface-bg:#161d2a; --lf-surface-border:1px solid #263144;
+  --lf-panel-bg:#161d2a; --lf-panel-text:#edf2fa;
+  --lf-xlate-bg:#111722; --lf-xlate-border:1px solid #1e293b; --lf-xlate-text:#d4e2fd;
+  --lf-chip-bg:#161d2a; --lf-chip-border:1px solid #263144;
+}
+
+/* 3. Soft UI — Dark Inversion */
+[data-theme="soft-ui"][data-mode="dark"],
+html[data-mode="dark"] [data-theme="soft-ui"] {
+  --lf-app-bg:#161b24; --lf-text:#e2e8f0; --lf-text-muted:#7e8b9f;
+  --lf-surface-bg:#1d2430; --lf-surface-border:1px solid #293344;
+  --lf-panel-bg:#1d2430; --lf-panel-text:#e2e8f0;
+  --lf-xlate-bg:#161f2d; --lf-xlate-border:1px solid #263248; --lf-xlate-text:#cad8f0;
+  --lf-chip-bg:#1d2430; --lf-chip-border:1px solid #293344;
+}
+
+/* 4. Candy — Dark Inversion */
+[data-theme="candy"][data-mode="dark"],
+html[data-mode="dark"] [data-theme="candy"] {
+  --lf-app-bg:#140e26; --lf-text:#f3eefc; --lf-text-muted:#9b8fc2;
+  --lf-surface-bg:#1e1736; --lf-surface-border:1px solid #322756;
+  --lf-panel-bg:#1e1736; --lf-panel-text:#f3eefc;
+  --lf-xlate-bg:#261b47; --lf-xlate-border:1px solid #3d2c6e; --lf-xlate-text:#e7dcfe;
+  --lf-chip-bg:#1e1736; --lf-chip-border:1px solid #322756;
+}
+
+/* 5. Material Expressive — Dark Inversion */
+[data-theme="material"][data-mode="dark"],
+html[data-mode="dark"] [data-theme="material"] {
+  --lf-app-bg:#141218; --lf-text:#e6e1e5; --lf-text-muted:#938f96;
+  --lf-surface-bg:#211f26; --lf-surface-border:1px solid #36343b;
+  --lf-panel-bg:#211f26; --lf-panel-text:#e6e1e5;
+  --lf-xlate-bg:#2b2833; --lf-xlate-border:1px solid #433f4d; --lf-xlate-text:#e8def8;
+  --lf-chip-bg:#211f26; --lf-chip-border:1px solid #36343b;
+}
+
+/* 6. Sunset — Dark Inversion */
+[data-theme="sunset"][data-mode="dark"],
+html[data-mode="dark"] [data-theme="sunset"] {
+  --lf-app-bg:#1a1015; --lf-text:#fce8ec; --lf-text-muted:#a68e95;
+  --lf-surface-bg:#261820; --lf-surface-border:1px solid #3d2432;
+  --lf-panel-bg:#261820; --lf-panel-text:#fce8ec;
+  --lf-xlate-bg:#331d2a; --lf-xlate-border:1px solid #4d283e; --lf-xlate-text:#ffe4ec;
+  --lf-chip-bg:#261820; --lf-chip-border:1px solid #3d2432;
+}
+
+/* 7. Neo-Brutalist — Dark Inversion */
+[data-theme="brutalist"][data-mode="dark"],
+html[data-mode="dark"] [data-theme="brutalist"] {
+  --lf-app-bg:#121212; --lf-text:#ffffff; --lf-text-muted:#a0a0a0;
+  --lf-surface-bg:#1e1e1e; --lf-surface-border:2px solid #ffffff;
+  --lf-panel-bg:#1e1e1e; --lf-panel-text:#ffffff;
+  --lf-xlate-bg:#282828; --lf-xlate-border:2px solid #ffe14d; --lf-xlate-text:#ffe14d;
+  --lf-chip-bg:#1e1e1e; --lf-chip-border:2px solid #ffffff;
+}
+
+/* 8. Swiss — Dark Inversion */
+[data-theme="swiss"][data-mode="dark"],
+html[data-mode="dark"] [data-theme="swiss"] {
+  --lf-app-bg:#111111; --lf-text:#f2f2f0; --lf-text-muted:#888888;
+  --lf-surface-bg:#1c1c1c; --lf-surface-border:1px solid #333333;
+  --lf-panel-bg:#1c1c1c; --lf-panel-text:#f2f2f0;
+  --lf-xlate-bg:#242424; --lf-xlate-border:1px solid #3a3a3a; --lf-xlate-text:#fceae9;
+  --lf-chip-bg:#1c1c1c; --lf-chip-border:1px solid #333333;
+}
+
+/* 9. Warm Editorial — Dark Inversion */
+[data-theme="warm-editorial"][data-mode="dark"],
+html[data-mode="dark"] [data-theme="warm-editorial"] {
+  --lf-app-bg:#1c1815; --lf-text:#ede6d8; --lf-text-muted:#948876;
+  --lf-surface-bg:#26211d; --lf-surface-border:1px solid #3b342e;
+  --lf-panel-bg:#26211d; --lf-panel-text:#ede6d8;
+  --lf-xlate-bg:#2e2823; --lf-xlate-border:1px solid #453c34; --lf-xlate-text:#f4efe4;
+  --lf-chip-bg:#26211d; --lf-chip-border:1px solid #3b342e;
+}
+
+/* 10. Broadsheet — Dark Inversion */
+[data-theme="broadsheet"][data-mode="dark"],
+html[data-mode="dark"] [data-theme="broadsheet"] {
+  --lf-app-bg:#1a1714; --lf-text:#ede6d8; --lf-text-muted:#8f8372;
+  --lf-surface-bg:#24201c; --lf-surface-border:1px solid #38322c;
+  --lf-panel-bg:#24201c; --lf-panel-text:#ede6d8;
+  --lf-xlate-bg:#2d2823; --lf-xlate-border:1px solid #423b34; --lf-xlate-text:#f6f1e4;
+  --lf-chip-bg:#24201c; --lf-chip-border:1px solid #38322c;
+}
+
+/* 11. Editorial Split — Dark Inversion */
+[data-theme="editorial-split"][data-mode="dark"],
+html[data-mode="dark"] [data-theme="editorial-split"] {
+  --lf-app-bg:#181512; --lf-text:#ede6d8; --lf-text-muted:#8a7f6e;
+  --lf-surface-bg:#221e1a; --lf-surface-border:1px solid #36302a;
+  --lf-panel-bg:#221e1a; --lf-panel-text:#ede6d8;
+  --lf-xlate-bg:#2b2621; --lf-xlate-border:1px solid #3f3831; --lf-xlate-text:#f4efe4;
+  --lf-chip-bg:#221e1a; --lf-chip-border:1px solid #36302a;
+}
+
+/* 12. Glass Aurora — Light Inversion */
+[data-theme="glass-aurora"][data-mode="light"],
+html[data-mode="light"] [data-theme="glass-aurora"] {
+  --lf-app-bg:#f3f0fd; --lf-text:#150c3d; --lf-text-muted:#6b5f9e;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1px solid #d9d0f7;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#150c3d;
+  --lf-xlate-bg:#e9e3fb; --lf-xlate-border:1px solid #c7b9f2; --lf-xlate-text:#1a1240;
+  --lf-chip-bg:#ffffff; --lf-chip-border:1px solid #d9d0f7;
+}
+
+/* 13. Glass Dark — Light Inversion */
+[data-theme="glass-dark"][data-mode="light"],
+html[data-mode="light"] [data-theme="glass-dark"] {
+  --lf-app-bg:#f0f6fa; --lf-text:#0a1828; --lf-text-muted:#5a738e;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1px solid #d2e1ee;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#0a1828;
+  --lf-xlate-bg:#e6f1f8; --lf-xlate-border:1px solid #bdd5e7; --lf-xlate-text:#0c1a2e;
+  --lf-chip-bg:#ffffff; --lf-chip-border:1px solid #d2e1ee;
+}
+
+/* 14. Amber Studio — Light Inversion */
+[data-theme="amber-studio"][data-mode="light"],
+html[data-mode="light"] [data-theme="amber-studio"] {
+  --lf-app-bg:#fdfaef; --lf-text:#241a0e; --lf-text-muted:#7e6c52;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1px solid #ebdcc5;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#241a0e;
+  --lf-xlate-bg:#f8f0de; --lf-xlate-border:1px solid #e2cb9f; --lf-xlate-text:#1c150d;
+  --lf-chip-bg:#ffffff; --lf-chip-border:1px solid #ebdcc5;
+}
+
+/* 15. Local-first Terminal — Light Inversion */
+[data-theme="terminal"][data-mode="light"],
+html[data-mode="light"] [data-theme="terminal"] {
+  --lf-app-bg:#f0f8f1; --lf-text:#0a200d; --lf-text-muted:#406b45;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1px solid #bde6c3;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#0a200d;
+  --lf-xlate-bg:#e3f4e6; --lf-xlate-border:1px solid #a3d9ac; --lf-xlate-text:#0a110a;
+  --lf-chip-bg:#ffffff; --lf-chip-border:1px solid #bde6c3;
+}
+
+/* 16. Zen Focus — Light Inversion */
+[data-theme="zen"][data-mode="light"],
+html[data-mode="light"] [data-theme="zen"] {
+  --lf-app-bg:#fafafa; --lf-text:#141414; --lf-text-muted:#737373;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1px solid #e5e5e5;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#141414;
+  --lf-xlate-bg:#f0f0f0; --lf-xlate-border:1px solid #d4d4d4; --lf-xlate-text:#0a0a0a;
+  --lf-chip-bg:#ffffff; --lf-chip-border:1px solid #e5e5e5;
+}
+
+/* ============================================================
+   OPTIONAL HELPER LAYER
+   Map tokens to reusable classes. Adopt these on your Speech
+   markup, OR ignore them and map the --lf-* tokens straight
+   onto your existing components. Either path works.
+   ============================================================ */
+.lf-app        { background:var(--lf-app-bg); color:var(--lf-text); font-family:var(--lf-font-body); min-height:100%; }
+.lf-heading    { font-family:var(--lf-font-display); font-weight:var(--lf-heading-weight); color:var(--lf-text); letter-spacing:-.01em; margin:0; }
+.lf-label      { font-family:var(--lf-label-font); text-transform:var(--lf-label-transform); letter-spacing:var(--lf-label-spacing); color:var(--lf-text-muted); font-size:11px; }
+.lf-card       { background:var(--lf-surface-bg); border:var(--lf-surface-border); box-shadow:var(--lf-surface-shadow); border-radius:var(--lf-surface-radius); -webkit-backdrop-filter:var(--lf-backdrop); backdrop-filter:var(--lf-backdrop); }
+.lf-chip       { background:var(--lf-chip-bg); border:var(--lf-chip-border); border-radius:var(--lf-surface-radius); color:var(--lf-text); padding:9px 12px; }
+.lf-badge      { background:var(--lf-badge-bg); color:var(--lf-badge-text); border-radius:999px; padding:6px 11px; font-family:var(--lf-font-body); font-weight:600; font-size:11px; }
+.lf-translation{ background:var(--lf-xlate-bg); border:var(--lf-xlate-border); color:var(--lf-xlate-text); border-radius:var(--lf-surface-radius); }
+.lf-translation .lf-label { color:var(--lf-xlate-label); }
+.lf-record     { background:var(--lf-record-bg); border-radius:var(--lf-record-radius); box-shadow:var(--lf-record-shadow); color:var(--lf-record-glyph); display:flex; align-items:center; justify-content:center; border:none; cursor:pointer; }
+.lf-record > .lf-record-glyph { width:34%; height:34%; background:var(--lf-record-glyph); border-radius:20%; }
+/* waveform: render N bars, each <span class="lf-wave-bar"> with an inline height */
+.lf-wave       { display:flex; align-items:center; gap:2.5px; height:30px; }
+.lf-wave-bar   { width:3px; border-radius:2px; background:var(--lf-wave-color); }
+.lf-accent-text{ color:var(--lf-accent); }
+
+/* ---------- INDEPENDENT TYPOGRAPHY ----------
+   These selectors load after every look, so choosing a new look never changes
+   the user's font. All stacks are available offline on the target platforms. */
+:root,
+[data-font="modern"] {
+  --lf-font-display:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --lf-font-body:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --lf-font-mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --lf-label-font:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+[data-font="friendly"] {
+  --lf-font-display:ui-rounded,"Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  --lf-font-body:"Trebuchet MS",ui-rounded,system-ui,sans-serif;
+  --lf-font-mono:ui-monospace,Consolas,monospace;
+  --lf-label-font:"Trebuchet MS",ui-rounded,system-ui,sans-serif;
+}
+[data-font="accessible"] {
+  --lf-font-display:Arial,"Helvetica Neue",sans-serif;
+  --lf-font-body:Arial,"Helvetica Neue",sans-serif;
+  --lf-font-mono:ui-monospace,Consolas,monospace;
+  --lf-label-font:Arial,"Helvetica Neue",sans-serif;
+}
+[data-font="editorial"] {
+  --lf-font-display:Georgia,"Times New Roman",serif;
+  --lf-font-body:Georgia,"Times New Roman",serif;
+  --lf-font-mono:ui-monospace,Consolas,monospace;
+  --lf-label-font:Georgia,"Times New Roman",serif;
+}
+[data-font="classic"] {
+  --lf-font-display:"Times New Roman",Times,serif;
+  --lf-font-body:"Times New Roman",Times,serif;
+  --lf-font-mono:ui-monospace,Consolas,monospace;
+  --lf-label-font:"Times New Roman",Times,serif;
+}
+[data-font="technical"] {
+  --lf-font-display:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --lf-font-body:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --lf-font-mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --lf-label-font:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+}

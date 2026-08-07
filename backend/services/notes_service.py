@@ -23,19 +23,37 @@ def init_notes_db():
                 updated_at TEXT NOT NULL
             )
         """)
+        columns = {row[1] for row in conn.execute("PRAGMA table_info(notes)").fetchall()}
+        if "idempotency_key" not in columns:
+            conn.execute("ALTER TABLE notes ADD COLUMN idempotency_key TEXT")
+        conn.execute(
+            "CREATE UNIQUE INDEX IF NOT EXISTS idx_notes_idempotency_key "
+            "ON notes(idempotency_key) WHERE idempotency_key IS NOT NULL"
+        )
         conn.commit()
 
 
-def create_note(title: str, content: str, language: str):
+def create_note(title: str, content: str, language: str, idempotency_key: str | None = None):
     now = datetime.now().isoformat(timespec="seconds")
 
     with get_connection() as conn:
+        conn.row_factory = sqlite3.Row
+        if idempotency_key:
+            existing = conn.execute(
+                """
+                SELECT id, title, content, language, created_at, updated_at
+                FROM notes WHERE idempotency_key = ?
+                """,
+                (idempotency_key,),
+            ).fetchone()
+            if existing:
+                return dict(existing)
         cursor = conn.execute(
             """
-            INSERT INTO notes (title, content, language, created_at, updated_at)
-            VALUES (?, ?, ?, ?, ?)
+            INSERT INTO notes (title, content, language, created_at, updated_at, idempotency_key)
+            VALUES (?, ?, ?, ?, ?, ?)
             """,
-            (title, content, language, now, now)
+            (title, content, language, now, now, idempotency_key)
         )
         conn.commit()
 

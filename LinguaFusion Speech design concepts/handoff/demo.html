@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="focus-light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>LinguaFusion — Theme + Motion demo</title>
+<link rel="stylesheet" href="linguafusion-themes.css">
+<link rel="stylesheet" href="linguafusion-structure.css">
+<link rel="stylesheet" href="linguafusion-motion.css">
+<style>
+  html,body{height:100%}
+  body{margin:0;font-family:var(--lf-font-body)}
+  .stage{min-height:100vh;background:var(--lf-app-bg);color:var(--lf-text);display:flex;flex-direction:column}
+  .toolbar{position:sticky;top:0;z-index:10;display:flex;flex-wrap:wrap;gap:10px;align-items:center;
+    padding:12px 18px;background:rgba(127,127,127,.14);backdrop-filter:blur(8px);border-bottom:1px solid rgba(127,127,127,.2)}
+  .toolbar label{font:600 11px var(--lf-font-body);opacity:.7;text-transform:uppercase;letter-spacing:.05em}
+  .toolbar select,.toolbar button{font:600 12px var(--lf-font-body);padding:7px 12px;border-radius:8px;
+    border:1px solid rgba(127,127,127,.4);background:rgba(127,127,127,.12);color:inherit;cursor:pointer}
+  .demo-wrap{flex:1;display:flex;align-items:flex-start;justify-content:center;padding:28px 18px}
+  .device{width:min(560px,100%)}
+  /* helper-class demo layout */
+  .row{display:flex;gap:10px}
+  .lf-record-glyph{display:block}
+  .lf-record:active{transform:scale(.94)}
+</style>
+</head>
+<body>
+<div class="stage">
+  <div class="toolbar">
+    <label>Build</label>
+    <select id="platform"><option value="">All 16</option><option value="mobile">📱 Mobile (7)</option><option value="pc">🖥 PC + Web (9)</option></select>
+    <label>Theme</label>
+    <span id="picker"></span>
+    <span style="flex:1"></span>
+    <button id="btn-switch">↻ Screen switch</button>
+    <button id="btn-import">↓ Import</button>
+    <button id="btn-result">＋ New result</button>
+    <button id="btn-export">↑ Export</button>
+    <button id="btn-rec">● Record</button>
+  </div>
+
+  <div class="demo-wrap">
+    <main class="device lf-app lf-speech lf-screen-enter" id="screen" style="border-radius:var(--lf-surface-radius);overflow:hidden">
+      <div class="lf-signature" aria-hidden="true"></div>
+      <header class="lf-speech-head" style="padding:18px 22px">
+        <div style="display:flex;align-items:center;gap:11px">
+          <div style="width:34px;height:34px;border-radius:9px;background:var(--lf-accent);color:var(--lf-on-accent);
+            display:flex;align-items:center;justify-content:center;font:600 17px var(--lf-font-display)">文</div>
+          <h1 class="lf-heading" style="font-size:20px">Speech</h1>
+        </div>
+        <span class="lf-badge">● Offline ready</span>
+      </header>
+
+      <section class="lf-speech-controls" style="padding:0 22px 14px">
+        <div class="lf-chip" style="flex:1"><div class="lf-label">STT</div><div style="margin-top:2px;font-weight:600">Auto</div></div>
+        <div class="lf-chip" style="flex:1"><div class="lf-label">Translate to</div><div style="margin-top:2px;font-weight:600">German</div></div>
+      </section>
+
+      <section class="lf-card lf-recorder lf-import-enter" id="recorder" style="margin:0 22px;padding:16px">
+        <button class="lf-record" id="record" style="width:58px;height:58px;flex:none" aria-label="Record">
+          <span class="lf-record-glyph"></span>
+        </button>
+        <div class="lf-heading" style="font-size:26px;font-variant-numeric:tabular-nums">00:42</div>
+        <div class="lf-wave" id="wave" style="flex:1"></div>
+      </section>
+
+      <section class="lf-result" id="result" style="display:flex;flex-direction:column;gap:12px;padding:16px 22px 30px">
+        <div class="lf-card" style="padding:14px">
+          <div class="lf-label">Transcript</div>
+          <p style="margin:6px 0 0;line-height:1.5">Let's begin — can everyone hear me clearly?</p>
+        </div>
+        <div class="lf-translation" style="padding:14px">
+          <div class="lf-label">Translation · DE</div>
+          <p style="margin:6px 0 0;line-height:1.5">Fangen wir an — können mich alle deutlich hören?</p>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
+
+<script type="module">
+  import { initTheme, picker } from './linguafusion-themes.js';
+  import * as M from './linguafusion-motion.js';
+
+  initTheme();
+  const pickerMount = document.getElementById('picker');
+  const platformSel = document.getElementById('platform');
+  function buildPicker() {
+    pickerMount.innerHTML = '';
+    picker(pickerMount, { platform: platformSel.value || undefined });
+  }
+  buildPicker();
+  platformSel.onchange = buildPicker;
+
+  const wave = document.getElementById('wave');
+  M.buildWave(wave, 30);
+
+  const screen = document.getElementById('screen');
+  const result = document.getElementById('result');
+  const record = document.getElementById('record');
+  let recording = false;
+  let n = 0;
+  const lines = [
+    ['The offline model handles this entirely on-device.', 'Das Offline-Modell verarbeitet das vollständig auf dem Gerät.'],
+    ['Nothing leaves your machine.', 'Nichts verlässt Ihren Rechner.'],
+    ['GPU acceleration keeps it instant.', 'Die GPU-Beschleunigung hält es sofort.'],
+  ];
+
+  document.getElementById('btn-switch').onclick = () => M.enterScreen(screen);
+  document.getElementById('btn-import').onclick  = () => M.importIn(document.getElementById('recorder'));
+  document.getElementById('btn-export').onclick  = () => M.exportOut(result, () => M.enterScreen(result));
+  document.getElementById('btn-result').onclick  = () => {
+    const [en, de] = lines[n++ % lines.length];
+    const c = document.createElement('div'); c.className = 'lf-card'; c.style.padding = '14px';
+    c.innerHTML = '<div class="lf-label">Transcript</div><p style="margin:6px 0 0;line-height:1.5">' + en + '</p>';
+    const t = document.createElement('div'); t.className = 'lf-translation'; t.style.padding = '14px';
+    t.innerHTML = '<div class="lf-label">Translation · DE</div><p style="margin:6px 0 0;line-height:1.5">' + de + '</p>';
+    result.appendChild(c); result.appendChild(t);
+    M.revealResult(result);
+  };
+  document.getElementById('btn-rec').onclick = () => {
+    recording = !recording;
+    M.setRecording(record, recording);
+    M.setWaveLive(wave, recording);
+  };
+
+  // theme change re-plays the entrance so you feel each theme's motion
+  document.addEventListener('lf-theme-change', () => M.enterScreen(screen));
+</script>
+</body>
+</html>

@@ -1,0 +1,139 @@
+/* ============================================================
+   LinguaFusion — Structural layer
+   THIS is what turns "16 palettes" into "16 designs".
+
+   linguafusion-themes.css skins components (color/font/radius/
+   shadow). This file changes their LAYOUT per theme — the grids,
+   prompts, rails, columns and single-column focus that make each
+   look distinct. Without it, agents produce color-only reskins.
+
+   LOAD ORDER (important):
+     1. linguafusion-themes.css   (tokens + skin)
+     2. linguafusion-structure.css  <-- this file, must win cascade
+     3. linguafusion-motion.css
+
+   REQUIRED MARKUP HOOKS on the Speech screen (same idea per
+   screen). Keep these class names; structure targets them:
+
+     <main class="lf-app lf-speech">
+       <div  class="lf-signature" aria-hidden="true"></div>  <!-- prompt/masthead slot -->
+       <header  class="lf-speech-head">   … brand + title + badge … </header>
+       <section class="lf-speech-controls"> … language chips …    </section>
+       <section class="lf-recorder lf-card"> … mic + timer + wave … </section>
+       <section class="lf-result">          … transcript + translation panels … </section>
+     </main>
+   ============================================================ */
+
+/* ---------- BASE (harmless defaults; grid-area names are inert in flex) ---------- */
+.lf-speech            { display:flex; flex-direction:column; gap:14px; }
+.lf-speech-head       { grid-area:head; display:flex; align-items:center; justify-content:space-between; }
+.lf-speech-controls   { grid-area:controls; display:flex; gap:10px; }
+.lf-recorder          { grid-area:recorder; display:flex; align-items:center; gap:16px; }
+.lf-result            { grid-area:result; display:flex; flex-direction:column; gap:12px; }
+.lf-signature         { display:none; }   /* only shown by themes that use it */
+
+/* ============================================================
+   1g  SWISS — 3-column control grid + 2-column result, hairlines
+   ============================================================ */
+[data-theme="swiss"] .lf-speech-controls{
+  display:grid; grid-template-columns:repeat(3,1fr); gap:0;
+  border-top:2px solid var(--lf-text); border-bottom:2px solid var(--lf-text);
+}
+[data-theme="swiss"] .lf-speech-controls > *{ border-radius:0; border-right:1px solid #d5d5d1; }
+[data-theme="swiss"] .lf-speech-controls > *:last-child{ border-right:none; }
+[data-theme="swiss"] .lf-result{ display:grid; grid-template-columns:1fr 1fr; gap:0; }
+[data-theme="swiss"] .lf-result > * + *{ border-left:1px solid #d5d5d1; padding-left:18px; }
+[data-theme="swiss"] .lf-recorder{ border-left:none; border-right:none; border-radius:0; }
+
+/* ============================================================
+   1c  TERMINAL — command prompt header + key-hint feel
+   ============================================================ */
+[data-theme="terminal"] .lf-signature{
+  display:block; font-family:var(--lf-font-mono); font-size:12px; color:var(--lf-accent);
+  padding:8px 0; border-bottom:1px dashed #23401f; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;
+}
+[data-theme="terminal"] .lf-signature::before{
+  content:"linguafusion@local ~/speech $ stt --lang auto --translate-to de --live on";
+}
+[data-theme="terminal"] .lf-result > *{ border-left:2px solid #2c5228; border-radius:0; }
+[data-theme="terminal"] .lf-result > .lf-translation{ border-left-color:#6d5a1f; }
+
+/* ============================================================
+   2i  EDITORIAL SPLIT — cream editorial pane + dark control rail
+   Linear DOM reflows into a 2-column spread via grid areas.
+   ============================================================ */
+[data-theme="editorial-split"] .lf-speech{
+  display:grid; grid-template-columns:1fr 240px; grid-template-rows:auto auto 1fr;
+  grid-template-areas:"result head" "result controls" "result recorder"; gap:0; min-height:440px;
+}
+[data-theme="editorial-split"] .lf-speech-head,
+[data-theme="editorial-split"] .lf-speech-controls,
+[data-theme="editorial-split"] .lf-recorder{
+  background:var(--lf-panel-bg); color:var(--lf-panel-text); padding:16px 20px; border-radius:0;
+}
+[data-theme="editorial-split"] .lf-speech-controls{ flex-direction:column; }
+[data-theme="editorial-split"] .lf-speech-controls > *{ color:var(--lf-panel-text); background:transparent; }
+[data-theme="editorial-split"] .lf-recorder{ flex-direction:column; align-items:flex-start; gap:14px; }
+[data-theme="editorial-split"] .lf-result{ padding:24px 26px; }
+
+/* ============================================================
+   2j  ZEN — hide chrome, one centered column, waveform is hero
+   ============================================================ */
+[data-theme="zen"] .lf-speech-head,
+[data-theme="zen"] .lf-speech-controls{ display:none; }
+[data-theme="zen"] .lf-speech{ align-items:center; justify-content:center; text-align:center; gap:28px; min-height:70vh; padding:40px 22px; }
+[data-theme="zen"] .lf-recorder{ flex-direction:column; gap:24px; background:transparent; border:none; box-shadow:none; }
+[data-theme="zen"] .lf-wave{ transform:scale(1.5); margin:10px 0; }
+[data-theme="zen"] .lf-result{ max-width:460px; align-items:center; }
+[data-theme="zen"] .lf-result > *{ background:transparent; border:none; text-align:center; }
+
+/* ============================================================
+   2b  BROADSHEET — masthead dateline + newspaper columns
+   ============================================================ */
+[data-theme="broadsheet"] .lf-signature{
+  display:block; text-align:center; font-family:var(--lf-label-font); font-style:italic;
+  color:var(--lf-text-muted); letter-spacing:.04em; padding-bottom:8px; border-bottom:3px double var(--lf-text);
+}
+[data-theme="broadsheet"] .lf-signature::before{ content:"PRIVATE · LOCAL · OFFLINE — EST. ON THIS DEVICE"; }
+[data-theme="broadsheet"] .lf-speech-head{ justify-content:center; text-align:center; }
+[data-theme="broadsheet"] .lf-result{ display:grid; grid-template-columns:1fr 1fr; gap:20px; }
+[data-theme="broadsheet"] .lf-result > * + *{ border-left:1px solid var(--lf-text-muted); padding-left:20px; }
+
+/* ============================================================
+   2l  BRUTALIST — thick borders + hard offset shadow on every block
+   ============================================================ */
+[data-theme="brutalist"] .lf-speech-controls > *,
+[data-theme="brutalist"] .lf-recorder,
+[data-theme="brutalist"] .lf-result > *{
+  border:3px solid #000; box-shadow:4px 4px 0 #000; border-radius:0;
+}
+[data-theme="brutalist"] .lf-result > .lf-translation{ background:var(--lf-accent-2); }
+
+/* ============================================================
+   2o  SUNSET — gradient app bg + white content sheet
+   ============================================================ */
+[data-theme="sunset"] .lf-speech-head,
+[data-theme="sunset"] .lf-speech-controls{ color:#fff; }
+[data-theme="sunset"] .lf-speech-controls > *{ background:rgba(255,255,255,.2); color:#fff; }
+[data-theme="sunset"] .lf-result{
+  background:#fff; border-radius:28px 28px 0 0; padding:22px 20px; margin-top:6px;
+  box-shadow:0 -10px 30px -18px rgba(242,78,122,.4);
+}
+
+/* ============================================================
+   1e / 2m  GLASS — layered depth: inner top highlight on panels
+   ============================================================ */
+[data-theme="glass-aurora"] .lf-recorder,
+[data-theme="glass-aurora"] .lf-result > *,
+[data-theme="glass-dark"] .lf-recorder,
+[data-theme="glass-dark"] .lf-result > *{
+  box-shadow:inset 0 1px 0 rgba(255,255,255,.25);
+}
+
+/* ============================================================
+   2k  MATERIAL — generous rhythm between filled containers
+   ============================================================ */
+[data-theme="material"] .lf-result{ gap:14px; }
+[data-theme="material"] .lf-speech-controls{ gap:12px; }
+
+/* Reduced-motion / print safety: structural rules are static, nothing to guard. */

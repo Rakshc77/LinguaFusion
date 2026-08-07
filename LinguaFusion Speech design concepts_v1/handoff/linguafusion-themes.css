@@ -1,0 +1,302 @@
+/* ============================================================
+   LinguaFusion — Theme Framework
+   16 shortlisted looks as a single CSS custom-property contract.
+
+   HOW IT WORKS
+   - Every theme sets the same set of --lf-* variables.
+   - Switch themes by setting  <html data-theme="focus-light">.
+   - Components read tokens through the .lf-* helper classes below
+     (or map the tokens onto your existing components directly).
+   - This generalizes your current Settings > Appearance toggle
+     (Focus Light "A" / Night Studio "C") into a registry of 16.
+
+   THEME IDS (shortlist)
+     focus-light  terminal  warm-editorial  glass-aurora  candy
+     swiss  soft-ui  broadsheet  frosted-native  amber-studio
+     editorial-split  zen  material  brutalist  glass-dark  sunset
+   ============================================================ */
+
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@200;300;400;500;600;700;800&family=DM+Sans:wght@400;500;700&family=Fraunces:opsz,wght@9..144,400;9..144,500;9..144,600&family=Instrument+Serif:ital@0;1&family=IBM+Plex+Mono:wght@400;500;600&family=Archivo:wght@400;600;800;900&family=Sora:wght@400;600;700&display=swap');
+
+/* ---------- TOKEN CONTRACT (defaults = focus-light) ----------
+   Full-value tokens (border/shadow/background hold complete CSS
+   strings) so expressive themes — glass, neumorphic, brutalist —
+   can fully describe themselves without extra rules. */
+:root,
+[data-theme="focus-light"] {
+  /* palette */
+  --lf-app-bg:        #f5f7fb;
+  --lf-text:          #1e2530;
+  --lf-text-muted:    #98a2b3;
+  --lf-accent:        #2f6bff;
+  --lf-accent-2:      #2f6bff;
+  --lf-on-accent:     #ffffff;
+  --lf-success:       #0f9d68;
+  /* primary surface (cards/panels) */
+  --lf-surface-bg:    #ffffff;
+  --lf-surface-border:1px solid #e2e6ee;
+  --lf-surface-shadow:0 1px 3px rgba(30,50,90,.06);
+  --lf-surface-radius:12px;
+  --lf-backdrop:      none;
+  /* secondary panel used by the translation pane */
+  --lf-panel-bg:      #ffffff;
+  --lf-panel-text:    #1e2530;
+  /* translation pane */
+  --lf-xlate-bg:      #f0f5ff;
+  --lf-xlate-border:  1px solid #d9e5ff;
+  --lf-xlate-text:    #2b3a5c;
+  --lf-xlate-label:   #2f6bff;
+  /* record button */
+  --lf-record-bg:     #2f6bff;
+  --lf-record-radius: 50%;
+  --lf-record-shadow: 0 12px 26px -6px rgba(47,107,255,.55);
+  --lf-record-glyph:  #ffffff;
+  /* language/status chips + offline badge */
+  --lf-chip-bg:       #ffffff;
+  --lf-chip-border:   1px solid #e2e6ee;
+  --lf-badge-bg:      #e6f7f0;
+  --lf-badge-text:    #0f9d68;
+  /* waveform */
+  --lf-wave-color:    #2f6bff;
+  /* typography */
+  --lf-font-display:  'Inter', system-ui, sans-serif;
+  --lf-font-body:     'Inter', system-ui, sans-serif;
+  --lf-font-mono:     'IBM Plex Mono', ui-monospace, monospace;
+  --lf-heading-weight:700;
+  --lf-label-font:    'Inter', system-ui, sans-serif;
+  --lf-label-transform:uppercase;
+  --lf-label-spacing: .05em;
+}
+
+/* ---------- 1c  Local-first terminal (dark) ---------- */
+[data-theme="terminal"] {
+  --lf-app-bg:#080d08; --lf-text:#c7f0cf; --lf-text-muted:#4f7a58;
+  --lf-accent:#a9f5b8; --lf-accent-2:#f0e6b8; --lf-on-accent:#12220f; --lf-success:#7cfc98;
+  --lf-surface-bg:#0a110a; --lf-surface-border:1px solid #23401f; --lf-surface-shadow:none; --lf-surface-radius:4px; --lf-backdrop:none;
+  --lf-panel-bg:#0a110a; --lf-panel-text:#c7f0cf;
+  --lf-xlate-bg:#0a110a; --lf-xlate-border:1px solid #6d5a1f; --lf-xlate-text:#f0e6b8; --lf-xlate-label:#f0e6b8;
+  --lf-record-bg:#12220f; --lf-record-radius:3px; --lf-record-shadow:0 0 0 1px #2c5228; --lf-record-glyph:#a9f5b8;
+  --lf-chip-bg:transparent; --lf-chip-border:1px solid #2c5228; --lf-badge-bg:#12220f; --lf-badge-text:#a9f5b8;
+  --lf-wave-color:#7cfc98;
+  --lf-font-display:'IBM Plex Mono',monospace; --lf-font-body:'IBM Plex Mono',monospace; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:600; --lf-label-font:'IBM Plex Mono',monospace; --lf-label-transform:uppercase; --lf-label-spacing:.06em;
+}
+
+/* ---------- 1d  Warm editorial (light) ---------- */
+[data-theme="warm-editorial"] {
+  --lf-app-bg:#f4efe4; --lf-text:#2b2622; --lf-text-muted:#a89b84;
+  --lf-accent:#b04a2f; --lf-accent-2:#a05a3c; --lf-on-accent:#f4efe4; --lf-success:#a05a3c;
+  --lf-surface-bg:#f4efe4; --lf-surface-border:1px solid #e3dccb; --lf-surface-shadow:none; --lf-surface-radius:2px; --lf-backdrop:none;
+  --lf-panel-bg:#f4efe4; --lf-panel-text:#2b2622;
+  --lf-xlate-bg:#f4efe4; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#5b5344; --lf-xlate-label:#b04a2f;
+  --lf-record-bg:#b04a2f; --lf-record-radius:50%; --lf-record-shadow:0 10px 22px -6px rgba(176,74,47,.5); --lf-record-glyph:#f4efe4;
+  --lf-chip-bg:transparent; --lf-chip-border:0 solid transparent; --lf-badge-bg:transparent; --lf-badge-text:#a05a3c;
+  --lf-wave-color:#b04a2f;
+  --lf-font-display:'Fraunces',serif; --lf-font-body:'Fraunces',serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:600; --lf-label-font:'Instrument Serif',serif; --lf-label-transform:none; --lf-label-spacing:0;
+}
+
+/* ---------- 1e  Glass aurora (dark) ---------- */
+[data-theme="glass-aurora"] {
+  --lf-app-bg:radial-gradient(120% 100% at 0% 0%,#3b2b8f 0%,#1a1240 45%,#0e0a2a 100%); --lf-text:#eae7fb; --lf-text-muted:#b7aef0;
+  --lf-accent:#7c5cff; --lf-accent-2:#22d3ee; --lf-on-accent:#ffffff; --lf-success:#34d399;
+  --lf-surface-bg:rgba(255,255,255,.08); --lf-surface-border:1px solid rgba(255,255,255,.16); --lf-surface-shadow:none; --lf-surface-radius:16px; --lf-backdrop:blur(10px);
+  --lf-panel-bg:rgba(255,255,255,.08); --lf-panel-text:#eae7fb;
+  --lf-xlate-bg:linear-gradient(160deg,rgba(124,92,255,.22),rgba(34,211,238,.12)); --lf-xlate-border:1px solid rgba(255,255,255,.16); --lf-xlate-text:#f2f0ff; --lf-xlate-label:#a8f0e6;
+  --lf-record-bg:linear-gradient(135deg,#7c5cff,#22d3ee); --lf-record-radius:50%; --lf-record-shadow:0 10px 30px -4px rgba(124,92,255,.7); --lf-record-glyph:#ffffff;
+  --lf-chip-bg:rgba(255,255,255,.07); --lf-chip-border:1px solid rgba(255,255,255,.14); --lf-badge-bg:rgba(52,211,153,.16); --lf-badge-text:#bff7e6;
+  --lf-wave-color:#8fe9ff;
+  --lf-font-display:'Sora',sans-serif; --lf-font-body:'Sora',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'Sora',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.06em;
+}
+
+/* ---------- 1f  Candy / playful (light) ---------- */
+[data-theme="candy"] {
+  --lf-app-bg:#faf8ff; --lf-text:#2a2440; --lf-text-muted:#b3a8e6;
+  --lf-accent:#7c5cff; --lf-accent-2:#0ea371; --lf-on-accent:#ffffff; --lf-success:#0ea371;
+  --lf-surface-bg:#ffffff; --lf-surface-border:2px solid #efeaff; --lf-surface-shadow:0 6px 16px -8px rgba(124,92,255,.3); --lf-surface-radius:20px; --lf-backdrop:none;
+  --lf-panel-bg:#7c5cff; --lf-panel-text:#ffffff;
+  --lf-xlate-bg:#7c5cff; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#ffffff; --lf-xlate-label:#d6ccff;
+  --lf-record-bg:linear-gradient(135deg,#7c5cff,#a78bff); --lf-record-radius:50%; --lf-record-shadow:0 12px 26px -6px rgba(124,92,255,.6); --lf-record-glyph:#ffffff;
+  --lf-chip-bg:#f0ecff; --lf-chip-border:0 solid transparent; --lf-badge-bg:#d6f7e9; --lf-badge-text:#0ea371;
+  --lf-wave-color:#7c5cff;
+  --lf-font-display:'DM Sans',sans-serif; --lf-font-body:'DM Sans',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'DM Sans',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.02em;
+}
+
+/* ---------- 1g  Swiss / International (light) — see grid note ---------- */
+[data-theme="swiss"] {
+  --lf-app-bg:#f2f2f0; --lf-text:#111111; --lf-text-muted:#8a8a86;
+  --lf-accent:#e63329; --lf-accent-2:#111111; --lf-on-accent:#ffffff; --lf-success:#111111;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1px solid #d5d5d1; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#111111;
+  --lf-xlate-bg:#ffffff; --lf-xlate-border:1px solid #d5d5d1; --lf-xlate-text:#444444; --lf-xlate-label:#e63329;
+  --lf-record-bg:#e63329; --lf-record-radius:50%; --lf-record-shadow:none; --lf-record-glyph:#ffffff;
+  --lf-chip-bg:#ffffff; --lf-chip-border:1px solid #d5d5d1; --lf-badge-bg:transparent; --lf-badge-text:#e63329;
+  --lf-wave-color:#111111;
+  --lf-font-display:'Archivo',sans-serif; --lf-font-body:'Archivo',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:800; --lf-label-font:'Archivo',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.14em;
+}
+
+/* ---------- 1i  Soft-UI / neumorphic (light) ---------- */
+[data-theme="soft-ui"] {
+  --lf-app-bg:#e6e9ef; --lf-text:#42506e; --lf-text-muted:#9aa3b8;
+  --lf-accent:#5b73b3; --lf-accent-2:#5b73b3; --lf-on-accent:#ffffff; --lf-success:#0ea371;
+  --lf-surface-bg:#e6e9ef; --lf-surface-border:0 solid transparent; --lf-surface-shadow:inset 5px 5px 12px #c3c7cf, inset -5px -5px 12px #ffffff; --lf-surface-radius:18px; --lf-backdrop:none;
+  --lf-panel-bg:#e6e9ef; --lf-panel-text:#42506e;
+  --lf-xlate-bg:#e6e9ef; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#4a5670; --lf-xlate-label:#5b73b3;
+  --lf-record-bg:#e6e9ef; --lf-record-radius:50%; --lf-record-shadow:6px 6px 14px #c3c7cf, -6px -6px 14px #ffffff; --lf-record-glyph:#5b73b3;
+  --lf-chip-bg:#e6e9ef; --lf-chip-border:0 solid transparent; --lf-badge-bg:#e6e9ef; --lf-badge-text:#0ea371;
+  --lf-wave-color:#a7b1c9;
+  --lf-font-display:'Inter',sans-serif; --lf-font-body:'Inter',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'Inter',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.05em;
+  /* raised surface variant for elements that pop OUT rather than press IN */
+  --lf-surface-shadow-raised:5px 5px 12px #c3c7cf, -5px -5px 12px #ffffff;
+}
+
+/* ---------- 2b  Broadsheet (light) — see masthead note ---------- */
+[data-theme="broadsheet"] {
+  --lf-app-bg:#f6f1e4; --lf-text:#2b2622; --lf-text-muted:#6e6353;
+  --lf-accent:#8a3a1f; --lf-accent-2:#6e6353; --lf-on-accent:#f6f1e4; --lf-success:#6e6353;
+  --lf-surface-bg:#f6f1e4; --lf-surface-border:0 solid transparent; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#f6f1e4; --lf-panel-text:#2b2622;
+  --lf-xlate-bg:#f6f1e4; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#3a3428; --lf-xlate-label:#8a3a1f;
+  --lf-record-bg:#8a3a1f; --lf-record-radius:50%; --lf-record-shadow:none; --lf-record-glyph:#f6f1e4;
+  --lf-chip-bg:transparent; --lf-chip-border:0 solid transparent; --lf-badge-bg:transparent; --lf-badge-text:#6e6353;
+  --lf-wave-color:#2b2622;
+  --lf-font-display:'Fraunces',serif; --lf-font-body:'Fraunces',serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:600; --lf-label-font:'Instrument Serif',serif; --lf-label-transform:none; --lf-label-spacing:.02em;
+}
+
+/* ---------- 2f  Frosted native (light) ---------- */
+[data-theme="frosted-native"] {
+  --lf-app-bg:linear-gradient(135deg,#dfe6f0,#eef1f7); --lf-text:#1a2233; --lf-text-muted:#8a94a6;
+  --lf-accent:#2f6bff; --lf-accent-2:#2f6bff; --lf-on-accent:#ffffff; --lf-success:#0f9d68;
+  --lf-surface-bg:rgba(255,255,255,.72); --lf-surface-border:1px solid rgba(0,0,0,.06); --lf-surface-shadow:0 8px 24px -12px rgba(30,50,90,.25); --lf-surface-radius:14px; --lf-backdrop:blur(12px);
+  --lf-panel-bg:rgba(255,255,255,.55); --lf-panel-text:#1a2233;
+  --lf-xlate-bg:rgba(47,107,255,.08); --lf-xlate-border:1px solid rgba(47,107,255,.18); --lf-xlate-text:#2b3a5c; --lf-xlate-label:#2f6bff;
+  --lf-record-bg:#2f6bff; --lf-record-radius:50%; --lf-record-shadow:0 8px 18px -4px rgba(47,107,255,.55); --lf-record-glyph:#ffffff;
+  --lf-chip-bg:rgba(255,255,255,.7); --lf-chip-border:1px solid rgba(0,0,0,.06); --lf-badge-bg:rgba(15,157,104,.12); --lf-badge-text:#0f9d68;
+  --lf-wave-color:#2f6bff;
+  --lf-font-display:'Inter',sans-serif; --lf-font-body:'Inter',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'Inter',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.05em;
+}
+
+/* ---------- 2h  Amber studio (dark) ---------- */
+[data-theme="amber-studio"] {
+  --lf-app-bg:#17120c; --lf-text:#f5ecdb; --lf-text-muted:#8a7a5e;
+  --lf-accent:#f5a623; --lf-accent-2:#f5c06a; --lf-on-accent:#17120c; --lf-success:#f5c06a;
+  --lf-surface-bg:#1c150d; --lf-surface-border:1px solid #362a19; --lf-surface-shadow:none; --lf-surface-radius:12px; --lf-backdrop:none;
+  --lf-panel-bg:#120e09; --lf-panel-text:#f5ecdb;
+  --lf-xlate-bg:#22190e; --lf-xlate-border:1px solid #4a3818; --lf-xlate-text:#d8c4a4; --lf-xlate-label:#f5c06a;
+  --lf-record-bg:#f5a623; --lf-record-radius:50%; --lf-record-shadow:0 8px 20px -4px rgba(245,166,35,.5); --lf-record-glyph:#17120c;
+  --lf-chip-bg:#1f180f; --lf-chip-border:1px solid #362a19; --lf-badge-bg:#2a1f10; --lf-badge-text:#f5c06a;
+  --lf-wave-color:#f5a623;
+  --lf-font-display:'Inter',sans-serif; --lf-font-body:'Inter',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'Inter',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.05em;
+}
+
+/* ---------- 2i  Editorial split (light + dark rail) — see split note ---------- */
+[data-theme="editorial-split"] {
+  --lf-app-bg:#f4efe4; --lf-text:#2b2622; --lf-text-muted:#8a7f6b;
+  --lf-accent:#a05a3c; --lf-accent-2:#b04a2f; --lf-on-accent:#f4efe4; --lf-success:#a05a3c;
+  --lf-surface-bg:#f4efe4; --lf-surface-border:0 solid transparent; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#2b2622; --lf-panel-text:#f4efe4;   /* the dark control rail */
+  --lf-xlate-bg:#f4efe4; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#5b5344; --lf-xlate-label:#a05a3c;
+  --lf-record-bg:#a05a3c; --lf-record-radius:50%; --lf-record-shadow:none; --lf-record-glyph:#f4efe4;
+  --lf-chip-bg:transparent; --lf-chip-border:0 solid transparent; --lf-badge-bg:transparent; --lf-badge-text:#a05a3c;
+  --lf-wave-color:#b04a2f;
+  --lf-font-display:'Fraunces',serif; --lf-font-body:'Fraunces',serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:600; --lf-label-font:'Instrument Serif',serif; --lf-label-transform:none; --lf-label-spacing:0;
+}
+
+/* ---------- 2j  Zen focus (dark) — see zen note ---------- */
+[data-theme="zen"] {
+  --lf-app-bg:#0a0a0a; --lf-text:#f4f4f4; --lf-text-muted:#6f6f6f;
+  --lf-accent:#f4f4f4; --lf-accent-2:#f4f4f4; --lf-on-accent:#0a0a0a; --lf-success:#6f6f6f;
+  --lf-surface-bg:transparent; --lf-surface-border:0 solid transparent; --lf-surface-shadow:none; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:transparent; --lf-panel-text:#d0d0d0;
+  --lf-xlate-bg:transparent; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#6f6f6f; --lf-xlate-label:#5a5a5a;
+  --lf-record-bg:#f4f4f4; --lf-record-radius:50%; --lf-record-shadow:none; --lf-record-glyph:#0a0a0a;
+  --lf-chip-bg:transparent; --lf-chip-border:0 solid transparent; --lf-badge-bg:transparent; --lf-badge-text:#6f6f6f;
+  --lf-wave-color:#a7b1c9;
+  --lf-font-display:'Inter',sans-serif; --lf-font-body:'Inter',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:200; --lf-label-font:'Inter',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.34em;
+}
+
+/* ---------- 2k  Material expressive (light) — see material note ---------- */
+[data-theme="material"] {
+  --lf-app-bg:#f3edf7; --lf-text:#1d1b20; --lf-text-muted:#7a757f;
+  --lf-accent:#6750a4; --lf-accent-2:#256a3f; --lf-on-accent:#ffffff; --lf-success:#256a3f;
+  --lf-surface-bg:#ffffff; --lf-surface-border:0 solid transparent; --lf-surface-shadow:none; --lf-surface-radius:24px; --lf-backdrop:none;
+  --lf-panel-bg:#6750a4; --lf-panel-text:#ffffff;
+  --lf-xlate-bg:#6750a4; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#ffffff; --lf-xlate-label:#d0bcff;
+  --lf-record-bg:#6750a4; --lf-record-radius:22px; --lf-record-shadow:0 10px 24px -6px rgba(103,80,164,.5); --lf-record-glyph:#ffffff;
+  --lf-chip-bg:#e8def8; --lf-chip-border:0 solid transparent; --lf-badge-bg:#d7f0dd; --lf-badge-text:#256a3f;
+  --lf-wave-color:#7c4dff;
+  --lf-font-display:'Inter',sans-serif; --lf-font-body:'Inter',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:600; --lf-label-font:'Inter',sans-serif; --lf-label-transform:none; --lf-label-spacing:.01em;
+}
+
+/* ---------- 2l  Neo-brutalist (light) — hard offset shadows ---------- */
+[data-theme="brutalist"] {
+  --lf-app-bg:#fff8e6; --lf-text:#000000; --lf-text-muted:#000000;
+  --lf-accent:#ffe14d; --lf-accent-2:#ff8ac4; --lf-on-accent:#000000; --lf-success:#000000;
+  --lf-surface-bg:#ffffff; --lf-surface-border:3px solid #000000; --lf-surface-shadow:4px 4px 0 #000000; --lf-surface-radius:0; --lf-backdrop:none;
+  --lf-panel-bg:#ff8ac4; --lf-panel-text:#000000;
+  --lf-xlate-bg:#ff8ac4; --lf-xlate-border:3px solid #000000; --lf-xlate-text:#000000; --lf-xlate-label:#000000;
+  --lf-record-bg:#ffe14d; --lf-record-radius:0; --lf-record-shadow:4px 4px 0 #000000; --lf-record-glyph:#000000;
+  --lf-chip-bg:#ffffff; --lf-chip-border:3px solid #000000; --lf-badge-bg:#ffffff; --lf-badge-text:#000000;
+  --lf-wave-color:#000000;
+  --lf-font-display:'Archivo',sans-serif; --lf-font-body:'Archivo',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:900; --lf-label-font:'Archivo',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.06em;
+}
+
+/* ---------- 2m  Glass dark (dark) ---------- */
+[data-theme="glass-dark"] {
+  --lf-app-bg:radial-gradient(120% 90% at 100% 0%,#123a4a 0%,#0c1a2e 50%,#070d18 100%); --lf-text:#eaf6fb; --lf-text-muted:#7fa9c4;
+  --lf-accent:#22d3ee; --lf-accent-2:#3b82f6; --lf-on-accent:#03121a; --lf-success:#7ff0e0;
+  --lf-surface-bg:rgba(255,255,255,.07); --lf-surface-border:1px solid rgba(255,255,255,.13); --lf-surface-shadow:none; --lf-surface-radius:18px; --lf-backdrop:blur(10px);
+  --lf-panel-bg:rgba(255,255,255,.07); --lf-panel-text:#eaf6fb;
+  --lf-xlate-bg:linear-gradient(150deg,rgba(34,211,238,.2),rgba(59,130,246,.1)); --lf-xlate-border:1px solid rgba(255,255,255,.15); --lf-xlate-text:#f0fbff; --lf-xlate-label:#9ff0e6;
+  --lf-record-bg:linear-gradient(135deg,#22d3ee,#3b82f6); --lf-record-radius:50%; --lf-record-shadow:0 10px 26px -4px rgba(34,211,238,.5); --lf-record-glyph:#03121a;
+  --lf-chip-bg:rgba(255,255,255,.07); --lf-chip-border:1px solid rgba(255,255,255,.13); --lf-badge-bg:rgba(45,212,191,.14); --lf-badge-text:#7ff0e0;
+  --lf-wave-color:#8fe9ff;
+  --lf-font-display:'Inter',sans-serif; --lf-font-body:'Inter',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'Inter',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.05em;
+}
+
+/* ---------- 2o  Sunset (light, gradient bg + white sheet) ---------- */
+[data-theme="sunset"] {
+  --lf-app-bg:linear-gradient(165deg,#ff8a5c 0%,#ff6f91 55%,#f24e7a 100%); --lf-text:#2a2230; --lf-text-muted:#8a7f88;
+  --lf-accent:#f24e7a; --lf-accent-2:#ff8a5c; --lf-on-accent:#ffffff; --lf-success:#ffffff;
+  --lf-surface-bg:#ffffff; --lf-surface-border:0 solid transparent; --lf-surface-shadow:0 10px 30px -14px rgba(242,78,122,.4); --lf-surface-radius:28px; --lf-backdrop:none;
+  --lf-panel-bg:rgba(255,255,255,.2); --lf-panel-text:#ffffff;
+  --lf-xlate-bg:#fff1f4; --lf-xlate-border:0 solid transparent; --lf-xlate-text:#5a4650; --lf-xlate-label:#f24e7a;
+  --lf-record-bg:linear-gradient(135deg,#ff8a5c,#f24e7a); --lf-record-radius:50%; --lf-record-shadow:0 10px 24px -6px rgba(242,78,122,.5); --lf-record-glyph:#ffffff;
+  --lf-chip-bg:rgba(255,255,255,.2); --lf-chip-border:0 solid transparent; --lf-badge-bg:rgba(255,255,255,.22); --lf-badge-text:#ffffff;
+  --lf-wave-color:#f24e7a;
+  --lf-font-display:'DM Sans',sans-serif; --lf-font-body:'DM Sans',sans-serif; --lf-font-mono:'IBM Plex Mono',monospace;
+  --lf-heading-weight:700; --lf-label-font:'DM Sans',sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.03em;
+}
+
+/* ============================================================
+   OPTIONAL HELPER LAYER
+   Map tokens to reusable classes. Adopt these on your Speech
+   markup, OR ignore them and map the --lf-* tokens straight
+   onto your existing components. Either path works.
+   ============================================================ */
+.lf-app        { background:var(--lf-app-bg); color:var(--lf-text); font-family:var(--lf-font-body); min-height:100%; }
+.lf-heading    { font-family:var(--lf-font-display); font-weight:var(--lf-heading-weight); color:var(--lf-text); letter-spacing:-.01em; margin:0; }
+.lf-label      { font-family:var(--lf-label-font); text-transform:var(--lf-label-transform); letter-spacing:var(--lf-label-spacing); color:var(--lf-text-muted); font-size:11px; }
+.lf-card       { background:var(--lf-surface-bg); border:var(--lf-surface-border); box-shadow:var(--lf-surface-shadow); border-radius:var(--lf-surface-radius); -webkit-backdrop-filter:var(--lf-backdrop); backdrop-filter:var(--lf-backdrop); }
+.lf-chip       { background:var(--lf-chip-bg); border:var(--lf-chip-border); border-radius:var(--lf-surface-radius); color:var(--lf-text); padding:9px 12px; }
+.lf-badge      { background:var(--lf-badge-bg); color:var(--lf-badge-text); border-radius:999px; padding:6px 11px; font-family:var(--lf-font-body); font-weight:600; font-size:11px; }
+.lf-translation{ background:var(--lf-xlate-bg); border:var(--lf-xlate-border); color:var(--lf-xlate-text); border-radius:var(--lf-surface-radius); }
+.lf-translation .lf-label { color:var(--lf-xlate-label); }
+.lf-record     { background:var(--lf-record-bg); border-radius:var(--lf-record-radius); box-shadow:var(--lf-record-shadow); color:var(--lf-record-glyph); display:flex; align-items:center; justify-content:center; border:none; cursor:pointer; }
+.lf-record > .lf-record-glyph { width:34%; height:34%; background:var(--lf-record-glyph); border-radius:20%; }
+/* waveform: render N bars, each <span class="lf-wave-bar"> with an inline height */
+.lf-wave       { display:flex; align-items:center; gap:2.5px; height:30px; }
+.lf-wave-bar   { width:3px; border-radius:2px; background:var(--lf-wave-color); }
+.lf-accent-text{ color:var(--lf-accent); }

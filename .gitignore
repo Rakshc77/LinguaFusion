@@ -1,15 +1,49 @@
-# Python
+# Python cache/build artifacts
 __pycache__/
+.pytest_cache/
 *.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+build/
+dist/
+
+# Virtual environments
 .venv/
+.python310/
 venv/
+env/
+
+# Local environment/secrets
 .env
-downloads
+.env.*
+*.key
+*.pem
+*.p12
+*.pfx
+*.keystore
+*.apk
+*.aab
+*.ipa
+
+# Runtime/generated folders
+temp/
+storage/
+downloads/
+debug/
+logs/
 
 # Runtime/generated files
-temp/
+*.log
+*.tmp
+
+# Generated audio/video outputs
 *.wav
 *.mp3
+*.mp4
+*.m4a
+*.ogg
+*.flac
 reader_output_*.wav
 reader_segment_*.wav
 reader_speed_*.wav
@@ -18,26 +52,44 @@ translation_output_*.wav
 # Local storage with user data/secrets
 backend/storage/*.db
 backend/storage/*.sqlite
+backend/storage/*.sqlite3
 backend/storage/ai_providers.json
 backend/storage/corrections.json
-storage/
+backend/storage/settings.json
+backend/storage/mobile_api_key.txt
+backend/storage/mobile_paired.flag
 
-# Large local models stay outside release ZIPs
+# Large local models and external binaries
 models/
+tools/whispercpp/Release/
+tools/whispercpp/build/
+tools/ffmpeg/
+tools/tesseract/
 
-
-# Large model/audio/output files
-models/
-*.wav
-*.mp3
-*.mp4
-*.log
-
-# VS Code optional
+# IDE/editor files
 .vscode/
+.idea/
+*.code-workspace
 
 # OS files
 .DS_Store
 Thumbs.db
-debug/
-tools/whispercpp/Release/
+desktop.ini
+
+# Local test/export outputs
+*_translated.pdf
+*_translated.docx
+*_translated.txt
+reader_export_*.pdf
+reader_export_*.docx
+reader_export_*.txt
+ocr_export_*.pdf
+ocr_export_*.docx
+ocr_export_*.txt
+
+# Extra zip archives and build output folders
+*.zip
+dist_*/
+build_*/
+.codex-remote-attachments/
+.superdesign/

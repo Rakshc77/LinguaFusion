@@ -1,0 +1,14 @@
+{
+  "name": "LinguaFusion Mobile",
+  "short_name": "LinguaFusion",
+  "description": "Private mobile speech, translation, OCR and reader client powered by your PC.",
+  "start_url": "/mobile/",
+  "scope": "/mobile/",
+  "display": "standalone",
+  "background_color": "#f6f8fc",
+  "theme_color": "#0b57d0",
+  "icons": [
+    {"src": "/app-assets/linguafusion_icon_512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable"},
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}

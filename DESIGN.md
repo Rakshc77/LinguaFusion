@@ -1,84 +1,26 @@
-# LinguaFusion Design Overview
+# LinguaFusion Design Notes
 
-## Product goal
+Current version: 1.0-rc2.12-ui-consumer-polish
 
-LinguaFusion is a local desktop application for multilingual speech, document, and reader workflows. The design goal is to keep common language-processing tasks available from a single app while allowing the heavier speech, OCR, translation, and TTS components to run through a local backend.
+Phase 5 uses a stable desktop UI with a supported medium-width floor. The application avoids horizontal workflow scrolling in normal pages. At medium width, right-side info panels collapse, controls use a shared proportional content band, and only vertical scrolling is used when lower playback controls require additional space.
 
-## Core workflows
+## Medium-width layout policy
 
-### Speech workflow
+- Keep the desktop Source/Target arrangement instead of forcing an ultra-compact mobile layout.
+- Compress source/target boxes, input/output fields, action buttons, export buttons, and playback cards into the same visual content band.
+- Avoid horizontal page scrolling.
+- Use vertical scrolling for lower playback sections when necessary.
+- Show a clear scroll cue only on pages with playback controls.
 
-Audio input is recorded or imported, passed to the backend for speech recognition, optionally post-processed with correction memory, and displayed as editable text.
+## Workflow adjustments in this build
 
-```text
-Audio input → speech recognition → cleanup/corrections → transcript → optional translation/export
-```
+- Translate: tighter input/output and playback bands, export buttons remain visible, native media icons are applied to playback controls.
+- Reader: same proportional playback and export behavior as Translate.
+- OCR: controls are grouped into a compact row and the result area is brought up to reduce dead space.
+- Speech: media/control buttons use native icons in compact mode and stay inside the common content band.
 
-### Translation workflow
+## Application icon
 
-Typed or imported text is segmented, translated, and rendered in a readable output view. For document inputs, the application attempts to preserve paragraph and table structure where practical.
+The desktop shell includes PNG and ICO icon assets under `desktop/assets/`. Multiple candidate icon concepts are included under `desktop/assets/icon_options/`. The default app/taskbar icon in this build is Option A, which combines speech, waveform/audio, translation, and document handling into a single simple mark.
 
-```text
-Text/document input → segmentation → translation → post-processing → export
-```
-
-### Reader workflow
-
-The Reader imports text or document content and generates speech audio for playback. Cursor-based reading, pause/resume, and basic highlighting are supported with approximate timing.
-
-```text
-Document/text input → text extraction → TTS generation → playback/highlighting
-```
-
-### OCR workflow
-
-Images and scanned PDFs are processed with OCR. The output is cleaned and routed back into document, translation, or reader workflows.
-
-```text
-Image/scanned PDF → OCR → cleanup → editable text → translation/reader/export
-```
-
-## High-level architecture
-
-```text
-LinguaFusion
-├── desktop client
-│   ├── UI screens
-│   ├── file import/export actions
-│   ├── audio playback controls
-│   └── local user interaction state
-│
-├── backend API
-│   ├── speech service
-│   ├── translation service
-│   ├── TTS service
-│   ├── OCR/document service
-│   ├── correction memory service
-│   └── diagnostics endpoints
-│
-└── local runtime assets
-    ├── speech models
-    ├── TTS models
-    ├── translation packages
-    ├── generated audio
-    └── local user data
-```
-
-## Backend responsibilities
-
-The backend provides HTTP endpoints for speech recognition, translation, document parsing, OCR, TTS, correction memory, and diagnostics. Expensive processing is kept out of the UI thread so the desktop client remains responsive.
-
-## Desktop responsibilities
-
-The desktop client handles file selection, drag-and-drop routing, display of transcripts/translations, reader controls, user corrections, and export actions. It communicates with the local backend through HTTP calls.
-
-## Local-first design
-
-The repository excludes virtual environments, model binaries, generated media, local databases, and runtime configuration. This keeps the source repository lightweight and avoids publishing machine-specific files.
-
-## Known design trade-offs
-
-- Reader highlighting is approximate because typical offline TTS engines do not return exact word timestamps.
-- OCR table reconstruction is best-effort and depends strongly on scan quality.
-- Document layout preservation is practical for structured text and tables, but complex PDF layout reconstruction remains limited.
-- Translation quality depends on the installed local translation models and language pair.
+Ultra-compact/mobile-style layout remains deferred until it can be redesigned cleanly.

@@ -1,0 +1,217 @@
+/* ============================================================
+   LinguaFusion — Motion System
+   Pairs with linguafusion-themes.css. Each theme sets motion
+   tokens (easing, duration, and ready-to-use `animation`
+   shorthands) so the SAME utility classes feel native to every
+   look — brutalist cuts, glass blurs, zen breathes, candy springs.
+
+   EVENTS COVERED
+     screen switch ...... .lf-screen-enter / .lf-screen-exit
+     import ............. .lf-import-enter
+     export ............. .lf-export-exit   (plays, then remove)
+     live result ........ .lf-result > *     (staggered reveal)
+     recording state .... .lf-recording      (on the record btn)
+     waveform activity .. .lf-wave.is-live .lf-wave-bar
+
+   All motion is disabled automatically under
+   prefers-reduced-motion. See linguafusion-motion.js for the
+   tiny re-trigger helpers.
+   ============================================================ */
+
+/* ---------- MOTION TOKEN CONTRACT (defaults = focus-light) ---------- */
+:root,
+[data-theme="focus-light"] {
+  --lf-ease:       cubic-bezier(.2,.7,.2,1);
+  --lf-dur-fast:   .18s;
+  --lf-dur:        .32s;
+  --lf-dur-slow:   .5s;
+  --lf-stagger:    60ms;
+  --lf-record-ring:rgba(47,107,255,.45);
+  --lf-anim-screen-in:  lf-up-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out: lf-up-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-import:     lf-import-drop .45s var(--lf-ease) both;
+  --lf-anim-export:     lf-export-fly .4s var(--lf-ease) both;
+  --lf-anim-result:     lf-up-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-record:     lf-record-pulse 1.8s ease-out infinite;
+  --lf-anim-rail:       lf-up-in var(--lf-dur) var(--lf-ease) both; /* editorial-split rail override */
+}
+
+[data-theme="frosted-native"]{
+  --lf-ease:cubic-bezier(.32,.72,0,1); --lf-dur:.4s; --lf-dur-fast:.22s; --lf-stagger:55ms; --lf-record-ring:rgba(47,107,255,.4);
+  --lf-anim-screen-in:lf-scale-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out:lf-scale-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-result:lf-scale-in var(--lf-dur) var(--lf-ease) both;
+}
+[data-theme="soft-ui"]{
+  --lf-ease:ease-in-out; --lf-dur:.45s; --lf-dur-fast:.28s; --lf-stagger:70ms;
+  --lf-anim-screen-in:lf-scale-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out:lf-scale-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-result:lf-scale-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-record:lf-record-breathe 2.4s ease-in-out infinite;
+}
+[data-theme="candy"]{
+  --lf-ease:cubic-bezier(.34,1.56,.64,1); --lf-dur:.5s; --lf-dur-fast:.3s; --lf-stagger:80ms; --lf-record-ring:rgba(124,92,255,.5);
+  --lf-anim-screen-in:lf-spring-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out:lf-scale-out var(--lf-dur-fast) ease both;
+  --lf-anim-import:lf-import-drop .55s var(--lf-ease) both;
+  --lf-anim-result:lf-spring-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-record:lf-record-breathe 1.6s cubic-bezier(.34,1.56,.64,1) infinite;
+}
+[data-theme="material"]{
+  --lf-ease:cubic-bezier(.2,0,0,1); --lf-dur:.4s; --lf-dur-fast:.2s; --lf-stagger:55ms; --lf-record-ring:rgba(103,80,164,.45);
+  --lf-anim-screen-in:lf-slide-left-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out:lf-fade-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-result:lf-up-in var(--lf-dur) var(--lf-ease) both;
+}
+[data-theme="sunset"]{
+  --lf-ease:cubic-bezier(.4,.6,.2,1); --lf-dur:.5s; --lf-dur-fast:.3s; --lf-stagger:65ms; --lf-record-ring:rgba(242,78,122,.45);
+  --lf-anim-screen-in:lf-sheet-up var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out:lf-fade-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-result:lf-up-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-record:lf-record-breathe 2.2s ease-in-out infinite;
+}
+[data-theme="brutalist"]{
+  --lf-ease:cubic-bezier(.9,0,.1,1); --lf-dur:.14s; --lf-dur-fast:.08s; --lf-stagger:40ms; --lf-record-ring:rgba(0,0,0,.9);
+  --lf-anim-screen-in:lf-cut-in var(--lf-dur) steps(3,end) both;
+  --lf-anim-screen-out:lf-fade-out var(--lf-dur-fast) steps(2,end) both;
+  --lf-anim-import:lf-cut-in .14s steps(3,end) both;
+  --lf-anim-export:lf-fade-out .1s steps(2,end) both;
+  --lf-anim-result:lf-cut-in var(--lf-dur) steps(3,end) both;
+  --lf-anim-record:lf-record-hard 1s steps(1,end) infinite;
+}
+[data-theme="swiss"]{
+  --lf-ease:cubic-bezier(.9,0,.1,1); --lf-dur:.34s; --lf-dur-fast:.2s; --lf-stagger:45ms; --lf-record-ring:rgba(230,51,41,.5);
+  --lf-anim-screen-in:lf-wipe-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out:lf-wipe-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-result:lf-slide-left-in var(--lf-dur) var(--lf-ease) both;
+}
+[data-theme="warm-editorial"]{
+  --lf-ease:ease; --lf-dur:.6s; --lf-dur-fast:.35s; --lf-stagger:120ms; --lf-record-ring:rgba(176,74,47,.4);
+  --lf-anim-screen-in:lf-fade-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out:lf-fade-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-result:lf-fade-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-record:lf-record-breathe 3s ease-in-out infinite;
+}
+[data-theme="broadsheet"]{
+  --lf-ease:ease; --lf-dur:.55s; --lf-dur-fast:.32s; --lf-stagger:100ms; --lf-record-ring:rgba(138,58,31,.4);
+  --lf-anim-screen-in:lf-scale-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out:lf-fade-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-result:lf-fade-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-record:lf-record-pulse 2.6s ease-out infinite;
+}
+[data-theme="editorial-split"]{
+  --lf-ease:cubic-bezier(.7,0,.2,1); --lf-dur:.5s; --lf-dur-fast:.3s; --lf-stagger:80ms; --lf-record-ring:rgba(160,90,60,.4);
+  --lf-anim-screen-in:lf-slide-left-in var(--lf-dur) var(--lf-ease) both;   /* cream editorial pane */
+  --lf-anim-rail:lf-slide-right-in var(--lf-dur) var(--lf-ease) both;        /* dark control rail */
+  --lf-anim-screen-out:lf-fade-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-result:lf-up-in var(--lf-dur) var(--lf-ease) both;
+}
+[data-theme="glass-aurora"]{
+  --lf-ease:cubic-bezier(.4,.14,.3,1); --lf-dur:.5s; --lf-dur-fast:.3s; --lf-stagger:70ms; --lf-record-ring:rgba(124,92,255,.55);
+  --lf-anim-screen-in:lf-blur-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out:lf-blur-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-import:lf-blur-in .5s var(--lf-ease) both;
+  --lf-anim-result:lf-blur-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-record:lf-record-glow 2s ease-in-out infinite;
+}
+[data-theme="glass-dark"]{
+  --lf-ease:cubic-bezier(.4,.14,.3,1); --lf-dur:.5s; --lf-dur-fast:.3s; --lf-stagger:70ms; --lf-record-ring:rgba(34,211,238,.55);
+  --lf-anim-screen-in:lf-blur-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out:lf-blur-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-import:lf-blur-in .5s var(--lf-ease) both;
+  --lf-anim-result:lf-blur-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-record:lf-record-glow 2s ease-in-out infinite;
+}
+[data-theme="amber-studio"]{
+  --lf-ease:cubic-bezier(.25,.6,.25,1); --lf-dur:.4s; --lf-dur-fast:.24s; --lf-stagger:60ms; --lf-record-ring:rgba(245,166,35,.5);
+  --lf-anim-screen-in:lf-scale-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out:lf-fade-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-result:lf-up-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-record:lf-record-glow 2.2s ease-in-out infinite;
+}
+[data-theme="terminal"]{
+  --lf-ease:linear; --lf-dur:.14s; --lf-dur-fast:.08s; --lf-stagger:90ms; --lf-record-ring:rgba(124,252,152,.5);
+  --lf-anim-screen-in:lf-fade-in var(--lf-dur) linear both;
+  --lf-anim-screen-out:lf-fade-out var(--lf-dur-fast) linear both;
+  --lf-anim-import:lf-fade-in .12s linear both;
+  --lf-anim-result:lf-type-in .5s steps(30,end) both;     /* typewriter reveal per line */
+  --lf-anim-record:lf-blink 1s steps(1,end) infinite;      /* caret blink */
+}
+[data-theme="zen"]{
+  --lf-ease:cubic-bezier(.4,0,.2,1); --lf-dur:.8s; --lf-dur-fast:.5s; --lf-stagger:200ms; --lf-record-ring:rgba(244,244,244,.3);
+  --lf-anim-screen-in:lf-fade-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-screen-out:lf-fade-out var(--lf-dur-fast) var(--lf-ease) both;
+  --lf-anim-result:lf-fade-in var(--lf-dur) var(--lf-ease) both;
+  --lf-anim-record:lf-record-breathe 4s ease-in-out infinite;
+}
+
+/* ---------- KEYFRAME LIBRARY ---------- */
+@keyframes lf-fade-in   { from{opacity:0} to{opacity:1} }
+@keyframes lf-fade-out  { from{opacity:1} to{opacity:0} }
+@keyframes lf-up-in     { from{opacity:0;transform:translateY(10px)} to{opacity:1;transform:none} }
+@keyframes lf-up-out    { from{opacity:1;transform:none} to{opacity:0;transform:translateY(-10px)} }
+@keyframes lf-scale-in  { from{opacity:0;transform:scale(.97)} to{opacity:1;transform:none} }
+@keyframes lf-scale-out { from{opacity:1;transform:none} to{opacity:0;transform:scale(.98)} }
+@keyframes lf-pop-in    { 0%{opacity:0;transform:scale(.9)} 60%{opacity:1;transform:scale(1.03)} 100%{transform:scale(1)} }
+@keyframes lf-spring-in { 0%{opacity:0;transform:translateY(16px) scale(.96)} 70%{opacity:1;transform:translateY(-4px) scale(1.01)} 100%{opacity:1;transform:none} }
+@keyframes lf-blur-in   { from{opacity:0;filter:blur(12px);transform:translateY(8px)} to{opacity:1;filter:blur(0);transform:none} }
+@keyframes lf-blur-out  { from{opacity:1;filter:blur(0)} to{opacity:0;filter:blur(10px)} }
+@keyframes lf-wipe-in   { from{clip-path:inset(0 100% 0 0)} to{clip-path:inset(0 0 0 0)} }
+@keyframes lf-wipe-out  { from{clip-path:inset(0 0 0 0)} to{clip-path:inset(0 0 0 100%)} }
+@keyframes lf-type-in   { from{clip-path:inset(0 100% 0 0)} to{clip-path:inset(0 0 0 0)} }
+@keyframes lf-cut-in    { from{opacity:0;transform:translate(-3px,-3px)} to{opacity:1;transform:none} }
+@keyframes lf-slide-left-in  { from{opacity:0;transform:translateX(-24px)} to{opacity:1;transform:none} }
+@keyframes lf-slide-right-in { from{opacity:0;transform:translateX(24px)}  to{opacity:1;transform:none} }
+@keyframes lf-sheet-up  { from{opacity:0;transform:translateY(60px)} to{opacity:1;transform:none} }
+@keyframes lf-import-drop { 0%{opacity:0;transform:translateY(-22px)} 60%{opacity:1;transform:translateY(3px)} 100%{opacity:1;transform:none} }
+@keyframes lf-export-fly  { 0%{opacity:1;transform:none} 100%{opacity:0;transform:translateY(20px) scale(.96)} }
+@keyframes lf-record-pulse  { 0%{box-shadow:0 0 0 0 var(--lf-record-ring)} 70%,100%{box-shadow:0 0 0 14px transparent} }
+@keyframes lf-record-glow   { 0%,100%{box-shadow:0 0 0 0 transparent} 50%{box-shadow:0 0 22px 4px var(--lf-record-ring)} }
+@keyframes lf-record-breathe{ 0%,100%{transform:scale(1)} 50%{transform:scale(1.06)} }
+@keyframes lf-record-hard   { 0%,50%{box-shadow:0 0 0 0 var(--lf-record-ring)} 51%,100%{box-shadow:6px 6px 0 0 var(--lf-record-ring)} }
+@keyframes lf-blink     { 0%,49%{opacity:1} 50%,100%{opacity:.15} }
+@keyframes lf-wave-osc  { 0%,100%{transform:scaleY(.35)} 50%{transform:scaleY(1)} }
+
+/* ---------- UTILITY CLASSES (consume the tokens) ---------- */
+.lf-screen-enter { animation: var(--lf-anim-screen-in); }
+.lf-screen-exit  { animation: var(--lf-anim-screen-out); }
+.lf-screen-enter--rail { animation: var(--lf-anim-rail); }   /* editorial-split dark rail */
+.lf-import-enter { animation: var(--lf-anim-import); }
+.lf-export-exit  { animation: var(--lf-anim-export); }
+
+/* live-result reveal: put .lf-result on the transcript/translation
+   container; direct children stream in staggered as they arrive */
+.lf-result > * { animation: var(--lf-anim-result); }
+.lf-result > *:nth-child(1){ animation-delay: calc(var(--lf-stagger) * 0); }
+.lf-result > *:nth-child(2){ animation-delay: calc(var(--lf-stagger) * 1); }
+.lf-result > *:nth-child(3){ animation-delay: calc(var(--lf-stagger) * 2); }
+.lf-result > *:nth-child(4){ animation-delay: calc(var(--lf-stagger) * 3); }
+.lf-result > *:nth-child(5){ animation-delay: calc(var(--lf-stagger) * 4); }
+.lf-result > *:nth-child(6){ animation-delay: calc(var(--lf-stagger) * 5); }
+.lf-result > *:nth-child(7){ animation-delay: calc(var(--lf-stagger) * 6); }
+.lf-result > *:nth-child(8){ animation-delay: calc(var(--lf-stagger) * 7); }
+.lf-result > *:nth-child(n+9){ animation-delay: calc(var(--lf-stagger) * 8); }
+
+/* recording state — add .lf-recording to the .lf-record button */
+.lf-record.lf-recording { animation: var(--lf-anim-record); }
+
+/* animated waveform — add .is-live to .lf-wave while recording */
+.lf-wave.is-live .lf-wave-bar { transform-origin:center; animation: lf-wave-osc .9s ease-in-out infinite; }
+.lf-wave.is-live .lf-wave-bar:nth-child(3n){ animation-duration:1.1s; }
+.lf-wave.is-live .lf-wave-bar:nth-child(3n+1){ animation-duration:.7s; }
+.lf-wave.is-live .lf-wave-bar:nth-child(4n){ animation-delay:.15s; }
+.lf-wave.is-live .lf-wave-bar:nth-child(2n){ animation-delay:.3s; }
+
+/* success flash for export/save (optional) */
+.lf-flash-success { animation: lf-fade-in var(--lf-dur) var(--lf-ease) both; }
+
+/* ---------- ACCESSIBILITY ---------- */
+@media (prefers-reduced-motion: reduce) {
+  .lf-screen-enter, .lf-screen-exit, .lf-screen-enter--rail,
+  .lf-import-enter, .lf-export-exit,
+  .lf-result > *, .lf-record.lf-recording,
+  .lf-wave.is-live .lf-wave-bar {
+    animation: none !important;
+  }
+  .lf-record.lf-recording { outline: 2px solid var(--lf-accent); outline-offset: 3px; }
+}

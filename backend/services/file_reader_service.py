@@ -54,10 +54,12 @@ except Exception as exc:  # pragma: no cover
 else:
     TESSERACT_IMPORT_ERROR = None
 
-from backend.config.paths import TESSERACT_EXE
+from backend.config.paths import TESSERACT_EXE, TESSDATA_DIR
 
 if pytesseract is not None and TESSERACT_EXE.exists():
     pytesseract.pytesseract.tesseract_cmd = str(TESSERACT_EXE)
+
+TESSERACT_CONFIG = f"--tessdata-dir {TESSDATA_DIR}" if TESSDATA_DIR.is_dir() else ""
 
 SUPPORTED_TEXT_EXTENSIONS = {
     ".txt", ".md", ".csv", ".json", ".xml",
@@ -65,11 +67,13 @@ SUPPORTED_TEXT_EXTENSIONS = {
 }
 
 OCR_LANGS = {
-    "auto": "eng+deu+spa+hin",
+    "auto": "eng+deu+spa+hin+ara+ori",
     "en": "eng",
     "de": "deu",
     "es": "spa",
     "hi": "hin",
+    "ar": "ara",
+    "or": "ori",
 }
 
 
@@ -141,32 +145,19 @@ def extract_pdf_embedded_text(file_path: Path) -> str:
 
 
 def extract_pdf_ocr_text(file_path: Path, lang: str = "en") -> str:
-    if fitz is None:
-        raise _missing_dependency("pymupdf", FITZ_IMPORT_ERROR)
-    if Image is None:
-        raise _missing_dependency("pillow", PIL_IMPORT_ERROR)
-    if pytesseract is None:
-        raise _missing_dependency("pytesseract", TESSERACT_IMPORT_ERROR)
+    """Delegate to ocr_service.py's PDF OCR pipeline rather than duplicating a
+    weaker one here. ocr_service does image preprocessing, tries multiple
+    Tesseract page-segmentation modes when needed, cleans up common
+    umlaut/ß misreads, and detects table structure -- none of which this
+    file previously did, so Reader's scanned-PDF results were noticeably
+    worse than the OCR tab's for the exact same content."""
+    from backend.services.ocr_service import extract_text_from_image
 
-    tesseract_lang = OCR_LANGS.get(lang, "eng")
-    parts = []
-    with fitz.open(file_path) as doc:
-        for page_number, page in enumerate(doc, start=1):
-            pix = page.get_pixmap(dpi=250)
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".png") as temp_img:
-                temp_img_path = Path(temp_img.name)
-            pix.save(temp_img_path)
-            try:
-                with Image.open(temp_img_path) as image:
-                    text = pytesseract.image_to_string(image, lang=tesseract_lang).strip()
-            finally:
-                try:
-                    temp_img_path.unlink()
-                except Exception:
-                    pass
-            if text:
-                parts.append(f"\n--- OCR Page {page_number} ---\n{text}")
-    return "\n".join(parts).strip()
+    ocr_lang = lang if lang in {"auto", "en", "de", "es", "hi", "ar", "or"} else "auto"
+    result = extract_text_from_image(file_path, ocr_lang)
+    if not result.get("ok"):
+        return ""
+    return (result.get("text") or "").strip()
 
 
 def extract_pdf_text(file_path: Path, lang: str = "en") -> dict:

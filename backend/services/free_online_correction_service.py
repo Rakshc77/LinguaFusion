@@ -2,7 +2,7 @@ import os
 import re
 import json
 import requests
-from typing import Dict, Optional
+from typing import Dict
 
 from backend.config.paths import STORAGE_DIR, LEGACY_STORAGE_DIR
 from backend.services.correction_service import apply_corrections
@@ -24,49 +24,54 @@ def _load_local_provider_config() -> Dict[str, object]:
     return {}
 
 
-def _config_key(*names: str) -> str:
+def _ollama_config() -> Dict[str, object]:
     data = _load_local_provider_config()
-
-    for name in names:
-        value = os.getenv(name)
-        if value:
-            return value.strip()
-
-    # Current Settings page stores keys under {"keys": {"gemini": "..."}}.
-    nested_keys = data.get("keys") if isinstance(data.get("keys"), dict) else {}
-    provider_aliases = {
-        "gemini": {"GEMINI_API_KEY", "GOOGLE_API_KEY", "GEMINI_KEY", "GOOGLE_KEY"},
-        "groq": {"GROQ_API_KEY", "GROQ_KEY"},
-        "openrouter": {"OPENROUTER_API_KEY", "OPENROUTER_KEY"},
+    ollama = data.get("ollama") if isinstance(data.get("ollama"), dict) else {}
+    url = os.getenv("OLLAMA_URL") or ollama.get("url") or "http://localhost:11434"
+    model = os.getenv("OLLAMA_MODEL") or ollama.get("model") or "llama3.1:8b"
+    enabled = ollama.get("enabled", True)
+    try:
+        num_gpu = max(1, int(os.getenv("OLLAMA_NUM_GPU") or ollama.get("num_gpu") or 999))
+    except (TypeError, ValueError):
+        num_gpu = 999
+    raw_keep_alive = os.getenv("OLLAMA_KEEP_ALIVE") or ollama.get("keep_alive", -1)
+    try:
+        keep_alive = int(raw_keep_alive)
+    except (TypeError, ValueError):
+        keep_alive = str(raw_keep_alive or "-1").strip()
+    return {
+        "url": str(url).rstrip("/"),
+        "model": str(model),
+        "enabled": bool(enabled),
+        "num_gpu": num_gpu,
+        "keep_alive": keep_alive,
     }
-    upper_names = {n.upper() for n in names}
-    for provider, aliases in provider_aliases.items():
-        if upper_names & aliases and nested_keys.get(provider):
-            return str(nested_keys.get(provider, "")).strip()
 
-    # Backward compatibility for older flat/provider-specific files.
-    lower_map = {str(k).lower(): str(v) for k, v in data.items() if not isinstance(v, dict) and v}
-    for name in names:
-        variants = {
-            name.lower(),
-            name.lower().replace("_api_key", ""),
-            name.lower().replace("_key", ""),
-            name.lower().replace("api_key", "apiKey").lower(),
-        }
-        for variant in variants:
-            if variant in lower_map:
-                return lower_map[variant].strip()
 
-    for provider in ["gemini", "groq", "openrouter"]:
-        provider_data = data.get(provider) or data.get(provider.title()) or {}
-        if isinstance(provider_data, dict) and provider.upper() in names[0].upper():
-            for field in ["api_key", "apiKey", "key", "token"]:
-                if provider_data.get(field):
-                    return str(provider_data[field]).strip()
-    return ""
+def _ollama_generation_options(config: Dict[str, object]) -> Dict[str, object]:
+    """Deterministic correction with full GPU layer offload requested."""
+    return {"temperature": 0.0, "num_gpu": int(config.get("num_gpu", 999))}
+
+
+def _ollama_post(*args, **kwargs):
+    from backend.services.gpu_coordinator import gpu_operation
+
+    with gpu_operation("ollama"):
+        return requests.post(*args, **kwargs)
+
+
+def _ollama_reachable(url: str, timeout: float = 1.5) -> bool:
+    if not url:
+        return False
+    try:
+        response = requests.get(f"{url}/api/tags", timeout=timeout)
+        return response.status_code == 200
+    except Exception:
+        return False
 
 
 def provider_status() -> Dict[str, object]:
+    ollama = _ollama_config()
     return {
         "ok": True,
         "providers": {
@@ -76,23 +81,11 @@ def provider_status() -> Dict[str, object]:
                 "env": None,
                 "note": "Public endpoint, rate-limited, grammar/spelling only.",
             },
-            "gemini": {
-                "available": bool(_config_key("GEMINI_API_KEY", "GOOGLE_API_KEY")),
-                "requires_key": True,
-                "env": "GEMINI_API_KEY or GOOGLE_API_KEY",
-                "note": "Google AI Studio Gemini API key.",
-            },
-            "groq": {
-                "available": bool(_config_key("GROQ_API_KEY")),
-                "requires_key": True,
-                "env": "GROQ_API_KEY",
-                "note": "GroqCloud OpenAI-compatible endpoint.",
-            },
-            "openrouter": {
-                "available": bool(_config_key("OPENROUTER_API_KEY")),
-                "requires_key": True,
-                "env": "OPENROUTER_API_KEY",
-                "note": "OpenRouter free model router/open-source models.",
+            "ollama": {
+                "available": bool(ollama.get("enabled")) and _ollama_reachable(ollama.get("url", "")),
+                "requires_key": False,
+                "env": "OLLAMA_URL / OLLAMA_MODEL (optional overrides)",
+                "note": f"Local model via Ollama ({ollama.get('model')}). No internet, no API key, no rate limits.",
             },
         },
     }
@@ -114,7 +107,7 @@ def _extract_corrected_from_llm(output: str) -> str:
     return output.strip()
 
 
-def _valid_correction(original: str, corrected: str) -> bool:
+def _valid_correction(original: str, corrected: str, min_overlap: float = 0.55) -> bool:
     original = (original or "").strip()
     corrected = (corrected or "").strip()
     if not corrected:
@@ -123,6 +116,21 @@ def _valid_correction(original: str, corrected: str) -> bool:
         return True
     if len(corrected) > max(len(original) * 2.2, len(original) + 160):
         return False
+
+    # Guard against hallucinated rewrites: a real correction fixes individual
+    # words, so most of the original vocabulary should still be present.
+    # A wholesale rewrite (different words, same rough length) slips past a
+    # pure length check but fails this overlap check.
+    # Uses \w (Unicode word chars) rather than [a-zA-Z] so German/Spanish
+    # umlauts and accents count as letters too -- a pure-ASCII regex here
+    # would undercount overlap for exactly the text this guardrail most
+    # needs to protect.
+    orig_words = set(re.findall(r"[^\W\d_]+", original.lower(), flags=re.UNICODE))
+    corr_words = set(re.findall(r"[^\W\d_]+", corrected.lower(), flags=re.UNICODE))
+    if len(orig_words) >= 6:
+        overlap = len(orig_words & corr_words) / len(orig_words)
+        if overlap < min_overlap:
+            return False
     return True
 
 
@@ -168,91 +176,132 @@ def languagetool_correct(text: str, language: str = "auto") -> Dict[str, object]
 
 def _semantic_prompt(text: str, language: str = "auto") -> str:
     return (
-        "You are correcting ASR/transcription mistakes, not translating. "
-        "Preserve the original language, meaning, line order, wording style, repeated chorus structure, "
-        "and proper nouns. Fix only likely recognition errors such as wrong homophones or wrong named entities. "
-        "Do not add lyrics that are not present. Do not explain. Return only the corrected transcript.\n\n"
+        "You are a strict ASR (speech-to-text) error corrector. You are NOT a writer, "
+        "lyricist, or paraphraser. Your only job is to fix individual words that were "
+        "almost certainly misheard by the speech recognizer -- wrong homophones, wrong "
+        "proper nouns, wrong small words. Everything else must stay byte-for-byte identical: "
+        "same word order, same sentence structure, same line breaks, same repeated "
+        "chorus/phrase structure, same overall wording and length. "
+        "Do NOT rewrite, paraphrase, summarize, or improve the style. Do NOT invent words, "
+        "lines, or lyrics that are not implied by the input. If you are not confident a "
+        "word is wrong, leave it exactly as-is. "
+        "Output ONLY the corrected transcript with no preamble, no explanation, no quotes.\n\n"
         f"Language hint: {language}\n"
         f"Transcript:\n{text}"
     )
 
 
-def gemini_correct(text: str, language: str = "auto") -> Dict[str, object]:
-    key = _config_key("GEMINI_API_KEY", "GOOGLE_API_KEY")
-    source = _safe_text(text)
-    if not key:
-        return {"ok": False, "provider": "gemini", "error": "Missing GEMINI_API_KEY or GOOGLE_API_KEY.", "text": source}
-    try:
-        url = f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key={key}"
-        payload = {"contents": [{"parts": [{"text": _semantic_prompt(source, language)}]}], "generationConfig": {"temperature": 0.1}}
-        response = requests.post(url, json=payload, timeout=35)
-        response.raise_for_status()
-        data = response.json()
-        corrected = data["candidates"][0]["content"]["parts"][0]["text"]
-        corrected = _extract_corrected_from_llm(corrected)
-        if not _valid_correction(source, corrected):
-            raise RuntimeError("Rejected unsafe correction length.")
-        return {"ok": True, "provider": "gemini", "text": corrected, "changed": corrected != source}
-    except Exception as exc:
-        return {"ok": False, "provider": "gemini", "error": str(exc), "text": source}
+def ollama_correct(text: str, language: str = "auto") -> Dict[str, object]:
+    """Correct ASR transcript errors using a local Ollama model.
 
-
-def groq_correct(text: str, language: str = "auto") -> Dict[str, object]:
-    key = _config_key("GROQ_API_KEY")
+    Local-first: no internet, no API key, no per-request cost or rate limit.
+    Requires Ollama running locally (see https://ollama.com) with a model
+    pulled, e.g. `ollama pull llama3.1:8b`.
+    """
+    config = _ollama_config()
     source = _safe_text(text)
-    if not key:
-        return {"ok": False, "provider": "groq", "error": "Missing GROQ_API_KEY.", "text": source}
+    if not source:
+        return {"ok": False, "provider": "ollama", "error": "No transcript text to correct.", "text": ""}
+    if not config.get("enabled"):
+        return {"ok": False, "provider": "ollama", "error": "Ollama provider disabled in settings.", "text": source}
+    url = config.get("url", "")
+    model = config.get("model", "llama3.1:8b")
     try:
-        response = requests.post(
-            "https://api.groq.com/openai/v1/chat/completions",
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json"},
+        response = _ollama_post(
+            f"{url}/api/chat",
             json={
-                "model": "llama-3.1-8b-instant",
-                "temperature": 0.1,
+                "model": model,
+                "stream": False,
+                "keep_alive": config.get("keep_alive", -1),
+                "options": _ollama_generation_options(config),
                 "messages": [
-                    {"role": "system", "content": "You correct ASR transcript errors. Return only corrected text."},
+                    {"role": "system", "content": "You correct ASR transcript errors. Return only the corrected text, nothing else."},
                     {"role": "user", "content": _semantic_prompt(source, language)},
                 ],
             },
-            timeout=35,
+            timeout=60,
         )
         response.raise_for_status()
         data = response.json()
-        corrected = _extract_corrected_from_llm(data["choices"][0]["message"]["content"])
+        corrected = _extract_corrected_from_llm(data.get("message", {}).get("content", ""))
         if not _valid_correction(source, corrected):
             raise RuntimeError("Rejected unsafe correction length.")
-        return {"ok": True, "provider": "groq", "text": corrected, "changed": corrected != source}
+        return {"ok": True, "provider": "ollama", "text": corrected, "changed": corrected != source}
+    except requests.exceptions.ConnectionError:
+        return {"ok": False, "provider": "ollama", "error": f"Could not reach Ollama at {url}. Is it running?", "text": source}
     except Exception as exc:
-        return {"ok": False, "provider": "groq", "error": str(exc), "text": source}
+        return {"ok": False, "provider": "ollama", "error": str(exc), "text": source}
 
 
-def openrouter_correct(text: str, language: str = "auto") -> Dict[str, object]:
-    key = _config_key("OPENROUTER_API_KEY")
-    source = _safe_text(text)
-    if not key:
-        return {"ok": False, "provider": "openrouter", "error": "Missing OPENROUTER_API_KEY.", "text": source}
+def _ocr_correction_prompt(text: str, language: str = "auto") -> str:
+    return (
+        "You are a strict OCR (optical character recognition) error corrector. "
+        "You are NOT a writer or editor. Your only job is to fix individual "
+        "characters that were almost certainly misread by the OCR engine -- "
+        "most commonly: missing or wrong umlauts (u/o/a instead of ü/ö/ä), "
+        "missing eszett (ss instead of ß), a digit misread as a similar-looking "
+        "letter or vice versa (0/O, 1/l/I, 5/S), and words incorrectly split or "
+        "joined at line breaks. "
+        "Everything else must stay exactly as given: same word order, same line "
+        "breaks, same numbers (unless a digit was clearly misread as a letter), "
+        "same table structure and '|' separators, same overall length and "
+        "wording. Do NOT rewrite, reword, summarize, or add any words, lines, "
+        "or explanation that are not already implied character-for-character by "
+        "the input. If you are not confident a character is wrong, leave it "
+        "exactly as-is. "
+        "Output ONLY the corrected text with no preamble, no explanation, no quotes.\n\n"
+        f"Language hint: {language}\n"
+        f"OCR text:\n{text}"
+    )
+
+
+def ocr_correct_text(text: str, language: str = "auto") -> Dict[str, object]:
+    """Restore likely OCR misreads (missing umlauts/ß, 0/O, 1/l/I, etc.) using
+    the local Ollama model, with the same word-overlap guardrail used for
+    speech correction -- but stricter, since OCR text often carries numbers,
+    item codes, and technical values that must not be allowed to drift.
+
+    Returns the original text unchanged (ok=True, changed=False) if Ollama
+    isn't available or the guardrail rejects the result, rather than ever
+    surfacing a broken/hallucinated correction.
+    """
+    config = _ollama_config()
+    source = _safe_text(text, 6000)
+    if not source:
+        return {"ok": True, "provider": "offline", "text": "", "changed": False}
+    if not config.get("enabled"):
+        return {"ok": True, "provider": "offline", "text": source, "changed": False}
+
+    url = config.get("url", "")
+    model = config.get("model", "llama3.1:8b")
     try:
-        response = requests.post(
-            "https://openrouter.ai/api/v1/chat/completions",
-            headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "LinguaFusion"},
+        response = _ollama_post(
+            f"{url}/api/chat",
             json={
-                "model": "openrouter/free",
-                "temperature": 0.1,
+                "model": model,
+                "stream": False,
+                "keep_alive": config.get("keep_alive", -1),
+                "options": _ollama_generation_options(config),
                 "messages": [
-                    {"role": "system", "content": "Correct ASR transcript errors. Return only corrected text."},
-                    {"role": "user", "content": _semantic_prompt(source, language)},
+                    {"role": "system", "content": "You correct OCR character-recognition errors. Return only the corrected text, nothing else."},
+                    {"role": "user", "content": _ocr_correction_prompt(source, language)},
                 ],
             },
-            timeout=45,
+            timeout=60,
         )
         response.raise_for_status()
         data = response.json()
-        corrected = _extract_corrected_from_llm(data["choices"][0]["message"]["content"])
-        if not _valid_correction(source, corrected):
-            raise RuntimeError("Rejected unsafe correction length.")
-        return {"ok": True, "provider": "openrouter", "text": corrected, "changed": corrected != source}
-    except Exception as exc:
-        return {"ok": False, "provider": "openrouter", "error": str(exc), "text": source}
+        corrected = _extract_corrected_from_llm(data.get("message", {}).get("content", ""))
+        # Stricter overlap threshold than speech correction (0.75 vs 0.55):
+        # OCR text often contains item codes, prices, and technical values
+        # where any drift matters more than in conversational ASR text.
+        if not _valid_correction(source, corrected, min_overlap=0.75):
+            return {"ok": True, "provider": "offline", "text": source, "changed": False}
+        return {"ok": True, "provider": "ollama", "text": corrected, "changed": corrected != source}
+    except requests.exceptions.ConnectionError:
+        return {"ok": True, "provider": "offline", "text": source, "changed": False, "note": f"Ollama unreachable at {url}"}
+    except Exception:
+        return {"ok": True, "provider": "offline", "text": source, "changed": False}
 
 
 def smart_correct_text(text: str, mode: str = "offline", language: str = "auto") -> Dict[str, object]:
@@ -274,14 +323,11 @@ def smart_correct_text(text: str, mode: str = "offline", language: str = "auto")
             offline = apply_corrections(lt.get("text", offline))
 
     ordered = []
-    if mode == "gemini":
-        ordered = [gemini_correct]
-    elif mode == "groq":
-        ordered = [groq_correct]
-    elif mode == "openrouter":
-        ordered = [openrouter_correct]
+    if mode == "ollama":
+        ordered = [ollama_correct]
     elif mode in {"free_auto", "smart_free"}:
-        ordered = [gemini_correct, groq_correct, openrouter_correct]
+        # Local-first: Ollama is now the only semantic-correction provider.
+        ordered = [ollama_correct]
 
     for provider_func in ordered:
         result = provider_func(offline, language)
@@ -300,7 +346,7 @@ def smart_correct_text(text: str, mode: str = "offline", language: str = "auto")
 
 
 def compare_online_corrections(text: str, language: str = "auto") -> Dict[str, object]:
-    """Run offline + all available free providers and return candidates for comparison."""
+    """Run offline + available free providers and return candidates for comparison."""
     source = _safe_text(text, 12000)
     candidates = []
 
@@ -310,13 +356,12 @@ def compare_online_corrections(text: str, language: str = "auto") -> Dict[str, o
     lt = languagetool_correct(offline_text, language)
     candidates.append({k: lt.get(k) for k in ["provider", "ok", "text", "changed", "error"]})
 
-    for fn in [gemini_correct, groq_correct, openrouter_correct]:
-        result = fn(offline_text, language)
-        candidates.append({k: result.get(k) for k in ["provider", "ok", "text", "changed", "error"]})
+    result = ollama_correct(offline_text, language)
+    candidates.append({k: result.get(k) for k in ["provider", "ok", "text", "changed", "error"]})
 
     valid = [c for c in candidates if c.get("ok") and c.get("text")]
-    # Prefer semantic providers when they return a safe changed result; otherwise keep offline/LT.
-    preferred_order = {"gemini": 0, "groq": 1, "openrouter": 2, "languagetool": 3, "offline": 4}
+    # Local-first: Ollama ranks above languagetool/offline when it produced a usable result.
+    preferred_order = {"ollama": 0, "languagetool": 1, "offline": 2}
     changed = [c for c in valid if c.get("changed")]
     pool = changed or valid
     best = sorted(pool, key=lambda c: preferred_order.get(str(c.get("provider")), 99))[0] if pool else candidates[0]
