@@ -55,6 +55,13 @@ a = Analysis(
     excludes=[],
     noarchive=False,
 )
+
+# Qt 6.11 uses Windows' ICU API (unversioned symbols). Build-time PATH can
+# contain Poppler's unrelated ICU DLL, whose suffixed symbols break QtCore
+# before the app opens. Let Windows resolve its own system component.
+if os.name == 'nt' and os.path.isfile(os.path.join(os.environ.get('SystemRoot', r'C:\Windows'), 'System32', 'icuuc.dll')):
+    a.binaries = [entry for entry in a.binaries if entry[0].replace('\\', '/').lower() != 'icuuc.dll']
+
 pyz = PYZ(a.pure)
 
 exe = EXE(

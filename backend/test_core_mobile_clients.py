@@ -47,16 +47,56 @@ def test_mobile_web_shell_and_authenticated_api_contract():
         os.environ["LINGUAFUSION_PAIRING_TOKEN"] = "single-use-test-token"
         os.environ["LINGUAFUSION_PAIRED_FILE"] = str(pairing_marker)
         os.environ["LINGUAFUSION_ACCESS_DB"] = str(access_db)
+        os.environ["LF_TRUST_PROXY_HEADERS"] = "1"
+        os.environ["LF_PUBLIC_ACCESS"] = "1"
+        os.environ["LF_MAX_UPLOAD_MB"] = "1"
         from fastapi.testclient import TestClient
-        from backend.server import app
+        from starlette.requests import Request
+        from backend.server import app, _request_ip
+
+        untrusted = Request({"type": "http", "method": "GET", "path": "/", "headers": [(b"cf-connecting-ip", b"127.0.0.1")], "client": ("192.168.1.50", 5000), "server": ("test", 80), "scheme": "http", "query_string": b""})
+        trusted = Request({"type": "http", "method": "GET", "path": "/", "headers": [(b"cf-connecting-ip", b"1.1.1.1")], "client": ("127.0.0.1", 5000), "server": ("test", 80), "scheme": "http", "query_string": b""})
+        assert _request_ip(untrusted) == "192.168.1.50"
+        assert _request_ip(trusted) == "1.1.1.1"
+        import backend.server as server
+        # No configured owner key must never open remote feature access.
+        original_key = server.API_KEY
+        server.API_KEY = ""
+        with TestClient(app, client=("1.1.1.1", 50002)) as remote:
+            assert remote.get("/diagnostics").status_code == 401
+        server.API_KEY = original_key
+        with TestClient(app, client=("127.0.0.1", 50003)) as proxy:
+            assert proxy.get("/diagnostics", headers={"CF-Connecting-IP": "invalid"}).status_code == 401
+            assert proxy.get("/diagnostics", headers={"CF-Connecting-IP": "127.0.0.1"}).status_code == 401
+        # Stale cleanup must preserve unrelated files in the shared temp folder.
+        import tempfile
+        import time
+        original_temp = server.TEMP_DIR
+        with tempfile.TemporaryDirectory() as directory:
+            server.TEMP_DIR = Path(directory)
+            upload = server.TEMP_DIR / ("upload_" + "a" * 32 + ".wav")
+            note = server.TEMP_DIR / "user-recording.wav"
+            for item in (upload, note):
+                item.write_bytes(b"test")
+                os.utime(item, (time.time() - 172800, time.time() - 172800))
+            server._purge_stale_temp_files()
+            assert not upload.exists() and note.exists()
+        server.TEMP_DIR = original_temp
         with TestClient(app) as client:
             root = client.get("/")
             assert root.status_code == 200 and root.json()["auth_required"] is True
             shell = client.get("/mobile/")
             assert shell.status_code == 200 and "LinguaFusion Mobile" in shell.text
             assert client.get("/diagnostics").status_code == 401
+            assert client.get("/diagnostics", headers={"CF-Connecting-IP": "1.1.1.1"}).status_code == 401
             assert client.get("/diagnostics", headers={"X-API-Key": "mobile-test-key"}).status_code == 200
-            assert client.get("/owner-api/clients").status_code == 401
+            assert client.get("/owner-api/clients").status_code == 403
+            assert client.get("/api/access/status").status_code == 403
+            assert client.get("/api/access/clients").status_code == 403
+            assert client.get("/api/access/qr").status_code == 403
+            public_health = client.get("/health")
+            assert public_health.status_code == 200
+            assert "checks" not in public_health.json() and "project_root" not in public_health.json()
             assert client.post("/pair", json={"token": "wrong"}).status_code == 403
             paired = client.post("/pair", json={"token": "single-use-test-token", "device_name": "Contract Android", "platform": "android"})
             assert paired.status_code == 200 and paired.json()["api_key"] != "mobile-test-key"
@@ -66,7 +106,13 @@ def test_mobile_web_shell_and_authenticated_api_contract():
             assert client.post("/pair", json={"token": "single-use-test-token"}).status_code == 410
 
             admin = {"X-Admin-Key": "mobile-admin-test-key"}
-            invitation = client.post("/owner-api/pairings", headers=admin, json={"public_url": "http://127.0.0.1:8000", "label": "Remote iPhone", "expires_minutes": 10})
+            owner_client = TestClient(app, client=("127.0.0.1", 50001))
+            assert owner_client.get("/diagnostics").status_code == 200
+            assert owner_client.get("/api/access/status", headers=admin).status_code == 200
+            assert owner_client.get("/api/access/clients", headers=admin).status_code == 200
+            public_admin = {**admin, "CF-Connecting-IP": "1.1.1.1"}
+            assert client.get("/api/access/status", headers=public_admin).status_code == 403
+            invitation = owner_client.post("/owner-api/pairings", headers=admin, json={"public_url": "http://127.0.0.1:8000", "label": "Remote iPhone", "expires_minutes": 10})
             assert invitation.status_code == 200
             pairing = invitation.json()["pairing"]
             assert pairing["app_url"].startswith("linguafusion://pair?")
@@ -75,16 +121,24 @@ def test_mobile_web_shell_and_authenticated_api_contract():
             assert second.status_code == 200
             second_key = second.json()["api_key"]
             assert client.post("/pair", json={"token": pairing["token"]}).status_code == 410
-            listed = client.get("/owner-api/clients", headers=admin).json()["clients"]
+            listed = owner_client.get("/owner-api/clients", headers=admin).json()["clients"]
             friend = next(item for item in listed if item["name"] == "Friend iPhone")
-            paused = client.post(f"/owner-api/clients/{friend['id']}/enabled", headers=admin, json={"enabled": False})
+            paused = owner_client.post(f"/owner-api/clients/{friend['id']}/enabled", headers=admin, json={"enabled": False})
             assert paused.status_code == 200 and paused.json()["client"]["enabled"] is False
             assert client.get("/diagnostics", headers={"X-API-Key": second_key}).status_code == 403
-            restored = client.post(f"/owner-api/clients/{friend['id']}/enabled", headers=admin, json={"enabled": True})
+            restored = owner_client.post(f"/owner-api/clients/{friend['id']}/enabled", headers=admin, json={"enabled": True})
             assert restored.status_code == 200
             assert client.get("/diagnostics", headers={"X-API-Key": second_key}).status_code == 200
-            assert client.delete(f"/owner-api/clients/{friend['id']}", headers=admin).status_code == 200
+            assert owner_client.delete(f"/owner-api/clients/{friend['id']}", headers=admin).status_code == 200
             assert client.get("/diagnostics", headers={"X-API-Key": second_key}).status_code == 401
+            too_large = client.post(
+                "/ocr/extract",
+                headers={"X-API-Key": "mobile-test-key"},
+                files={"file": ("large.png", b"x" * (1024 * 1024 + 1), "image/png")},
+                data={"lang": "en"},
+            )
+            assert too_large.status_code == 413
+            owner_client.close()
         pairing_marker.unlink(missing_ok=True)
         for suffix in ("", "-wal", "-shm"):
             Path(str(access_db) + suffix).unlink(missing_ok=True)
@@ -94,7 +148,7 @@ def test_mobile_web_shell_and_authenticated_api_contract():
     env["PYTHONIOENCODING"] = "utf-8"
     completed = subprocess.run(
         [sys.executable, "-c", script], cwd=ROOT, env=env,
-        capture_output=True, text=True, timeout=45,
+        capture_output=True, text=True, timeout=120,
     )
     assert completed.returncode == 0, completed.stdout + completed.stderr
 
@@ -120,8 +174,10 @@ def test_mobile_feature_routes_with_mocked_engines():
         server.detect_text_language = lambda text: {"ok": True, "language": "en", "confidence": 1.0, "is_mixed": False}
         server.analyze_document = lambda text: {"ok": True, "characters": len(text)}
         audio_path = server.TEMP_DIR / "mobile_contract_audio.wav"
-        audio_path.write_bytes(b"RIFF" + b"\x00" * 64)
-        server.speak_to_file = lambda *args, **kwargs: audio_path
+        def fake_speak(*args, **kwargs):
+            audio_path.write_bytes(b"RIFF" + b"\x00" * 64)
+            return audio_path
+        server.speak_to_file = fake_speak
         headers = {"X-API-Key": "mobile-feature-key"}
 
         with TestClient(server.app) as client:
@@ -139,6 +195,7 @@ def test_mobile_feature_routes_with_mocked_engines():
             for route in ("/tts/speak", "/reader/speak"):
                 spoken = client.post(route, headers=headers, data={"text": "hello", "lang": "en", "speed": "1.0"})
                 assert spoken.status_code == 200 and spoken.headers["content-type"].startswith("audio/wav") and spoken.content.startswith(b"RIFF")
+                assert not audio_path.exists()
         audio_path.unlink(missing_ok=True)
         """
     )
@@ -253,7 +310,10 @@ def test_android_apk_and_ios_project_are_installation_ready():
     assert "setSystemBarTheme" in android_source and "setSystemBarTheme" in theme_script
     assert "status==502||status==503||status==504" in android_source
     assert "The PC backend is offline" in android_source
-    assert "--version-code 5" in android_build and "--version-name 1.4" in android_build
+    assert "--version-code 6" in android_build and "--version-name 1.5" in android_build
+    assert '"linguafusion-record".equals(target.getScheme())' in android_source
+    assert 'request.isForMainFrame() && request.hasGesture()' in android_source
+    assert 'showCloudRecorder' in android_source and 'setOnDismissListener' in android_source
 
     plist_path = IOS / "LinguaFusionMobile" / "Info.plist"
     with plist_path.open("rb") as stream:

@@ -148,7 +148,7 @@ python desktop/main.py
 - **Underlying AI Frameworks**: PyTorch, Faster-Whisper, CTranslate2, NLLB-200, RapidOCR, Tesseract, Piper TTS, Meta MMS.
 
 ```powershell
-python -m uvicorn backend.server:app --reload --host 0.0.0.0 --port 8000
+python -m uvicorn backend.server:app --reload --host 127.0.0.1 --port 8000
 ```
 
 In a second terminal, start the desktop app:
@@ -162,6 +162,11 @@ Health check:
 ```text
 http://localhost:8000/health
 ```
+
+The public health response is deliberately minimal. Authenticated runtime and
+model details are available from `http://localhost:8000/diagnostics`. For LAN
+phone pairing, use `scripts\start_mobile_backend.ps1`, which binds only to the
+selected private network interface.
 
 See `README_RUN_WINDOWS.md` for a more detailed Windows run guide.
 

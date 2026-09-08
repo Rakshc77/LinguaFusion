@@ -1,11 +1,11 @@
 from __future__ import annotations
+import re
 
 import json
 import os
 import base64
 import ipaddress
 import secrets as _secrets
-import shutil
 import subprocess
 import sys
 import threading
@@ -141,11 +141,48 @@ TRUST_PROXY_HEADERS = os.environ.get("LF_TRUST_PROXY_HEADERS", "").strip().lower
 PUBLIC_ACCESS = os.environ.get("LF_PUBLIC_ACCESS", "").strip().lower() in {"1", "true", "yes"}
 
 
+def _trusted_proxy_networks() -> tuple[ipaddress._BaseNetwork, ...]:
+    """Return the direct peers that may supply forwarding headers.
+
+    Cloudflared connects to the backend from loopback in the supported
+    deployment.  Additional proxy networks must be opted into explicitly;
+    merely setting LF_TRUST_PROXY_HEADERS must never let an arbitrary LAN
+    caller spoof CF-Connecting-IP or X-Forwarded-For.
+    """
+    configured = os.environ.get("LF_TRUSTED_PROXY_NETWORKS", "127.0.0.1/32,::1/128")
+    networks: list[ipaddress._BaseNetwork] = []
+    for value in configured.split(","):
+        value = value.strip()
+        if not value:
+            continue
+        try:
+            networks.append(ipaddress.ip_network(value, strict=False))
+        except ValueError:
+            continue
+    return tuple(networks)
+
+
+TRUSTED_PROXY_NETWORKS = _trusted_proxy_networks()
+
+
+def _direct_peer_is_trusted_proxy(request: Request) -> bool:
+    if not request.client:
+        return False
+    try:
+        peer = ipaddress.ip_address(request.client.host)
+    except ValueError:
+        return False
+    return any(peer in network for network in TRUSTED_PROXY_NETWORKS)
+
+
 def _request_ip(request: Request) -> str:
-    if TRUST_PROXY_HEADERS:
+    if TRUST_PROXY_HEADERS and _direct_peer_is_trusted_proxy(request):
         forwarded = (request.headers.get("cf-connecting-ip") or request.headers.get("x-forwarded-for") or "").split(",", 1)[0].strip()
-        if forwarded:
-            return forwarded[:80]
+        try:
+            if forwarded:
+                return str(ipaddress.ip_address(forwarded))
+        except ValueError:
+            pass
     return (request.client.host if request.client else "unknown")[:80]
 
 
@@ -221,7 +258,10 @@ def require_api_key(request: Request, x_api_key: str = Header(default="")) -> No
             request.state.mobile_client = client or {"id": "mobile", "name": "Mobile User", "platform": "mobile", "enabled": True}
             return
 
-    if is_local or not API_KEY:
+    # A proxied request is never a direct desktop request, even if proxy
+    # recognition was disabled or its forwarding address is malformed.
+    forwarded = any(name in request.headers for name in ("cf-connecting-ip", "x-forwarded-for", "forwarded"))
+    if is_local and not forwarded:
         request.state.mobile_client = {"id": "local", "name": "Local User", "platform": "desktop", "enabled": True}
         return
 
@@ -249,13 +289,16 @@ TEMP_MAX_AGE_SECONDS = 24 * 60 * 60  # purge leftovers older than 24h on startup
 def _purge_stale_temp_files() -> None:
     try:
         now = time.time()
-        for pattern in ("upload_*", "audio_*"):
-            for path in TEMP_DIR.glob(pattern):
-                try:
-                    if now - path.stat().st_mtime > TEMP_MAX_AGE_SECONDS:
-                        path.unlink(missing_ok=True)
-                except OSError:
-                    pass
+        for path in TEMP_DIR.iterdir():
+            # The shared temp folder also contains user imports, diagnostics
+            # and test artifacts. Only sweep files allocated by this API.
+            if not re.fullmatch(r"(?:upload|audio)_[0-9a-f]{32}\.[A-Za-z0-9]+", path.name) or not path.is_file():
+                continue
+            try:
+                if now - path.stat().st_mtime > TEMP_MAX_AGE_SECONDS:
+                    path.unlink(missing_ok=True)
+            except OSError:
+                pass
     except OSError:
         pass
 
@@ -295,12 +338,27 @@ app = FastAPI(
     version=APP_VERSION,
     lifespan=lifespan,
 )
+from backend.request_limits import RequestLimitsMiddleware
+
+app.add_middleware(
+    RequestLimitsMiddleware,
+    max_bytes=max(1, int(os.environ.get('LF_MAX_REQUEST_MB', str(max(1, int(os.environ.get('LF_MAX_UPLOAD_MB', '100'))) + 1)))) * 1024 * 1024,
+    max_uploads=max(1, int(os.environ.get('LF_MAX_CONCURRENT_UPLOADS', '4'))),
+    timeout_seconds=max(1, int(os.environ.get('LF_UPLOAD_TIMEOUT_SECONDS', '120'))),
+)
 
 
 @app.get("/health", include_in_schema=False)
 @app.get("/api/health", include_in_schema=False)
 async def health_check():
-    return runtime_health()
+    """Minimal unauthenticated liveness response safe for public probes."""
+    return {
+        "ok": True,
+        "app": "LinguaFusion",
+        "version": APP_VERSION,
+        "status": "running",
+        "auth_required": bool(API_KEY or PUBLIC_ACCESS),
+    }
 
 
 @app.get("/", include_in_schema=False)
@@ -395,7 +453,7 @@ async def exchange_mobile_pairing_token(request: Request) -> Dict[str, Any]:
     }
 
 
-@app.get("/api/access/status")
+@app.get("/api/access/status", dependencies=[Depends(require_admin_key)])
 async def get_access_status() -> Dict[str, Any]:
     local_ip = get_local_ip()
     port = int(os.environ.get("PORT", "8000"))
@@ -412,7 +470,7 @@ async def get_access_status() -> Dict[str, Any]:
     }
 
 
-@app.post("/api/access/toggle")
+@app.post("/api/access/toggle", dependencies=[Depends(require_admin_key)])
 async def toggle_access_status(request: Request) -> Dict[str, Any]:
     global _backend_access_enabled
     try:
@@ -426,13 +484,13 @@ async def toggle_access_status(request: Request) -> Dict[str, Any]:
     return {"ok": True, "enabled": _backend_access_enabled}
 
 
-@app.get("/api/access/tunnel/status")
+@app.get("/api/access/tunnel/status", dependencies=[Depends(require_admin_key)])
 async def api_tunnel_status() -> Dict[str, Any]:
     from backend.services.tunnel_service import get_tunnel_status
     return get_tunnel_status()
 
 
-@app.post("/api/access/tunnel/toggle")
+@app.post("/api/access/tunnel/toggle", dependencies=[Depends(require_admin_key)])
 async def api_tunnel_toggle(request: Request) -> Dict[str, Any]:
     from backend.services.tunnel_service import get_tunnel_status, start_tunnel, stop_tunnel
     try:
@@ -452,7 +510,7 @@ async def api_tunnel_toggle(request: Request) -> Dict[str, Any]:
             return start_tunnel()
 
 
-@app.get("/api/access/qr")
+@app.get("/api/access/qr", dependencies=[Depends(require_admin_key)])
 async def get_access_qr(label: str = "Friend device", public_url: str = "") -> Dict[str, Any]:
     from backend.services.tunnel_service import get_tunnel_status
     local_ip = get_local_ip()
@@ -475,12 +533,12 @@ async def get_access_qr(label: str = "Friend device", public_url: str = "") -> D
     }
 
 
-@app.get("/api/access/clients")
+@app.get("/api/access/clients", dependencies=[Depends(require_admin_key)])
 async def get_access_clients() -> Dict[str, Any]:
     return {"ok": True, "clients": list_clients()}
 
 
-@app.post("/api/access/clients/{client_id}/toggle")
+@app.post("/api/access/clients/{client_id}/toggle", dependencies=[Depends(require_admin_key)])
 async def toggle_client_access(client_id: str, request: Request) -> Dict[str, Any]:
     try:
         body = await request.json()
@@ -493,7 +551,7 @@ async def toggle_client_access(client_id: str, request: Request) -> Dict[str, An
     return {"ok": True, "client": updated}
 
 
-@app.delete("/api/access/clients/{client_id}")
+@app.delete("/api/access/clients/{client_id}", dependencies=[Depends(require_admin_key)])
 async def revoke_client_access(client_id: str) -> Dict[str, Any]:
     success = revoke_client(client_id)
     if not success:
@@ -559,13 +617,36 @@ def api_error(stage: str, exc: Exception | str, status_code: int = 500, **extra:
     previously relied on errors arriving with HTTP 200 must now also accept
     4xx/5xx responses (most HTTP libraries parse the JSON body either way).
     """
+    if isinstance(exc, HTTPException):
+        status_code = exc.status_code
+        message = str(exc.detail)
+    else:
+        message = str(exc)
     payload = {
         "ok": False,
         "stage": stage,
-        "error": str(exc),
+        "error": message,
         **extra,
     }
     return JSONResponse(status_code=status_code, content=payload)
+
+
+MAX_UPLOAD_BYTES = max(1, int(os.environ.get("LF_MAX_UPLOAD_MB", "100"))) * 1024 * 1024
+MAX_BATCH_FILES = max(1, int(os.environ.get('LF_MAX_BATCH_FILES', '20')))
+
+
+def read_batch_uploads(files: List[UploadFile]):
+    if len(files) > MAX_BATCH_FILES:
+        raise HTTPException(413, f'Batch uploads are limited to {MAX_BATCH_FILES} files.')
+    result = []
+    total = 0
+    for file in files:
+        content = file.file.read(MAX_UPLOAD_BYTES - total + 1)
+        total += len(content)
+        if total > MAX_UPLOAD_BYTES:
+            raise HTTPException(413, 'Combined batch files exceed the upload limit.')
+        result.append((file.filename, content))
+    return result
 
 
 def save_upload(upload_file: UploadFile) -> Path:
@@ -575,8 +656,23 @@ def save_upload(upload_file: UploadFile) -> Path:
     if len(suffix) > 12:
         suffix = ".bin"
     path = TEMP_DIR / f"upload_{uuid.uuid4().hex}{suffix}"
-    with open(path, "wb") as buffer:
-        shutil.copyfileobj(upload_file.file, buffer)
+    written = 0
+    try:
+        with open(path, "wb") as buffer:
+            while True:
+                chunk = upload_file.file.read(1024 * 1024)
+                if not chunk:
+                    break
+                written += len(chunk)
+                if written > MAX_UPLOAD_BYTES:
+                    raise HTTPException(
+                        status_code=413,
+                        detail=f"Uploads are limited to {MAX_UPLOAD_BYTES // (1024 * 1024)} MB.",
+                    )
+                buffer.write(chunk)
+    except Exception:
+        _unlink_quietly(path)
+        raise
     return path
 
 
@@ -612,37 +708,6 @@ def convert_to_wav(input_path: Path) -> Path:
     if not output_path.exists() or output_path.stat().st_size == 0:
         raise RuntimeError("Audio conversion did not create a valid WAV file.")
     return output_path
-
-
-# ---------------------------------------------------------------------------
-# System endpoints (no auth so clients can probe connectivity).
-# ---------------------------------------------------------------------------
-
-
-@app.get("/", tags=["System"])
-def root():
-    return {
-        "ok": True,
-        "app": "LinguaFusion",
-        "version": APP_VERSION,
-        "status": "running",
-        "auth_required": bool(API_KEY),
-        "modes": ["translate", "reader", "speech", "ocr", "notes", "settings"],
-    }
-
-
-@app.get("/health", tags=["System"])
-@app.get("/api/health", tags=["System"])
-def health_check():
-    """Unauthenticated connectivity and identity check for LAN and remote clients."""
-    return {
-        "ok": True,
-        "app": "LinguaFusion",
-        "version": APP_VERSION,
-        "status": "running",
-        "auth_required": bool(API_KEY or PUBLIC_ACCESS),
-        "modes": ["translate", "reader", "speech", "ocr", "notes", "settings"],
-    }
 
 
 @api.get("/diagnostics", tags=["System"])
@@ -1161,7 +1226,7 @@ def translate_document_export(
             exported_path,
             media_type=media_type,
             filename=filename,
-            background=BackgroundTask(_unlink_quietly, uploaded_path),
+            background=BackgroundTask(_unlink_quietly, uploaded_path, exported_path),
         )
     except Exception as exc:
         if uploaded_path is not None:
@@ -1178,7 +1243,12 @@ def translate_document_export(
 def tts_speak(text: str = Form(...), lang: str = Form("en"), speed: float = Form(1.0)):
     try:
         speech_path = speak_to_file(text, lang, f"tts_{uuid.uuid4().hex}.wav", speed=speed)
-        return FileResponse(speech_path, media_type="audio/wav", filename="speech.wav")
+        return FileResponse(
+            speech_path,
+            media_type="audio/wav",
+            filename="speech.wav",
+            background=BackgroundTask(_unlink_quietly, speech_path),
+        )
     except Exception as exc:
         return api_error("tts", exc)
 
@@ -1547,7 +1617,12 @@ def reader_export(text: str = Form(...), output_format: str = Form("txt"), title
         exported_path = export_reader_document(text, output_format, title=title)
         suffix = "." + output_format.lower().strip().lstrip(".")
         media_type = "application/vnd.openxmlformats-officedocument.wordprocessingml.document" if suffix == ".docx" else ("application/pdf" if suffix == ".pdf" else "text/plain")
-        return FileResponse(exported_path, media_type=media_type, filename=f"reader_export{suffix}")
+        return FileResponse(
+            exported_path,
+            media_type=media_type,
+            filename=f"reader_export{suffix}",
+            background=BackgroundTask(_unlink_quietly, exported_path),
+        )
     except Exception as exc:
         return api_error("reader_export", exc)
 
@@ -1556,7 +1631,12 @@ def reader_export(text: str = Form(...), output_format: str = Form("txt"), title
 def reader_speak(text: str = Form(...), lang: str = Form("en"), speed: float = Form(1.0)):
     try:
         speech_path = speak_to_file(text, lang, f"reader_{uuid.uuid4().hex}.wav", speed=speed)
-        return FileResponse(speech_path, media_type="audio/wav", filename="reader_output.wav")
+        return FileResponse(
+            speech_path,
+            media_type="audio/wav",
+            filename="reader_output.wav",
+            background=BackgroundTask(_unlink_quietly, speech_path),
+        )
     except Exception as exc:
         return api_error("reader_speak", exc)
 
@@ -1661,10 +1741,7 @@ def document_batch_translate(
                 return str(res.get("translated_text", text))
             return str(res)
 
-        files_data = []
-        for file in files:
-            content = file.file.read()
-            files_data.append((file.filename, content))
+        files_data = read_batch_uploads(files)
 
         zip_bytes = batch_process_documents(files_data, source_lang, target_lang, do_translate, export_format=export_format)
         filename = f"translated_documents_{uuid.uuid4().hex[:8]}.zip"
@@ -1698,10 +1775,7 @@ def ocr_batch_extract(
                 return str(res.get("translated_text", text))
             return str(res)
 
-        files_data = []
-        for file in files:
-            content = file.file.read()
-            files_data.append((file.filename, content))
+        files_data = read_batch_uploads(files)
 
         zip_bytes = batch_process_ocr(files_data, ocr_lang, target_lang, do_ocr, do_translate, export_format=export_format)
         filename = f"batch_ocr_{uuid.uuid4().hex[:8]}.zip"
@@ -1769,6 +1843,6 @@ app.include_router(api)
 
 if __name__ == "__main__":
     import uvicorn
-    host = os.environ.get("HOST", "0.0.0.0")
+    host = os.environ.get("HOST", "127.0.0.1")
     port = int(os.environ.get("PORT", "8000"))
     uvicorn.run("backend.server:app", host=host, port=port, reload=False)
