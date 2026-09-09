@@ -232,6 +232,13 @@
 
         <section id="ownerPanel" hidden aria-labelledby="ownerTitle">
           <h2 id="ownerTitle">Owner</h2>
+
+          <div id="reviewDue" class="confirm" hidden>
+            <p id="reviewText"></p>
+            <button id="reviewDone" type="button">I have checked usage and prices</button>
+          </div>
+          <p class="hint" id="reviewNext"></p>
+
           <p id="ownerTotal"></p>
 
           <h3 id="requestsHeading">Access requests</h3>
@@ -241,6 +248,10 @@
           <h3 id="usersHeading">People with access</h3>
           <button id="refreshUsers" type="button" class="secondary">Refresh people and usage</button>
           <div id="ownerUsers"></div>
+
+          <h3 id="failuresHeading">Recent provider failures</h3>
+          <button id="refreshFailures" type="button" class="secondary">Refresh failures</button>
+          <div id="failureList"></div>
 
           <button id="toggleAdvanced" type="button" class="secondary" aria-expanded="false" aria-controls="ownerPolicyForm">Advanced: edit a policy by UID</button>
           <form id="ownerPolicyForm" hidden>

@@ -136,6 +136,7 @@ function clearPrivateText() {
   $('reqName').value = ''; $('reqOrg').value = ''; $('accessStatus').textContent = '';
   $('ownerUsers').replaceChildren(); $('requestList').replaceChildren();
   $('ownerTotal').textContent = ''; $('policyUid').value = ''; $('spending').textContent = '';
+  $('failureList').replaceChildren(); $('reviewDue').hidden = true; $('reviewNext').textContent = '';
   showAdvanced(false);
   stopCapture();
 }
@@ -297,6 +298,51 @@ async function decideRequest(uid, decision) {
   } catch (error) { if (current === epoch) status(error.message); }
 }
 
+// The reminder is owner-only: caps.price_review is null for everyone else, so
+// other people never see it and are never interrupted by it.
+function showReview(review) {
+  if (!review) { $('reviewDue').hidden = true; $('reviewNext').textContent = ''; return; }
+  $('reviewDue').hidden = !review.due;
+  $('reviewText').textContent = 'Time for the monthly check: review usage and provider prices. '
+    + `Last checked ${review.last_reviewed}.`;
+  $('reviewNext').textContent = review.due
+    ? ''
+    : `Prices last reviewed ${review.last_reviewed}. Next check due ${review.next_due}.`;
+}
+
+$('reviewDone').addEventListener('click', async () => {
+  const current = epoch;
+  $('reviewDone').disabled = true;
+  try {
+    const result = await api.request('/owner/price-review', new FormData());
+    if (current !== epoch) return;
+    showReview(result);
+    status(`Noted. Next check due ${result.next_due}.`);
+  } catch (error) { if (current === epoch) status(error.message); }
+  finally { $('reviewDone').disabled = false; }
+});
+
+async function loadFailures() {
+  const current = epoch;
+  try {
+    const data = await api.request('/owner/diagnostics');
+    if (current !== epoch) return;
+    $('failureList').replaceChildren();
+    if (!data.recent_failures.length) {
+      line($('failureList'), 'No provider failures recorded on this server.', 'hint');
+    } else {
+      for (const item of data.recent_failures) {
+        const row = document.createElement('div');
+        row.className = 'person';
+        line(row, `${item.capability} · ${item.at.replace('T', ' ').replace('+00:00', ' UTC')}`, 'person-name');
+        line(row, item.reason, 'hint');
+        $('failureList').append(row);
+      }
+    }
+    line($('failureList'), data.note, 'hint');
+  } catch (error) { if (current === epoch) status(error.message); }
+}
+$('refreshFailures').addEventListener('click', () => void loadFailures());
 $('refreshUsers').addEventListener('click', () => void loadOwner());
 $('refreshRequests').addEventListener('click', () => void loadRequests());
 
@@ -359,7 +405,8 @@ async function checkAccess() {
     if (current !== epoch) return;
     showSpending(spending);
     status('Ready.');
-    if (caps.is_owner) { await loadOwner(); await loadRequests(); }
+    showReview(caps.price_review);
+    if (caps.is_owner) { await loadOwner(); await loadRequests(); await loadFailures(); }
   } catch (error) {
     if (current !== epoch) return;
     if (error.status === 403) {

@@ -283,3 +283,50 @@ def test_the_price_ceiling_sent_upstream_matches_the_chosen_model():
         assert provider['allow_fallbacks'] is False, identifier
         assert provider['max_price']['completion'] == model['max_price'], identifier
         assert provider['data_collection'] == 'deny', identifier
+
+
+def test_there_is_no_date_based_hard_stop_left():
+    # A fixed cut-off date refused every request for everyone once it passed,
+    # taking the service down without warning. Price review is a reminder now.
+    import pathlib
+    import re
+    source = (pathlib.Path(__file__).parent / 'pilot_providers.py').read_text(encoding='utf-8')
+    dispatch = source[source.index('async def _post'):source.index('def _headers')]
+    assert 'date.today()' not in dispatch, 'dispatch must not refuse on a date'
+    assert 'raise ProviderFailure' in source, 'real provider failures are still raised'
+
+
+def test_the_price_review_reminder_recurs_monthly_and_can_be_acknowledged():
+    from datetime import date
+    from cloud_api.pilot_providers import review_due
+
+    # Not due the day after a review.
+    assert review_due(date(2026, 9, 9), '2026-09-08')['due'] is False
+    # Due when the day comes round in the next month.
+    assert review_due(date(2026, 10, 8), '2026-09-08')['due'] is True
+    # Acknowledging on the day moves it on rather than re-arming immediately.
+    acknowledged = review_due(date(2026, 10, 8), '2026-10-08')
+    assert acknowledged['due'] is False and acknowledged['next_due'] == '2026-11-08'
+    # A month too short for the 31st must not raise.
+    assert review_due(date(2027, 3, 1), '2027-01-31')['next_due'] == '2027-02-08'
+    # Nonsense never breaks dispatch; it falls back to the known review date.
+    assert review_due(date(2026, 9, 9), 'not-a-date')['due'] is False
+
+
+def test_only_the_owner_is_shown_the_review_reminder():
+    # Everyone else keeps working: a pricing review is the owner's job, and
+    # other people cannot act on it.
+    client, _ = build_managed(lambda request: httpx.Response(200, json={}))
+    with client:
+        body = client.get('/capabilities', headers=AUTH).json()
+    assert body['price_review'] is None, 'a non-owner must not be nagged about prices'
+
+
+def test_recent_provider_failures_are_visible_without_leaking_user_content():
+    from cloud_api.pilot_capabilities import record_failure, recent_failures
+    record_failure('translate', 'openrouter returned HTTP 503; reservation retained.')
+    newest = recent_failures()[0]
+    assert newest['capability'] == 'translate'
+    assert '503' in newest['reason'] and newest['at']
+    # The reason comes from the adapter, which carries provider and status only.
+    assert 'Bearer' not in newest['reason']

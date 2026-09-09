@@ -12,7 +12,8 @@ export function createCloudClient(auth, fetcher = fetch, timeoutMs = 55000) {
     async request(path, body, options = {}) {
       if (!['/capabilities', '/translate', '/models', '/usage', '/owner/users', '/api/pronounce',
            '/access/request', '/owner/requests', '/owner/requests?status=pending',
-           '/api/translate', '/api/transcribe', '/api/ocr'].includes(path)
+           '/api/translate', '/api/transcribe', '/api/ocr',
+           '/owner/price-review', '/owner/diagnostics'].includes(path)
           && !/^\/owner\/(users|requests)\/[A-Za-z0-9_-]{1,128}$/.test(path)) throw new Error('Unsupported cloud request.');
       const current = generation;
       const controller = new AbortController();

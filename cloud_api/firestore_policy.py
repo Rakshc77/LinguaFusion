@@ -157,6 +157,20 @@ class FirestorePolicy:
                                     'limit': monthly_limit, 'budget': budget, 'at': at})
         self._mutate(operation)
 
+    def review_state(self):
+        """When prices were last reviewed. Absent means never, since this
+        document was created."""
+        return self._read().get('price_reviewed_at')
+
+    def acknowledge_review(self, actor, when):
+        """Record that the owner has checked prices and usage."""
+        def operation(state):
+            state['price_reviewed_at'] = when
+            state['events'].append({'actor': actor, 'event': 'price_review', 'at': when})
+            if len(state['events']) > 1000:
+                del state['events'][:len(state['events']) - 1000]
+        self._mutate(operation)
+
     def forget(self, uid):
         """Drop a person's entry entirely.
 
