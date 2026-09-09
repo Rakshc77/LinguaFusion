@@ -11,6 +11,10 @@ COPY cloud_api/pilot_capabilities.py /app/cloud_api/pilot_capabilities.py
 COPY cloud_api/ocr_layout.py /app/cloud_api/ocr_layout.py
 COPY cloud_api/access_requests.py /app/cloud_api/access_requests.py
 COPY cloud_api/pilot_providers.py /app/cloud_api/pilot_providers.py
+# The idiom set. proverbs.py imports the JSON beside it, so the data must
+# travel with the code or the feature silently disables itself in production.
+COPY cloud_api/proverbs.py /app/cloud_api/proverbs.py
+COPY cloud_api/proverbs.json /app/cloud_api/proverbs.json
 # Ledger CODE only. No local ledger file, credential or ADC is ever copied.
 COPY cloud_api/test_budget.py /app/cloud_api/test_budget.py
 COPY cloud_api/web/ /app/cloud_api/web/

@@ -1,0 +1,343 @@
+{
+  "_about": [
+    "Idioms and proverbs whose literal translation is wrong or meaningless.",
+    "",
+    "Each entry is one idea. `meaning` states it plainly, in English, for a",
+    "translation model to work from. `forms` lists how that idea is actually",
+    "said in each language: the FIRST form is the one offered as an",
+    "equivalent, the rest exist only so the phrase is recognised when someone",
+    "writes it differently.",
+    "",
+    "A language is absent from an entry when no idiom carries that idea in it.",
+    "That absence is deliberate and is not a gap to be filled with a literal",
+    "translation: the caller then renders the meaning plainly, which is",
+    "correct, rather than inventing a proverb no speaker uses.",
+    "",
+    "Languages: en de es fr ar hi or. Cloud translates en de es hi ar or;",
+    "the offline app does en de ar es fr. The union is covered here."
+  ],
+  "proverbs": [
+    {
+      "id": "heavy-rain",
+      "meaning": "it is raining very heavily",
+      "forms": {
+        "en": ["raining cats and dogs", "it's raining cats and dogs", "bucketing down"],
+        "es": ["llover a cántaros", "está lloviendo a cántaros"],
+        "fr": ["il pleut des cordes", "pleuvoir des cordes"],
+        "de": ["es regnet in Strömen", "es schüttet wie aus Eimern"],
+        "hi": ["मूसलाधार बारिश"]
+      }
+    },
+    {
+      "id": "crux-of-the-matter",
+      "meaning": "this is the real reason or the heart of the problem",
+      "forms": {
+        "de": ["da liegt der Hund begraben"],
+        "en": ["that's the crux of it", "that is the heart of the matter"],
+        "fr": ["c'est là que le bât blesse"],
+        "es": ["ahí está el quid de la cuestión"]
+      }
+    },
+    {
+      "id": "not-my-problem",
+      "meaning": "this is not my concern or responsibility",
+      "forms": {
+        "de": ["das ist nicht mein Bier"],
+        "en": ["that's not my problem", "not my circus, not my monkeys"],
+        "es": ["no es asunto mío"],
+        "fr": ["ce n'est pas mes oignons"]
+      }
+    },
+    {
+      "id": "kill-two-birds",
+      "meaning": "achieve two aims with a single action",
+      "forms": {
+        "en": ["kill two birds with one stone"],
+        "de": ["zwei Fliegen mit einer Klappe schlagen"],
+        "es": ["matar dos pájaros de un tiro"],
+        "fr": ["faire d'une pierre deux coups"],
+        "ar": ["يضرب عصفورين بحجر واحد", "عصفورين بحجر واحد"],
+        "hi": ["एक पंथ दो काज"]
+      }
+    },
+    {
+      "id": "last-straw",
+      "meaning": "the final small problem that makes a situation unbearable",
+      "forms": {
+        "en": ["the last straw", "the straw that broke the camel's back"],
+        "de": ["der Tropfen, der das Fass zum Überlaufen bringt"],
+        "es": ["la gota que colmó el vaso"],
+        "fr": ["la goutte d'eau qui fait déborder le vase"],
+        "ar": ["القشة التي قصمت ظهر البعير"]
+      }
+    },
+    {
+      "id": "speak-of-the-devil",
+      "meaning": "the person just mentioned has appeared",
+      "forms": {
+        "en": ["speak of the devil"],
+        "de": ["wenn man vom Teufel spricht"],
+        "es": ["hablando del rey de Roma"],
+        "fr": ["quand on parle du loup"]
+      }
+    },
+    {
+      "id": "piece-of-cake",
+      "meaning": "something very easy to do",
+      "forms": {
+        "en": ["a piece of cake", "piece of cake"],
+        "de": ["ein Kinderspiel"],
+        "es": ["pan comido"],
+        "fr": ["les doigts dans le nez", "du gâteau"],
+        "hi": ["बाएँ हाथ का खेल"]
+      }
+    },
+    {
+      "id": "cost-a-fortune",
+      "meaning": "something is extremely expensive",
+      "forms": {
+        "en": ["cost an arm and a leg", "costs an arm and a leg"],
+        "de": ["kostet ein Vermögen"],
+        "es": ["costar un ojo de la cara"],
+        "fr": ["coûter les yeux de la tête"]
+      }
+    },
+    {
+      "id": "birds-of-a-feather",
+      "meaning": "similar people tend to associate with each other",
+      "forms": {
+        "en": ["birds of a feather flock together"],
+        "de": ["gleich und gleich gesellt sich gern"],
+        "es": ["dime con quién andas y te diré quién eres"],
+        "fr": ["qui se ressemble s'assemble"],
+        "ar": ["الطيور على أشكالها تقع"]
+      }
+    },
+    {
+      "id": "practice-makes-perfect",
+      "meaning": "repeated practice is what produces skill",
+      "forms": {
+        "en": ["practice makes perfect"],
+        "de": ["Übung macht den Meister"],
+        "es": ["la práctica hace al maestro"],
+        "fr": ["c'est en forgeant qu'on devient forgeron"],
+        "ar": ["التكرار يعلم الحمار"]
+      }
+    },
+    {
+      "id": "dont-count-chickens",
+      "meaning": "do not rely on something good before it has actually happened",
+      "forms": {
+        "en": ["don't count your chickens before they hatch", "count your chickens before they hatch"],
+        "de": ["man soll den Tag nicht vor dem Abend loben"],
+        "es": ["no cantes victoria antes de tiempo"],
+        "fr": ["il ne faut pas vendre la peau de l'ours avant de l'avoir tué"]
+      }
+    },
+    {
+      "id": "patience-rewarded",
+      "meaning": "patience eventually brings a good result",
+      "forms": {
+        "ar": ["الصبر مفتاح الفرج"],
+        "en": ["patience is the key to relief", "good things come to those who wait"],
+        "de": ["Geduld bringt Rosen"],
+        "es": ["con paciencia se gana el cielo"],
+        "fr": ["tout vient à point à qui sait attendre"],
+        "hi": ["सब्र का फल मीठा होता है"]
+      }
+    },
+    {
+      "id": "actions-not-words",
+      "meaning": "what someone does matters more than what they say",
+      "forms": {
+        "en": ["actions speak louder than words"],
+        "de": ["Taten sagen mehr als Worte"],
+        "es": ["obras son amores y no buenas razones"],
+        "fr": ["les actes valent mieux que les paroles"],
+        "hi": ["कथनी से करनी बड़ी"]
+      }
+    },
+    {
+      "id": "no-smoke-without-fire",
+      "meaning": "a rumour usually has some basis in truth",
+      "forms": {
+        "en": ["there's no smoke without fire", "no smoke without fire"],
+        "de": ["kein Rauch ohne Feuer"],
+        "es": ["cuando el río suena, agua lleva"],
+        "fr": ["il n'y a pas de fumée sans feu"],
+        "ar": ["لا دخان بلا نار"]
+      }
+    },
+    {
+      "id": "money-doesnt-grow",
+      "meaning": "money is not easily or freely obtained",
+      "forms": {
+        "en": ["money doesn't grow on trees"],
+        "de": ["Geld wächst nicht auf Bäumen"],
+        "es": ["el dinero no crece en los árboles"],
+        "fr": ["l'argent ne pousse pas dans les arbres"]
+      }
+    },
+    {
+      "id": "bite-the-bullet",
+      "meaning": "accept something unpleasant that cannot be avoided",
+      "forms": {
+        "en": ["bite the bullet"],
+        "de": ["in den sauren Apfel beißen"],
+        "es": ["hacer de tripas corazón"],
+        "fr": ["serrer les dents"]
+      }
+    },
+    {
+      "id": "beat-around-the-bush",
+      "meaning": "avoid saying something directly",
+      "forms": {
+        "en": ["beat around the bush", "beating around the bush"],
+        "de": ["um den heißen Brei herumreden"],
+        "es": ["andarse por las ramas"],
+        "fr": ["tourner autour du pot"]
+      }
+    },
+    {
+      "id": "haste-makes-waste",
+      "meaning": "hurrying causes mistakes",
+      "forms": {
+        "en": ["haste makes waste", "more haste, less speed"],
+        "de": ["Eile mit Weile"],
+        "es": ["vísteme despacio que tengo prisa"],
+        "fr": ["hâte-toi lentement"],
+        "ar": ["في العجلة الندامة"],
+        "hi": ["जल्दी का काम शैतान का"]
+      }
+    },
+    {
+      "id": "under-the-weather",
+      "meaning": "feeling slightly ill",
+      "forms": {
+        "en": ["under the weather"],
+        "de": ["nicht ganz auf der Höhe"],
+        "es": ["estar pachucho"],
+        "fr": ["ne pas être dans son assiette"]
+      }
+    },
+    {
+      "id": "break-a-leg",
+      "meaning": "good luck, said to a performer",
+      "forms": {
+        "en": ["break a leg"],
+        "de": ["Hals- und Beinbruch"],
+        "es": ["mucha mierda"],
+        "fr": ["merde"]
+      }
+    },
+    {
+      "id": "once-in-a-blue-moon",
+      "meaning": "very rarely",
+      "forms": {
+        "en": ["once in a blue moon"],
+        "de": ["alle Jubeljahre"],
+        "es": ["de higos a brevas"],
+        "fr": ["tous les trente-six du mois"]
+      }
+    },
+    {
+      "id": "spill-the-beans",
+      "meaning": "reveal a secret",
+      "forms": {
+        "en": ["spill the beans", "let the cat out of the bag"],
+        "de": ["die Katze aus dem Sack lassen"],
+        "es": ["irse de la lengua"],
+        "fr": ["vendre la mèche"]
+      }
+    },
+    {
+      "id": "walls-have-ears",
+      "meaning": "be careful, someone may be listening",
+      "forms": {
+        "en": ["the walls have ears", "walls have ears"],
+        "de": ["die Wände haben Ohren"],
+        "es": ["las paredes oyen"],
+        "fr": ["les murs ont des oreilles"],
+        "ar": ["للحيطان آذان"]
+      }
+    },
+    {
+      "id": "necessity-invention",
+      "meaning": "need is what drives people to invent solutions",
+      "forms": {
+        "en": ["necessity is the mother of invention"],
+        "de": ["Not macht erfinderisch"],
+        "es": ["la necesidad agudiza el ingenio"],
+        "fr": ["nécessité fait loi"],
+        "ar": ["الحاجة أم الاختراع"],
+        "hi": ["आवश्यकता आविष्कार की जननी है"]
+      }
+    },
+    {
+      "id": "as-you-sow",
+      "meaning": "you experience the consequences of your own actions",
+      "forms": {
+        "en": ["as you sow, so shall you reap", "you reap what you sow"],
+        "de": ["wie man sät, so erntet man"],
+        "es": ["quien siembra vientos recoge tempestades"],
+        "fr": ["on récolte ce que l'on sème"],
+        "ar": ["من زرع حصد"],
+        "hi": ["जैसा बोओगे वैसा काटोगे"],
+        "or": ["ଯେମିତି ବୁଣିବ ସେମିତି କାଟିବ"]
+      }
+    },
+    {
+      "id": "empty-vessels",
+      "meaning": "those who know least often talk the most",
+      "forms": {
+        "en": ["empty vessels make the most noise"],
+        "de": ["leere Fässer klingen hohl"],
+        "es": ["el que menos sabe, más habla"],
+        "fr": ["les tonneaux vides font le plus de bruit"],
+        "hi": ["अधजल गगरी छलकत जाए"]
+      }
+    },
+    {
+      "id": "tip-of-the-iceberg",
+      "meaning": "only a small visible part of a much larger problem",
+      "forms": {
+        "en": ["the tip of the iceberg", "tip of the iceberg"],
+        "de": ["die Spitze des Eisbergs"],
+        "es": ["la punta del iceberg"],
+        "fr": ["la partie émergée de l'iceberg"]
+      }
+    },
+    {
+      "id": "throw-in-the-towel",
+      "meaning": "give up on something",
+      "forms": {
+        "en": ["throw in the towel"],
+        "de": ["das Handtuch werfen"],
+        "es": ["tirar la toalla"],
+        "fr": ["jeter l'éponge"]
+      }
+    },
+    {
+      "id": "silence-is-golden",
+      "meaning": "saying nothing is often wiser than speaking",
+      "forms": {
+        "en": ["silence is golden"],
+        "de": ["Reden ist Silber, Schweigen ist Gold"],
+        "es": ["en boca cerrada no entran moscas"],
+        "fr": ["la parole est d'argent, le silence est d'or"],
+        "ar": ["إذا كان الكلام من فضة فالسكوت من ذهب"]
+      }
+    },
+    {
+      "id": "look-before-you-leap",
+      "meaning": "think carefully before acting",
+      "forms": {
+        "en": ["look before you leap"],
+        "de": ["erst wägen, dann wagen"],
+        "es": ["antes de hacer nada, consúltalo con la almohada"],
+        "fr": ["il faut tourner sept fois sa langue dans sa bouche"],
+        "ar": ["فكر قبل أن تتكلم"]
+      }
+    }
+  ]
+}

@@ -308,6 +308,13 @@ def test_container_build_copies_every_module_the_app_imports():
             if isinstance(node, ast.ImportFrom) and (node.module or '').startswith(('cloud_api', 'backend')):
                 imported.add(node.module.replace('.', '/') + '.py')
 
+    # Data files a module reads from beside itself. Code-only checking missed
+    # proverbs.json entirely: the module would have shipped and then quietly
+    # fallen back to doing nothing, which is the worst kind of missing file.
+    for module, companion in [('cloud_api/proverbs.py', 'cloud_api/proverbs.json')]:
+        if module in imported:
+            imported.add(companion)
+
     assert imported, 'no first-party imports discovered; the check would pass vacuously'
     for module in sorted(imported):
         assert module in dockerfile, f'{module} is imported but never COPYed into the image'

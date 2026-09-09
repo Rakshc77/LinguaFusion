@@ -11,6 +11,8 @@
 !cloud_api/ocr_layout.py
 !cloud_api/access_requests.py
 !cloud_api/pilot_providers.py
+!cloud_api/proverbs.py
+!cloud_api/proverbs.json
 !cloud_api/test_budget.py
 !cloud_api/web/
 !cloud_api/web/index.html
