@@ -1,6 +1,7 @@
 """Cloud pilot: verified Firebase identity -> allowed UID -> Responses API."""
 import asyncio
 import json
+from datetime import datetime, timezone
 import logging
 import os
 import threading
@@ -20,10 +21,10 @@ from fastapi.responses import JSONResponse, FileResponse
 from backend.request_limits import RequestLimitsMiddleware
 from cloud_api.policy import LocalPolicy
 from cloud_api.ocr_layout import reconstruct
-from cloud_api.pilot_capabilities import (CAPABILITIES, DEFAULT_TRANSLATION_MODEL, ManagedBudget,
+from cloud_api.pilot_capabilities import (CAPABILITIES, recent_failures, DEFAULT_TRANSLATION_MODEL, ManagedBudget,
                                           PilotGateway, TRANSLATION_MODELS, translation_charge_id)
 from cloud_api.pilot_providers import (MAX_PRONUNCIATION_CHARACTERS, MAX_TRANSLATION_CHARACTERS,
-                                        PilotProviders)
+                                        PilotProviders, review_due)
 from cloud_api.test_budget import TestBudget
 from cloud_api.models import PAID, PRICE_REVIEWED, catalog, require_model, reserve_cost, usage_cost, budget_micro, usd
 
@@ -315,6 +316,36 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
             raise HTTPException(503, 'Persistent controls are not configured.')
         return uid
 
+    def _review_stamp():
+        try:
+            return policy.review_state() if hasattr(policy, 'review_state') else None
+        except Exception:
+            return None
+
+    @app.post('/owner/price-review')
+    async def owner_acknowledge_review(uid=Depends(owner)):
+        """The owner confirms they have checked usage and provider prices.
+
+        This only moves the reminder on. It changes no limit and no price: those
+        stay deliberate, separate actions.
+        """
+        when = datetime.now(timezone.utc).date().isoformat()
+        if hasattr(policy, 'acknowledge_review'):
+            await asyncio.to_thread(policy.acknowledge_review, uid, when)
+        log.info(json.dumps({'event': 'price_review_acknowledged'}))
+        return {'ok': True, **review_due(last_reviewed=when)}
+
+    @app.get('/owner/diagnostics')
+    def owner_diagnostics(uid=Depends(owner)):
+        """Recent provider failures, so the owner can see what went wrong from
+        the app instead of hunting through Cloud Logging on a phone.
+
+        In memory and per-instance, so it empties on restart. That is a real
+        limitation, not something to paper over.
+        """
+        return {'recent_failures': recent_failures(), 'kept': 25,
+                'note': 'Recent failures on this server instance only; cleared when it restarts.'}
+
     @app.get('/owner/users')
     def owner_users(uid=Depends(owner)):
         # Join the access request so the owner sees who a row actually is. A bare
@@ -433,6 +464,10 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
                                       if pilot['translate'] else [],
                 'default_translation_model': DEFAULT_TRANSLATION_MODEL,
                 'model_guidance_is_measured': False,
+                # Owner only. A pricing review is the owner's job, and telling
+                # everyone else about it would be noise they cannot act on.
+                'price_review': (review_due(last_reviewed=_review_stamp())
+                                 if settings.owner_uid and uid == settings.owner_uid else None),
                 'pronunciation_languages': ['hi', 'ar', 'or'] if pilot['pronounce'] else [],
                 'max_text_characters': MAX_TRANSLATION_CHARACTERS,
                 'max_pronunciation_characters': MAX_PRONUNCIATION_CHARACTERS,

@@ -20,6 +20,8 @@ BEFORE dispatch, where this process knows for certain that nothing was sent.
 import asyncio
 import json
 import logging
+from collections import deque
+from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
@@ -32,6 +34,27 @@ from cloud_api.pilot_providers import ProviderFailure
 PILOT_HOLD_MICRO = 10000
 
 log = logging.getLogger('linguafusion.cloud')
+
+# Recent provider failures, kept in memory so the owner can see them in the app.
+# Cloud Logging is still written to, but a log line the owner cannot find from a
+# phone is not a diagnosis. Bounded, and it holds NO user content: capability,
+# provider, status and time only.
+RECENT_FAILURE_LIMIT = 25
+_recent_failures = deque(maxlen=RECENT_FAILURE_LIMIT)
+
+
+def record_failure(capability, reason):
+    _recent_failures.append({
+        'at': datetime.now(timezone.utc).isoformat(timespec='seconds'),
+        'capability': capability,
+        'reason': str(reason)[:200],
+    })
+
+
+def recent_failures():
+    """Newest first. Per-instance and lost on restart, which is honest: this is
+    for 'what just went wrong', not an audit trail."""
+    return list(reversed(_recent_failures))
 
 # Translation models the owner has reviewed and approved. Anything outside this
 # map is refused: the caller must never be able to name an arbitrary model, both
@@ -127,6 +150,7 @@ class PilotGateway:
             # and its HTTP status but never a response body or credential, and
             # the caller still gets a generic message. Without this a provider
             # outage is indistinguishable from a bug in our own code.
+            record_failure(capability, failure)
             log.warning(json.dumps({'event': 'provider_failure', 'capability': capability,
                                     'reason': str(failure)[:200]}))
             raise HTTPException(502, 'The cloud provider could not complete this request; '

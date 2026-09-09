@@ -21,6 +21,38 @@ MAX_TRANSLATION_OUTPUT_TOKENS = 8192
 MAX_PRONUNCIATION_CHARACTERS = 2000
 MAX_PRONUNCIATION_OUTPUT_TOKENS = 4096
 
+# Provider prices drift, so they are checked on a schedule rather than trusted
+# forever. The reminder recurs on this day each month and is shown to the owner
+# only: everyone else keeps working, because a pricing review is the owner's job
+# and stopping other people's translations would not help them do it.
+PRICE_REVIEW_DAY = 8
+PRICE_REVIEWED_ON = '2026-09-08'
+
+
+def review_due(today=None, last_reviewed=None):
+    """Is a price review due, and when is the next one?
+
+    Due once the review day has arrived in a later month than the last review.
+    Acknowledging on the day itself therefore does not immediately re-arm.
+    """
+    from datetime import date as _date
+    today = today or _date.today()
+    try:
+        stamp = _date.fromisoformat(last_reviewed or PRICE_REVIEWED_ON)
+    except (TypeError, ValueError):
+        stamp = _date.fromisoformat(PRICE_REVIEWED_ON)
+
+    month, year = stamp.month + 1, stamp.year
+    if month > 12:
+        month, year = 1, year + 1
+    try:
+        next_due = _date(year, month, PRICE_REVIEW_DAY)
+    except ValueError:                      # a month too short for the day
+        next_due = _date(year, month, 28)
+    return {'due': today >= next_due,
+            'last_reviewed': stamp.isoformat(),
+            'next_due': next_due.isoformat()}
+
 # Translation models the owner has reviewed, with the per-model price ceiling
 # sent to OpenRouter. `max_price` is roughly 1.5x the price DeepInfra actually
 # charged when checked (2026-09-08), so ordinary drift does not break a model
@@ -90,8 +122,10 @@ class PilotProviders:
         self.transport = transport
 
     async def _post(self, provider, url, headers, **kwargs):
-        if date.today() > date(2026, 10, 8):
-            raise ProviderFailure('Review provider prices before resuming tests.')
+        # There is deliberately NO date-based hard stop here any more. It used to
+        # refuse every request after a fixed date, which would have taken the
+        # service down for everyone without warning. Price review is now a
+        # recurring reminder shown to the OWNER only; see review_due().
         # Persist BEFORE dispatch; shared across processes, restarts and providers.
         self.budget.reserve(provider, 10000)
         try:
