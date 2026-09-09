@@ -73,7 +73,7 @@ $('fontChoice').addEventListener('change', () => applyFont($('fontChoice').value
    offer is revealed then rather than on first paint. On the website the
    section stays hidden: there is no on-device app to switch to. */
 function revealOfflineSwitch() {
-  if (window.LFNativeOfflineMode === true) $('offlineSwitch').hidden = false;
+  if (window.LFNativeOfflineMode === true) $('goOffline').hidden = false;
 }
 revealOfflineSwitch();
 // The flag arrives after onPageFinished, which can land after this module runs.

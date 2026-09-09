@@ -150,3 +150,10 @@ html[data-mode="dark"] button.danger { color:#f2b8b5; border-color:#f2b8b5; }
 .mode-toggle { display:inline-flex; align-items:center; gap:7px; margin:0; min-height:38px;
   padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;
   color:var(--text); background:var(--panel); border:1px solid var(--line); }
+
+/* Header pills sit together, and wrap as a unit on a narrow phone rather than
+   splitting across lines with the account chip between them. */
+.head-pills { display:inline-flex; align-items:center; gap:8px; }
+/* The offline pill is a link, not a button: it hands a scheme to the app to
+   intercept. It has to look and size like its neighbour regardless. */
+a.mode-toggle { text-decoration:none; }
