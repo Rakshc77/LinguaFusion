@@ -10,12 +10,14 @@ implementation and an up-to-date Codex handover. Source work is on
 First appearance commit: `172c426`; subsequent UI polish and this handover are
 recorded in the branch’s latest commit. Check `git log -3 --oneline`.
 
-**Publication status:** changes are committed locally, not confirmed pushed.
-An earlier GitHub push was rejected by automatic review because explicit
-publication authorization for the public repository was not established.
-Do not assume another workspace can fetch the latest commit until a successful
-push is verified. Ask for explicit authorization to publish this branch to
-https://github.com/Rakshc77/LinguaFusion before retrying that blocked action.
+**Publication status:** the owner explicitly authorized publishing
+`codex/studio-minimal-appearance` to the public GitHub repository in this
+conversation. The subsequent push reached GitHub but failed with missing
+username/authentication (`terminal prompts disabled`). The GitHub plugin was
+suggested for connection; no successful connection or push is verified yet.
+No further publication permission is needed for this prepared branch. Connect
+GitHub with repository access, push, and verify the remote commit hash before
+claiming another Codex environment can retrieve it.
 
 **Deployment status:** this session has not deployed these changes. The live
 Cloud Run revision has not been inspected. Automatic review blocked Google
@@ -107,7 +109,7 @@ Provider price-review expiry recorded as October 8, 2026.
 
 ## Next steps
 
-1. Publish the prepared branch when explicitly authorized; confirm the remote hash.
+1. Complete the GitHub connection, publish the already-authorized branch, and confirm the remote hash.
 2. Deploy through the existing image-only Cloud Build/Run tooling after deployment
    authorization and identity are established. GitHub Actions tests do not deploy.
 3. Verify new appearance on the actual phone, all six views, consent and downloads.
