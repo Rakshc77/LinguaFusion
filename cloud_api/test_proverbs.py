@@ -203,3 +203,21 @@ def test_a_broken_proverb_set_cannot_take_translation_down():
         assert 'fixed expressions' not in brief
     finally:
         pilot_providers._PROVERBS = original
+
+
+def test_coverage_per_language_is_recorded_so_thin_ones_are_visible():
+    # Not all languages are equally served, and that should be a known fact
+    # rather than a surprise. Odia in particular has almost nothing: adding
+    # entries I am not sure of would be worse than the gap, because a wrong
+    # equivalent is offered to a model as if it were right.
+    counts = {}
+    for entry in BOOK.entries:
+        for language in entry['forms']:
+            counts[language] = counts.get(language, 0) + 1
+    for language, floor in [('en', 40), ('de', 40), ('es', 40), ('fr', 35),
+                            ('ar', 15), ('hi', 15)]:
+        assert counts.get(language, 0) >= floor, (
+            f'{language} has only {counts.get(language, 0)} entries, was at least {floor}')
+    # Odia is deliberately not floored. When it grows past a handful, give it
+    # a floor here too rather than leaving this comment as the only record.
+    assert counts.get('or', 0) >= 1, 'Odia lost its only entry'
