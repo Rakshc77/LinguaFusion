@@ -1,0 +1,14 @@
+{
+  "name": "LinguaFusion Online",
+  "short_name": "LinguaFusion",
+  "description": "Translation, pronunciation guides, speech and OCR, approved by the owner.",
+  "start_url": "/pilot/",
+  "scope": "/pilot/",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f4efe4",
+  "theme_color": "#f4efe4",
+  "icons": [
+    {"src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable"}
+  ]
+}

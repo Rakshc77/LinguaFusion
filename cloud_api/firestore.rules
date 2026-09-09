@@ -1,0 +1,33 @@
+rules_version = '2';
+
+// LinguaFusion cloud pilot — client access to Firestore is denied outright.
+//
+// The backend reaches Firestore as the runtime service account, and a service
+// account bypasses these rules entirely. Nothing else is supposed to touch this
+// database: no browser, no phone, no other client SDK. The pilot page talks to
+// our own API over HTTPS with a Firebase bearer token; it never opens a
+// Firestore connection of its own.
+//
+// There is deliberately no `allow` anywhere in this file. Firestore evaluates
+// every matching rule and grants access if ANY of them allows it, so a narrow
+// deny placed next to a broad allow does nothing. The only ruleset that can be
+// verified by reading it is one that grants nothing at all.
+//
+// The private policy document (linguafusion_private/pilot_policy_v1) holds
+// approval flags, budgets and reservations. It must never become client
+// readable, even for the owner's own account — the owner console reads it
+// through the authenticated /owner/users endpoint instead.
+//
+// linguafusion_access_requests holds personal data: a requester's name, their
+// organisation and the verified email address of the account they signed in
+// with. It is covered by the same total denial below. Nobody reads it from a
+// client, including the person it describes; the owner sees it only through
+// the authenticated /owner/requests endpoint.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

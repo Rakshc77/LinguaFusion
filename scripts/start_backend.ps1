@@ -27,7 +27,7 @@ $env:LF_TRUST_PROXY_HEADERS = "1"
 $env:LF_PUBLIC_ACCESS = "1"
 Remove-Item Env:LF_AUTO_TUNNEL -ErrorAction SilentlyContinue
 
-$uvicornArgs = @("-m", "uvicorn", "backend.server:app", "--host", "127.0.0.1", "--port", "8000")
+$uvicornArgs = @("-m", "uvicorn", "backend.server:app", "--host", "127.0.0.1", "--port", "8000", "--no-proxy-headers")
 if (-not $NoReload) {
     $uvicornArgs += "--reload"
 }

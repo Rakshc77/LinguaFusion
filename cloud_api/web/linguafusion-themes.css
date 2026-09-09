@@ -1,0 +1,89 @@
+/* Studio day preserves Warm Editorial's parchment, ink and terracotta.
+   Studio night uses Sunset rose. Minimal is neutral in both modes. */
+:root, [data-theme="studio"] {
+  --lf-app-bg:#f4efe4; --lf-text:#2b2622; --lf-text-muted:#716553;
+  --lf-accent:#b04a2f; --lf-on-accent:#ffffff;
+  --lf-surface-bg:#fcf9f2; --lf-line:#d8cfbd;
+  --lf-surface-border:1px solid var(--lf-line); --lf-surface-radius:18px;
+  --lf-surface-shadow:0 8px 28px rgba(70,45,24,.06);
+  --lf-xlate-bg:#eee6d6; --lf-xlate-text:#5b5344;
+  --lf-chip-bg:#eee1cd; --lf-notice:#eee1cd;
+  --lf-warn:#f9e7c7; --lf-warn-line:#855010;
+  --lf-danger:#a52d26;
+}
+[data-theme="studio"][data-mode="dark"] {
+  --lf-app-bg:#1a1015; --lf-text:#fce8ec; --lf-text-muted:#c3aab2;
+  --lf-accent:#f24e7a; --lf-on-accent:#1a1015;
+  --lf-surface-bg:#261820; --lf-line:#674152;
+  --lf-surface-shadow:0 10px 30px rgba(0,0,0,.15);
+  --lf-xlate-bg:#331d2a; --lf-xlate-text:#ffe4ec;
+  --lf-chip-bg:#3d2432; --lf-notice:#3d2432;
+  --lf-warn:#392a1d; --lf-warn-line:#edba78; --lf-danger:#ffb4ab;
+}
+[data-theme="minimal"] {
+  --lf-app-bg:#fafafa; --lf-text:#181818; --lf-text-muted:#646464;
+  --lf-accent:#202020; --lf-on-accent:#ffffff;
+  --lf-surface-bg:#ffffff; --lf-line:#cecece;
+  --lf-surface-border:1px solid var(--lf-line); --lf-surface-radius:6px;
+  --lf-surface-shadow:none; --lf-xlate-bg:#f2f2f2; --lf-xlate-text:#181818;
+  --lf-chip-bg:#e9e9e9; --lf-notice:#eeeeee;
+  --lf-warn:#eeeeee; --lf-warn-line:#646464; --lf-danger:#333333;
+}
+[data-theme="minimal"][data-mode="dark"] {
+  --lf-app-bg:#121212; --lf-text:#f4f4f4; --lf-text-muted:#b0b0b0;
+  --lf-accent:#f4f4f4; --lf-on-accent:#121212;
+  --lf-surface-bg:#1c1c1c; --lf-line:#535353;
+  --lf-xlate-bg:#242424; --lf-xlate-text:#f4f4f4;
+  --lf-chip-bg:#303030; --lf-notice:#242424;
+  --lf-warn:#242424; --lf-warn-line:#b0b0b0; --lf-danger:#eeeeee;
+}
+/* ---------- INDEPENDENT TYPOGRAPHY ----------
+   These selectors load after every look, so choosing a new look never changes
+   the user's font. All stacks are available offline on the target platforms. */
+:root,
+[data-font="modern"] {
+  --lf-font-display:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --lf-font-body:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --lf-font-mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --lf-label-font:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+[data-font="friendly"] {
+  --lf-font-display:ui-rounded,"Arial Rounded MT Bold","Trebuchet MS",sans-serif;
+  --lf-font-body:"Trebuchet MS",ui-rounded,system-ui,sans-serif;
+  --lf-font-mono:ui-monospace,Consolas,monospace;
+  --lf-label-font:"Trebuchet MS",ui-rounded,system-ui,sans-serif;
+}
+[data-font="accessible"] {
+  --lf-font-display:Arial,"Helvetica Neue",sans-serif;
+  --lf-font-body:Arial,"Helvetica Neue",sans-serif;
+  --lf-font-mono:ui-monospace,Consolas,monospace;
+  --lf-label-font:Arial,"Helvetica Neue",sans-serif;
+}
+[data-font="editorial"] {
+  --lf-font-display:Georgia,"Times New Roman",serif;
+  --lf-font-body:Georgia,"Times New Roman",serif;
+  --lf-font-mono:ui-monospace,Consolas,monospace;
+  --lf-label-font:Georgia,"Times New Roman",serif;
+}
+[data-font="classic"] {
+  --lf-font-display:"Times New Roman",Times,serif;
+  --lf-font-body:"Times New Roman",Times,serif;
+  --lf-font-mono:ui-monospace,Consolas,monospace;
+  --lf-label-font:"Times New Roman",Times,serif;
+}
+[data-font="technical"] {
+  --lf-font-display:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --lf-font-body:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --lf-font-mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+  --lf-label-font:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
+}
+
+/* Automatic typography follows the look; explicit typeface choices override it. */
+[data-theme="studio"][data-font="theme"] {
+  --lf-font-display:Georgia,"Times New Roman",serif;
+  --lf-font-body:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+[data-theme="minimal"][data-font="theme"] {
+  --lf-font-display:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --lf-font-body:system-ui,-apple-system,"Segoe UI",sans-serif;
+}

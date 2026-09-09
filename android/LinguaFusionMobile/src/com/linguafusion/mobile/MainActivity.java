@@ -2,6 +2,9 @@ package com.linguafusion.mobile;
 
 import android.Manifest;
 import android.app.Activity;
+import android.app.AlertDialog;
+import android.os.Handler;
+import android.os.Looper;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -65,18 +68,25 @@ public final class MainActivity extends Activity {
     private boolean darkSystemBars;
     private ValueCallback<Uri[]> fileCallback;
     private PermissionRequest pendingAudioRequest;
+    private AlertDialog cloudRecorderDialog;
+    private final Handler recordingHandler = new Handler(Looper.getMainLooper());
+    private Runnable cloudRecordingTimeout;
     private final Object nativeAudioLock = new Object();
     private volatile boolean nativeAudioRecording;
     private AudioRecord nativeAudioRecord;
     private Thread nativeAudioThread;
     private File nativeAudioFile;
     private static final int NATIVE_SAMPLE_RATE = 16000;
+    // Owner-hosted cloud service. Unlike PC mode this needs no pairing key:
+    // the page signs in with Firebase and the owner approves each account.
+    private static final String CLOUD_BASE = "https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app";
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
         applySystemBarTheme(false);
         preferences = getSharedPreferences("linguafusion", MODE_PRIVATE);
         if (handlePairingIntent(getIntent())) return;
+        if ("cloud".equals(preferences.getString("mode", ""))) { showCloudApp(); return; }
         String server = preferences.getString("server", "");
         if (server.isEmpty()) showConnectionScreen(); else verifySavedConnection(server, preferences.getString("key", ""));
     }
@@ -221,6 +231,17 @@ public final class MainActivity extends Activity {
         EditText keyInput=new EditText(this); keyInput.setSingleLine(true); keyInput.setHint("Shown on the PC"); keyInput.setText(preferences.getString("key","")); keyInput.setInputType(android.text.InputType.TYPE_CLASS_TEXT|android.text.InputType.TYPE_TEXT_VARIATION_PASSWORD); margin(keyInput,6); card.addView(keyInput);
         Button connect=new Button(this); connect.setText("Connect to PC"); connect.setTextColor(Color.WHITE); connect.setTextSize(15); connect.setAllCaps(false); connect.setBackground(background(Color.rgb(11,87,208),Color.TRANSPARENT,10)); margin(connect,20); card.addView(connect,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));
         TextView help=text("Scan a one-time invitation from the owner to connect over HTTPS from anywhere, or use the private-network backend address.",13,false); help.setTextColor(Color.rgb(102,112,133)); margin(help,18); root.addView(help);
+
+        TextView cloudTitle=text("No PC to connect to?",15,true); margin(cloudTitle,26); root.addView(cloudTitle);
+        TextView cloudHelp=text("Use Online mode instead: translation, pronunciation guides, speech and reading text from pictures. You create an account and the owner approves it by hand. No pairing key needed.",13,false); cloudHelp.setTextColor(Color.rgb(102,112,133)); margin(cloudHelp,6); root.addView(cloudHelp);
+        Button cloudButton=new Button(this); cloudButton.setText("Use LinguaFusion Online"); cloudButton.setTextSize(15); cloudButton.setAllCaps(false); cloudButton.setTextColor(Color.rgb(11,87,208)); cloudButton.setBackground(background(Color.WHITE,Color.rgb(11,87,208),10)); margin(cloudButton,14); root.addView(cloudButton,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));
+        cloudButton.setOnClickListener(view -> {
+            // isTrustedOrigin() checks the microphone request against "server",
+            // so the cloud origin is recorded there. The pairing key stays empty:
+            // cloud access is granted by Firebase sign-in plus owner approval.
+            preferences.edit().putString("mode","cloud").putString("server",CLOUD_BASE).putString("key","").apply();
+            showCloudApp();
+        });
         connect.setOnClickListener(view -> {
             String server=serverInput.getText().toString().trim().replaceAll("/+$",""); String key=keyInput.getText().toString().trim();
             if (!server.startsWith("http://") && !server.startsWith("https://")) { Toast.makeText(this,"Enter the full http:// or https:// address.",Toast.LENGTH_LONG).show(); return; }
@@ -313,8 +334,7 @@ public final class MainActivity extends Activity {
 
     private void showWebApp(String server, String key) {
         applySystemBarTheme(false);
-        webView=new WebView(this); webView.setBackgroundColor(Color.rgb(246,248,252));
-        WebSettings settings=webView.getSettings(); settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setMediaPlaybackRequiresUserGesture(false);settings.setAllowFileAccess(true);settings.setAllowContentAccess(true);
+        webView=newWebViewWithMediaSupport();
         webView.addJavascriptInterface(new NativeBridge(),"LinguaFusionNative");
         webView.setWebViewClient(new WebViewClient(){
             private boolean connectionInjected=false;
@@ -336,7 +356,16 @@ public final class MainActivity extends Activity {
                 if(request.isForMainFrame()&&response.getStatusCode()>=400)view.post(() -> {if(view==webView)showBackendUnavailable(server,key,"The PC returned HTTP "+response.getStatusCode()+" for the mobile page.");});
             }
         });
-        webView.setWebChromeClient(new WebChromeClient(){
+        webView.loadUrl(server+"/mobile/"); setInsetContentView(webView);
+    }
+
+    /** A WebView that can reach the microphone and the file picker.
+     *  Shared by PC and cloud modes so both behave identically for speech and
+     *  for choosing a picture; only the caller decides what to load. */
+    private WebView newWebViewWithMediaSupport(){
+        WebView view=new WebView(this); view.setBackgroundColor(Color.rgb(246,248,252));
+        WebSettings settings=view.getSettings(); settings.setJavaScriptEnabled(true);settings.setDomStorageEnabled(true);settings.setMediaPlaybackRequiresUserGesture(false);settings.setAllowFileAccess(true);settings.setAllowContentAccess(true);
+        view.setWebChromeClient(new WebChromeClient(){
             @Override public void onPermissionRequest(PermissionRequest request){
                 runOnUiThread(() -> {
                     if(!isTrustedOrigin(request.getOrigin()) || !requestsAudioOnly(request)){
@@ -358,9 +387,199 @@ public final class MainActivity extends Activity {
                 if(fileCallback!=null)fileCallback.onReceiveValue(null);fileCallback=callback;try{startActivityForResult(params.createIntent(),FILE_REQUEST);}catch(Exception error){fileCallback=null;Toast.makeText(MainActivity.this,"No file picker is available.",Toast.LENGTH_LONG).show();return false;}return true;
             }
         });
-        webView.loadUrl(server+"/mobile/"); setInsetContentView(webView);
+        return view;
+    }
+
+    /** The owner-hosted cloud service.
+     *  Deliberately WITHOUT addJavascriptInterface: the native bridge can wipe
+     *  saved settings and drive the microphone directly, and a remotely served
+     *  page has no business holding that. Cloud recording uses an explicit
+     *  native confirmation dialog, not a JavaScript interface. */
+    private void showCloudApp(){
+        applySystemBarTheme(false);
+        releaseWebView();
+        webView=newWebViewWithMediaSupport();
+        webView.setWebViewClient(new WebViewClient(){
+            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
+                Uri target=request.getUrl();
+                if("linguafusion-record".equals(target.getScheme())){
+                    if(request.isForMainFrame() && request.hasGesture()
+                            && isCloudOrigin(Uri.parse(view.getUrl()==null?"":view.getUrl()))) {
+                        showCloudRecorder(view, target.getQueryParameter("id"));
+                    }
+                    return true;
+                }
+                if(isCloudOrigin(target))return false;
+                // Sign-in and confirmation links belong in the real browser,
+                // not inside this WebView.
+                try{startActivity(new Intent(Intent.ACTION_VIEW,target));}catch(Exception ignored){}
+                return true;
+            }
+            @Override public void onPageFinished(WebView view,String url){
+                if(view==webView && isCloudOrigin(Uri.parse(url)))
+                    view.evaluateJavascript("window.LFNativeCloudRecording=true;",null);
+            }
+            @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){
+                super.onReceivedError(view,request,error);
+                if(request.isForMainFrame())view.post(() -> {if(view==webView)showCloudUnavailable(String.valueOf(error.getDescription()));});
+            }
+            @Override public void onReceivedHttpError(WebView view,WebResourceRequest request,WebResourceResponse response){
+                super.onReceivedHttpError(view,request,response);
+                if(request.isForMainFrame()&&response.getStatusCode()>=400)view.post(() -> {if(view==webView)showCloudUnavailable("The service returned HTTP "+response.getStatusCode()+".");});
+            }
+        });
+        // A WebView never fires this for blob: URLs, so the page emits a data:
+        // URL when it detects a WebView. Without this, Download does nothing at
+        // all and the person is left thinking the app is broken.
+        webView.setDownloadListener((url, agent, disposition, mime, size) -> saveDataUrl(url, disposition));
+        webView.loadUrl(CLOUD_BASE+"/pilot/"); setInsetContentView(webView);
+    }
+
+    /** Write a data: URL into the public Downloads folder. */
+    private void saveDataUrl(String url, String disposition){
+        if(url == null || !url.startsWith("data:")){
+            Toast.makeText(this,"This download type is not supported in the app. Use the website.",Toast.LENGTH_LONG).show();
+            return;
+        }
+        try{
+            int comma = url.indexOf(',');
+            if(comma < 0) throw new java.io.IOException("Malformed download.");
+            String header = url.substring(5, comma);
+            byte[] bytes = header.contains("base64")
+                ? Base64.decode(url.substring(comma + 1), Base64.DEFAULT)
+                : java.net.URLDecoder.decode(url.substring(comma + 1), "UTF-8").getBytes("UTF-8");
+            // Refuse anything implausible for a text export rather than filling
+            // storage from a page we do not control.
+            if(bytes.length > 8 * 1024 * 1024) throw new java.io.IOException("That file is too large to save.");
+
+            String name = fileNameFrom(disposition, header);
+            String mime = header.contains(";") ? header.substring(0, header.indexOf(';')) : header;
+            if(mime.isEmpty()) mime = "text/plain";
+
+            if(android.os.Build.VERSION.SDK_INT >= android.os.Build.VERSION_CODES.Q){
+                // Scoped storage: writing to the public Downloads PATH fails on
+                // Android 10 and later. MediaStore is the supported route and
+                // needs no storage permission at all.
+                android.content.ContentValues values = new android.content.ContentValues();
+                values.put(android.provider.MediaStore.MediaColumns.DISPLAY_NAME, name);
+                values.put(android.provider.MediaStore.MediaColumns.MIME_TYPE, mime);
+                values.put(android.provider.MediaStore.MediaColumns.RELATIVE_PATH,
+                           android.os.Environment.DIRECTORY_DOWNLOADS);
+                Uri item = getContentResolver().insert(
+                    android.provider.MediaStore.Downloads.EXTERNAL_CONTENT_URI, values);
+                if(item == null) throw new java.io.IOException("The Downloads folder refused the file.");
+                try(java.io.OutputStream out = getContentResolver().openOutputStream(item)){
+                    if(out == null) throw new java.io.IOException("The file could not be opened for writing.");
+                    out.write(bytes);
+                }
+            }else{
+                File folder = android.os.Environment.getExternalStoragePublicDirectory(
+                    android.os.Environment.DIRECTORY_DOWNLOADS);
+                if(!folder.exists() && !folder.mkdirs()) throw new java.io.IOException("No Downloads folder.");
+                File target = new File(folder, name);
+                for(int attempt = 1; target.exists() && attempt < 100; attempt++){
+                    int dot = name.lastIndexOf('.');
+                    String stem = dot > 0 ? name.substring(0, dot) : name;
+                    String suffix = dot > 0 ? name.substring(dot) : "";
+                    target = new File(folder, stem + "-" + attempt + suffix);
+                }
+                try(FileOutputStream out = new FileOutputStream(target)){ out.write(bytes); }
+            }
+            Toast.makeText(this,"Saved to Downloads: " + name,Toast.LENGTH_LONG).show();
+        }catch(Exception error){
+            Toast.makeText(this,"Could not save the file: " + error.getMessage(),Toast.LENGTH_LONG).show();
+        }
+    }
+
+    /** A safe file name: never trust one supplied by the page. */
+    private String fileNameFrom(String disposition, String header){
+        String name = "linguafusion-export";
+        if(disposition != null){
+            java.util.regex.Matcher matcher =
+                java.util.regex.Pattern.compile("filename=\"?([^\";]+)").matcher(disposition);
+            if(matcher.find()) name = matcher.group(1);
+        }
+        name = name.replaceAll("[^A-Za-z0-9._-]", "_");
+        if(name.isEmpty() || name.startsWith(".")) name = "linguafusion-export";
+        if(!name.contains(".")){
+            String extension = header.contains("csv") ? ".csv" : header.contains("markdown") ? ".md" : ".txt";
+            name = name + extension;
+        }
+        return name.length() > 80 ? name.substring(name.length() - 80) : name;
+    }
+
+    private boolean isCloudOrigin(Uri target){
+        Uri base=Uri.parse(CLOUD_BASE);
+        return Objects.equals(base.getScheme(),target.getScheme())
+            && Objects.equals(base.getHost(),target.getHost())
+            && effectivePort(base)==effectivePort(target);
+    }
+
+    // A page may REQUEST the dialog, but recording only starts on a native tap.
+    // No native settings, credentials or arbitrary files are exposed to the page.
+    private void showCloudRecorder(WebView owner,String requestId){
+        if(cloudRecorderDialog!=null || requestId==null || !requestId.matches("[a-zA-Z0-9-]{1,80}"))return;
+        AlertDialog dialog=new AlertDialog.Builder(this)
+            .setTitle("Record speech")
+            .setMessage("Up to 60 seconds. Stop and send uploads audio for paid online transcription. Cancel discards it.")
+            .setPositiveButton("Start",null).setNegativeButton("Cancel",null).create();
+        cloudRecorderDialog=dialog;
+        final boolean[] delivered={false};
+        Runnable finish=() -> {
+            if(cloudRecorderDialog!=dialog)return;
+            if(cloudRecordingTimeout!=null)recordingHandler.removeCallbacks(cloudRecordingTimeout);
+            String result=stopNativeAudioRecording();
+            delivered[0]=true;
+            sendCloudRecording(owner,requestId,result.startsWith("ERROR:")?"error":"audio",result);
+            dialog.dismiss();
+        };
+        dialog.setOnDismissListener(ignored -> {
+            if(cloudRecordingTimeout!=null)recordingHandler.removeCallbacks(cloudRecordingTimeout);
+            cloudRecordingTimeout=null;
+            cancelNativeAudioRecording();
+            cloudRecorderDialog=null;
+            if(!delivered[0])sendCloudRecording(owner,requestId,"cancel","");
+        });
+        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
+            if(nativeAudioRecording){finish.run();return;}
+            String result=startNativeAudioRecording();
+            if("PERMISSION_REQUIRED".equals(result)){
+                dialog.setMessage("Allow microphone access, then tap Start again.");
+            }else if(!"OK".equals(result)){
+                dialog.setMessage(result+" You can also use the Online app in Chrome.");
+            }else{
+                dialog.setMessage("Recording. Stop and send when ready; automatically stops at 60 seconds.");
+                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setText("Stop and send");
+                cloudRecordingTimeout=finish;
+                recordingHandler.postDelayed(finish,60000);
+            }
+        }));
+        dialog.show();
+    }
+
+    private void sendCloudRecording(WebView owner,String id,String kind,String data){
+        if(owner!=webView || !isCloudOrigin(Uri.parse(owner.getUrl()==null?"":owner.getUrl())))return;
+        owner.evaluateJavascript("window.dispatchEvent(new CustomEvent('lf-native-recording',{detail:{id:"
+            +jsQuote(id)+",kind:"+jsQuote(kind)+",data:"+jsQuote(data)+"}}));",null);
+    }
+
+    private void showCloudUnavailable(String detail){
+        releaseWebView();
+        applySystemBarTheme(false);
+        ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setBackgroundColor(Color.rgb(246,248,252));
+        LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(24),dp(54),dp(24),dp(32)); scroll.addView(root);
+        TextView title=text("LinguaFusion Online is unreachable",24,true); root.addView(title);
+        TextView reason=text(detail,14,false); reason.setTextColor(Color.rgb(102,112,133)); margin(reason,12); root.addView(reason);
+        TextView hint=text("Check this phone's internet connection. If it keeps failing, the owner may have stopped the service.",13,false); hint.setTextColor(Color.rgb(102,112,133)); margin(hint,10); root.addView(hint);
+        Button retry=new Button(this); retry.setText("Try again"); retry.setAllCaps(false); retry.setTextSize(15); retry.setTextColor(Color.WHITE); retry.setBackground(background(Color.rgb(11,87,208),Color.TRANSPARENT,10)); margin(retry,22); root.addView(retry,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));
+        retry.setOnClickListener(view -> showCloudApp());
+        Button usePc=new Button(this); usePc.setText("Connect to a PC instead"); usePc.setAllCaps(false); usePc.setTextSize(15); usePc.setTextColor(Color.rgb(11,87,208)); usePc.setBackground(background(Color.WHITE,Color.rgb(215,222,232),10)); margin(usePc,12); root.addView(usePc,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));
+        usePc.setOnClickListener(view -> {preferences.edit().remove("mode").apply();showConnectionScreen();});
+        setInsetContentView(scroll);
     }
     private void releaseWebView(){
+        if(cloudRecorderDialog!=null)cloudRecorderDialog.dismiss();
+        if(pendingAudioRequest!=null){pendingAudioRequest.deny();pendingAudioRequest=null;}
         cancelNativeAudioRecording();
         if(webView==null)return;
         webView.stopLoading();webView.removeJavascriptInterface("LinguaFusionNative");webView.setWebChromeClient(null);webView.setWebViewClient(null);webView.destroy();webView=null;
@@ -413,6 +632,7 @@ public final class MainActivity extends Activity {
                 nativeAudioThread.start();
                 return "OK";
             }catch(Exception error){
+                if(nativeAudioRecord!=null){try{nativeAudioRecord.release();}catch(Exception ignored){}}
                 nativeAudioRecording=false;nativeAudioRecord=null;nativeAudioThread=null;nativeAudioFile=null;
                 return "ERROR: "+error.getMessage();
             }
@@ -421,10 +641,11 @@ public final class MainActivity extends Activity {
 
     private void writeNativePcm(AudioRecord recorder,File outputFile,int bufferSize){
         byte[] buffer=new byte[bufferSize];
+        int remaining=cloudRecorderDialog!=null?NATIVE_SAMPLE_RATE*2*60:Integer.MAX_VALUE;
         try(FileOutputStream output=new FileOutputStream(outputFile,false)){
-            while(nativeAudioRecording){
-                int count=recorder.read(buffer,0,buffer.length);
-                if(count>0)output.write(buffer,0,count);
+            while(nativeAudioRecording && remaining>0){
+                int count=recorder.read(buffer,0,Math.min(buffer.length,remaining));
+                if(count>0){output.write(buffer,0,count);remaining-=count;}
                 else if(count<0)break;
             }
         }catch(Exception ignored){}
@@ -487,5 +708,9 @@ public final class MainActivity extends Activity {
         }
     }
     @Override public void onBackPressed(){if(webView!=null&&webView.canGoBack())webView.goBack();else super.onBackPressed();}
+    @Override protected void onPause(){
+        if(cloudRecorderDialog!=null && nativeAudioRecording)cloudRecorderDialog.dismiss();
+        super.onPause();
+    }
     @Override protected void onDestroy(){releaseWebView();executor.shutdownNow();super.onDestroy();}
 }

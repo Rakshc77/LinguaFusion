@@ -1,26 +1,32 @@
-# LinguaFusion Design Notes
+# LinguaFusion cloud UI — approved design
 
-Current version: 1.0-rc2.12-ui-consumer-polish
+Updated September 9, 2026. Applies to `cloud_api/web`, including its Android
+WebView. The native Windows application and PC-paired web UI are separate.
 
-Phase 5 uses a stable desktop UI with a supported medium-width floor. The application avoids horizontal workflow scrolling in normal pages. At medium width, right-side info panels collapse, controls use a shared proportional content band, and only vertical scrolling is used when lower playback controls require additional space.
+| Look | Background | Foreground | Accent |
+| --- | --- | --- | --- |
+| Studio day | #f4efe4 parchment | #2b2622 brown ink | #b04a2f terracotta |
+| Studio night | #1a1015 plum | #fce8ec | #f24e7a Sunset rose |
+| Minimal day | #fafafa | #181818 | #202020 |
+| Minimal night | #121212 | #f4f4f4 | #f4f4f4 |
 
-## Medium-width layout policy
+Studio day inherits the old Warm Editorial combination. Secondary text is
+darkened for readability. Studio night uses dark text on its rose button for
+contrast. Minimal uses flat neutral surfaces without decorative shadows.
 
-- Keep the desktop Source/Target arrangement instead of forcing an ultra-compact mobile layout.
-- Compress source/target boxes, input/output fields, action buttons, export buttons, and playback cards into the same visual content band.
-- Avoid horizontal page scrolling.
-- Use vertical scrolling for lower playback sections when necessary.
-- Show a clear scroll cue only on pages with playback controls.
+Only two themes; Day/Night is a separate setting. Store `lf-theme`, `lf-mode`
+and `lf-font` independently. Legacy themes migrate without losing selected
+brightness or font. “Match the look” is the new-install font default; existing
+explicit font preferences are retained. Use only local/system font stacks.
 
-## Workflow adjustments in this build
+Keep all six feature destinations and real copy/export actions. Use consistent
+inline SVG line icons, visible keyboard focus, wrapping actions, 44px or larger
+action targets and opaque bottom navigation with safe-area clearance.
+Translation consent must remain outside the fieldset it enables.
 
-- Translate: tighter input/output and playback bands, export buttons remain visible, native media icons are applied to playback controls.
-- Reader: same proportional playback and export behavior as Translate.
-- OCR: controls are grouped into a compact row and the result area is brought up to reduce dead space.
-- Speech: media/control buttons use native icons in compact mode and stay inside the common content band.
+The reviewed images are concepts, not runtime screenshots. Production retains
+paid consent wording, real download format controls, and feature availability
+gating. Offline controls must not imply an available engine before implementation.
 
-## Application icon
-
-The desktop shell includes PNG and ICO icon assets under `desktop/assets/`. Multiple candidate icon concepts are included under `desktop/assets/icon_options/`. The default app/taskbar icon in this build is Option A, which combines speech, waveform/audio, translation, and document handling into a single simple mark.
-
-Ultra-compact/mobile-style layout remains deferred until it can be redesigned cleanly.
+Implementation: `themes.mjs`, `linguafusion-themes.css`, `pilot.css`, `index.html`
+and appearance wiring in `pilot.mjs`. Cache version: `linguafusion-cloud-v3-appearance`.

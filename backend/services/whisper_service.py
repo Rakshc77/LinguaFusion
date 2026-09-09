@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import os
 import re
+import sys
 import threading
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -74,9 +75,13 @@ def _register_windows_cuda_dll_dirs() -> None:
             if not pkg_dirs and getattr(module, "__file__", None):
                 pkg_dirs = [str(Path(module.__file__).resolve().parent)]
         except Exception:
-            continue
-        for pkg_dir in pkg_dirs:
-            bin_dir = Path(pkg_dir) / "bin"
+            pkg_dirs = []
+        bin_dirs = [Path(pkg_dir) / "bin" for pkg_dir in pkg_dirs]
+        if getattr(sys, "frozen", False):
+            # The desktop bundle ships Torch's coherent CUDA library set;
+            # NVIDIA namespace packages are absent from the frozen archive.
+            bin_dirs = [Path(sys._MEIPASS) / "torch" / "lib"]
+        for bin_dir in bin_dirs:
             resolved_bin_dir = str(bin_dir.resolve()) if bin_dir.is_dir() else ""
             if resolved_bin_dir and resolved_bin_dir not in _registered_cuda_dll_dirs:
                 try:
@@ -230,6 +235,23 @@ def _clean_text(text: str) -> str:
     return _dedupe_exact_repetition(text)
 
 
+def _is_hotword_only_hallucination(
+    text: str,
+    segments: List[Dict[str, Any]],
+    duration: float,
+) -> bool:
+    """Detect a prompt echo that cannot plausibly represent a long recording."""
+    hotword = _clean_text(ASR_HOTWORDS).casefold()
+    cleaned = _clean_text(text).casefold()
+    if not hotword or cleaned != hotword or duration < 5.0:
+        return False
+    voiced_seconds = sum(
+        max(0.0, float(segment.get("end", 0.0)) - float(segment.get("start", 0.0)))
+        for segment in segments
+    )
+    return voiced_seconds < min(1.0, duration * 0.02)
+
+
 # ---------------------------------------------------------------------------
 # Public API.
 # ---------------------------------------------------------------------------
@@ -271,12 +293,12 @@ def transcribe_audio(audio_path: Path, language: str = "auto") -> Dict[str, Any]
         with gpu_operation("whisper"), _inference_lock:
             model = _load_model()
 
-            def run_pass(use_vad: bool):
+            def run_pass(use_vad: bool, hotwords: str | None = ASR_HOTWORDS or None):
                 segments_iter, pass_info = model.transcribe(
                     str(path),
                     language=lang_arg,
                     beam_size=5,
-                    hotwords=ASR_HOTWORDS or None,
+                    hotwords=hotwords,
                     word_timestamps=True,
                     # Whisper tends to loop on music/silence when conditioning on its
                     # own previous output; disabling this reduces repetition cascades.
@@ -306,16 +328,21 @@ def transcribe_audio(audio_path: Path, language: str = "auto") -> Dict[str, Any]
             try:
                 parts, segments, info = run_pass(use_vad=True)
                 vad_fallback_used = False
-                if not _clean_text(" ".join(parts)):
+                primary_text = _clean_text(" ".join(parts))
+                duration = float(getattr(info, "duration", 0.0) or 0.0)
+                if not primary_text or _is_hotword_only_hallucination(primary_text, segments, duration):
                     # A non-empty, valid audio file must get one unfiltered retry.
                     # This fixed real 16 kHz speech that Silero VAD classified as
                     # entirely non-speech even though 95/97 seconds had signal.
-                    parts, segments, info = run_pass(use_vad=False)
+                    # Suppress the hotword on retry as well: a prompt echo such
+                    # as one 80 ms "LinguaFusion" segment in a 97-second file is
+                    # not evidence of speech and must not prevent the fallback.
+                    parts, segments, info = run_pass(use_vad=False, hotwords=None)
                     vad_fallback_used = True
             except Exception:
                 # If Silero VAD or ONNXRuntime encounters a missing model file or load failure,
                 # smoothly fall back to standard non-VAD transcription pass.
-                parts, segments, info = run_pass(use_vad=False)
+                parts, segments, info = run_pass(use_vad=False, hotwords=None)
                 vad_fallback_used = True
 
         text = _clean_text(" ".join(parts))

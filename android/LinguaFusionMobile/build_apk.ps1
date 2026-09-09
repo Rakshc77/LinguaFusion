@@ -10,6 +10,8 @@ $build = Join-Path $project "build"
 $dist = Join-Path $project "dist"
 
 if (-not (Test-Path -LiteralPath $platform)) { throw "Android platform 36.1 is not installed." }
+$expectedBuild = [IO.Path]::GetFullPath((Join-Path $project "build"))
+if ([IO.Path]::GetFullPath($build) -ne $expectedBuild -or (Split-Path $expectedBuild -Parent) -ne $project) { throw "Unsafe build directory." }
 if (Test-Path -LiteralPath $build) { Remove-Item -LiteralPath $build -Recurse -Force }
 New-Item -ItemType Directory -Force -Path $build,$dist,(Join-Path $build "gen"),(Join-Path $build "classes"),(Join-Path $build "dex") | Out-Null
 
@@ -17,11 +19,13 @@ $aapt2 = Join-Path $buildTools "aapt2.exe"
 $compiled = Join-Path $build "resources.zip"
 $baseApk = Join-Path $build "base.apk"
 & $aapt2 compile --dir (Join-Path $project "res") -o $compiled
-& $aapt2 link -o $baseApk -I $platform --manifest (Join-Path $project "AndroidManifest.xml") --java (Join-Path $build "gen") --min-sdk-version 26 --target-sdk-version 36 --version-code 5 --version-name 1.4 $compiled
+& $aapt2 link -o $baseApk -I $platform --manifest (Join-Path $project "AndroidManifest.xml") --java (Join-Path $build "gen") --min-sdk-version 26 --target-sdk-version 36 --version-code 6 --version-name 1.5 $compiled
+if ($LASTEXITCODE -ne 0) { throw "Android resource linking failed." }
 
 $sources = @(Get-ChildItem (Join-Path $project "src") -Recurse -Filter *.java | Select-Object -ExpandProperty FullName)
 $sources += @(Get-ChildItem (Join-Path $build "gen") -Recurse -Filter *.java | Select-Object -ExpandProperty FullName)
 & (Join-Path $javaHome "bin\javac.exe") -encoding UTF-8 -source 17 -target 17 -classpath $platform -d (Join-Path $build "classes") $sources
+if ($LASTEXITCODE -ne 0) { throw "Android compilation failed." }
 
 $classFiles = @(Get-ChildItem (Join-Path $build "classes") -Recurse -Filter *.class | Select-Object -ExpandProperty FullName)
 $env:JAVA_HOME = $javaHome

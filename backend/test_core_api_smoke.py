@@ -59,7 +59,7 @@ def test_system_lfie_and_provider_status(live_api_url: str):
     assert root["ok"] is True
     assert {"translate", "reader", "speech", "ocr", "notes"}.issubset(root["modes"])
 
-    health = requests.get(f"{live_api_url}/health", timeout=10).json()
+    health = requests.get(f"{live_api_url}/diagnostics", headers=_api_headers(), timeout=10).json()
     assert health["services"]["speech"] is True
     assert health["services"]["translation"] is True
     expected_device = os.environ.get("LF_TEST_EXPECT_DEVICE", "cuda").strip().lower()
@@ -120,7 +120,7 @@ def test_multilingual_translation(live_api_url: str, text: str, source_lang: str
     assert result["route"][0] == source_lang
     assert result["route"][-1] == target_lang
     assert "lfie" in result
-    nllb = requests.get(f"{live_api_url}/health", timeout=10).json()["checks"]["nllb_translate"]
+    nllb = requests.get(f"{live_api_url}/diagnostics", headers=_api_headers(), timeout=10).json()["checks"]["nllb_translate"]
     assert nllb["loaded"] is True, f"NLLB silently fell back instead of loading: {nllb}"
     assert nllb["error"] is None
 

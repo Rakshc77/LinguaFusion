@@ -1,0 +1,295 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>LinguaFusion — Online</title>
+  <link rel="stylesheet" href="/pilot/linguafusion-themes.css">
+  <link rel="stylesheet" href="/pilot/pilot.css">
+  <link rel="manifest" href="/pilot/manifest.webmanifest">
+  <link rel="icon" href="/pilot/icon.svg" type="image/svg+xml">
+  <meta name="theme-color" content="#f4efe4">
+  <meta name="mobile-web-app-capable" content="yes">
+</head>
+<body>
+  <main>
+    <!-- Everything anyone needs BEFORE they are approved. Hidden entirely once
+         they are in, so the working app is not buried under setup text. -->
+    <div id="onboarding">
+      <header><span class="brand">Lingua<span class="brand-accent">Fusion</span></span><span class="badge">Online</span></header>
+      <h1>Your words. A little further.</h1>
+      <p class="intro">Translation, pronunciation guides, speech to text, and reading text from pictures.</p>
+      <aside><strong>Before you sign in</strong><p>Sign-in connects to Google Firebase. Translation, pronunciation, speech and picture reading send what you submit to an external AI provider. Your PC app and pairing settings are unchanged.</p></aside>
+
+      <section id="androidOffer" hidden aria-labelledby="androidTitle">
+        <h2 id="androidTitle">Android app</h2>
+        <p class="hint">Optional. The same app, in its own icon on your home screen. The website works just as well.</p>
+        <p><a id="androidDownload" class="download" href="/pilot/linguafusion-android.apk" download>Download for Android</a></p>
+        <p class="hint">Your phone will warn that this came from outside the Play Store and ask you to allow it — that is expected for a privately shared app. Check it matches this fingerprint before installing:</p>
+        <p><code id="androidFingerprint" class="fingerprint">…</code></p>
+      </section>
+
+      <p id="setupStatus" role="status" aria-live="polite">Loading secure sign-in…</p>
+      <button id="retryLoad" type="button" hidden>Retry sign-in setup</button>
+
+      <form id="loginForm" aria-labelledby="loginTitle">
+        <h2 id="loginTitle">Sign in</h2>
+        <fieldset id="loginFields" disabled>
+          <label for="email">Email address</label>
+          <input id="email" type="email" autocomplete="username" required maxlength="254">
+          <label for="password">Password</label>
+          <input id="password" type="password" autocomplete="current-password" required>
+          <label class="check"><input id="remember" type="checkbox"> Keep me signed in on this device</label>
+          <button type="submit" id="signIn">Sign in</button>
+        </fieldset>
+        <p class="hint">Signing in does not grant access by itself. The owner approves each account.</p>
+        <button id="showSignUp" type="button" class="secondary">I need to create an account</button>
+      </form>
+
+      <form id="signUpForm" hidden aria-labelledby="signUpTitle">
+        <h2 id="signUpTitle">Create your account</h2>
+        <fieldset id="signUpFields">
+          <label for="newEmail">Email address</label>
+          <input id="newEmail" type="email" autocomplete="username" required maxlength="254">
+          <label for="newPassword">Choose a password</label>
+          <input id="newPassword" type="password" autocomplete="new-password" required minlength="8">
+          <p class="hint">At least 8 characters. We email you a confirmation link; the owner then approves your access by hand.</p>
+          <button type="submit" id="createAccount">Create account</button>
+        </fieldset>
+        <button id="showSignIn" type="button" class="secondary">I already have an account</button>
+      </form>
+
+      <section id="verifyEmail" hidden aria-labelledby="verifyTitle">
+        <h2 id="verifyTitle">Confirm your email address</h2>
+        <p>We sent a confirmation link to <strong id="verifyAddress"></strong>. Open it, then choose Continue.</p>
+        <p class="hint">Check your spam folder if it has not arrived after a minute.</p>
+        <button id="verifyContinue" type="button">I have confirmed — continue</button>
+        <button id="resendVerification" type="button" class="secondary">Send the link again</button>
+        <p id="verifyStatus" role="status" aria-live="polite"></p>
+      </section>
+
+      <section id="accessRequest" hidden aria-labelledby="accessTitle">
+        <h2 id="accessTitle">Request access</h2>
+        <p class="hint">You are signed in, but not approved yet. Send a request and the owner will decide.</p>
+        <form id="accessForm">
+          <fieldset id="accessFields">
+            <label for="reqName">Your name</label>
+            <input id="reqName" maxlength="120" autocomplete="name" required>
+            <label for="reqOrg">Organisation</label>
+            <input id="reqOrg" maxlength="120" autocomplete="organization" required>
+            <p class="hint">Only your name, your organisation and the verified email of the account you signed in with are stored. No postal address or phone number. Ask the owner to delete your details at any time.</p>
+            <button id="sendRequest" type="submit">Send access request</button>
+          </fieldset>
+        </form>
+        <p id="accessStatus" role="status" aria-live="polite"></p>
+      </section>
+      <p class="hint" id="signedInAs" hidden></p>
+      <button id="onboardingSignOut" type="button" class="secondary" hidden>Sign out</button>
+    </div>
+
+    <!-- The app proper: one view at a time, chosen from the bar at the bottom. -->
+    <div id="workspace" hidden>
+      <header class="app-head">
+        <span class="brand">Lingua<span class="brand-accent">Fusion</span></span>
+        <button id="modeToggle" type="button" class="mode-toggle secondary" aria-label="Switch to night mode">Day</button>
+        <span id="accountName" class="account-chip"></span>
+      </header>
+      <p id="status" role="status" aria-live="polite"></p>
+
+      <section class="view" id="viewSpeech" aria-labelledby="speechTitle">
+        <h2 id="speechTitle">Speak naturally.</h2>
+        <p class="view-intro">Turn your voice into words.</p>
+        <div id="speechPane">
+          <p class="hint">Record up to 60 seconds. The audio is converted on this device and sent for transcription. Silence may correctly produce nothing.</p>
+          <label class="check"><input id="speechConsent" type="checkbox"> I agree to paid API use for this transcription, charged to the owner.</label>
+          <button id="recordToggle" type="button">Start recording</button>
+          <p id="speechStatus" role="status" aria-live="polite"></p>
+          <h3 id="transcriptHeading">Transcript</h3>
+          <div id="transcript" role="region" aria-labelledby="transcriptHeading" dir="auto"></div>
+          <div class="actions">
+            <button id="copyTranscript" class="secondary" type="button">Copy</button>
+            <button id="transcriptToTranslate" class="secondary" type="button">Translate this</button>
+            <select id="transcriptFormat" aria-label="Transcript download format"></select>
+            <button id="downloadTranscript" class="secondary" type="button">Download</button>
+          </div>
+        </div>
+        <p class="hint unavailable" id="speechUnavailable" hidden>Speech is not switched on for this account.</p>
+      </section>
+
+      <section class="view" id="viewTranslate" hidden aria-labelledby="translateTitle">
+        <h2 id="translateTitle">Translate</h2>
+        <p class="view-intro">Find the right words.</p>
+        <div id="translatePane">
+          <label class="check"><input id="paidConsent" type="checkbox"> I agree to paid API use for translation, charged to the owner.</label>
+          <form id="translateForm">
+            <fieldset id="translationFields" disabled>
+              <div class="languages">
+                <div><label for="source">From</label><select id="source"><option value="auto">Detect language</option></select></div>
+                <div><label for="target">To</label><select id="target"></select></div>
+              </div>
+              <p class="hint" id="translateModelNote"></p>
+              <label for="text">Source text</label>
+              <textarea id="text" maxlength="4000" rows="4" placeholder="Type or paste text" required></textarea>
+              <p class="hint" id="textCount">Text leaves your device when you select Translate.</p>
+              <button id="translate" type="submit">Translate</button>
+            </fieldset>
+          </form>
+          <h3 id="resultHeading">Translation</h3>
+          <div id="result" role="region" aria-labelledby="resultHeading" aria-live="polite" dir="auto">Your translation will appear here.</div>
+          <div class="actions">
+            <button id="copyTranslation" class="secondary" type="button">Copy</button>
+            <button id="translationToSay" class="secondary" type="button">Say it</button>
+            <select id="translationFormat" aria-label="Translation download format"></select>
+            <button id="downloadTranslation" class="secondary" type="button">Download</button>
+          </div>
+        </div>
+        <p class="hint unavailable" id="translateUnavailable" hidden>Translation is not switched on for this account.</p>
+      </section>
+
+      <section class="view" id="viewRead" hidden aria-labelledby="ocrTitle">
+        <h2 id="ocrTitle">Read a picture</h2>
+        <div id="ocrPane">
+          <p class="hint">One PNG or JPEG photo or screenshot, up to 4 MB.</p>
+          <label for="ocrFile">Choose or take a photo</label>
+          <input id="ocrFile" type="file" accept="image/png,image/jpeg" capture="environment">
+          <label class="check"><input id="ocrConsent" type="checkbox"> I agree to paid API use for this request, charged to the owner.</label>
+          <button id="runOcr" type="button">Read the text</button>
+          <p id="ocrStatus" role="status" aria-live="polite"></p>
+          <h3 id="ocrHeading">Text found</h3>
+          <div id="ocrResult" role="region" aria-labelledby="ocrHeading" dir="auto"></div>
+          <p id="ocrLayoutNote" class="hint"></p>
+          <div class="actions">
+            <button id="copyOcr" class="secondary" type="button">Copy</button>
+            <button id="ocrToTranslate" class="secondary" type="button">Translate this</button>
+            <button id="ocrToSay" class="secondary" type="button">Say it</button>
+            <select id="ocrFormat" aria-label="Text download format"></select>
+            <button id="downloadOcr" class="secondary" type="button">Download</button>
+          </div>
+        </div>
+        <p class="hint unavailable" id="ocrUnavailable" hidden>Picture reading is not switched on for this account.</p>
+      </section>
+
+      <section class="view" id="viewSay" hidden aria-labelledby="pronunciationTitle">
+        <h2 id="pronunciationTitle">Say it</h2>
+        <div id="pronunciationPane">
+          <p class="hint">Shows roughly how Hindi, Arabic or Odia text sounds, written in Latin letters. A reading aid, not a translation — it never replaces the original.</p>
+          <form id="pronounceForm">
+            <fieldset id="pronounceFields" disabled>
+              <label for="pronounceLanguage">Language of the text</label>
+              <select id="pronounceLanguage"></select>
+              <label for="pronounceText">Text in that language</label>
+              <textarea id="pronounceText" maxlength="2000" rows="4" placeholder="Paste Hindi, Arabic or Odia text" dir="auto" required></textarea>
+              <p class="hint">Up to 2,000 characters. Your text leaves this device when you select Get pronunciation guide.</p>
+              <label class="check"><input id="pronounceConsent" type="checkbox"> I agree to paid API use for this guide, charged to the owner.</label>
+              <button id="pronounce" type="submit">Get pronunciation guide</button>
+            </fieldset>
+          </form>
+          <div id="pronounceResult" hidden>
+            <p class="warn" id="pronounceNotice"></p>
+            <h3 id="nativeHeading">Original text</h3>
+            <div id="pronounceNative" role="region" aria-labelledby="nativeHeading" dir="auto"></div>
+            <button id="copyNative" class="secondary" type="button">Copy original text</button>
+            <h3 id="romanHeading">Approximate pronunciation</h3>
+            <div id="pronounceRoman" role="region" aria-labelledby="romanHeading" dir="ltr" lang="en"></div>
+            <div class="actions">
+            <button id="copyRoman" class="secondary" type="button">Copy pronunciation</button>
+            <select id="pronounceFormat" aria-label="Pronunciation download format"></select>
+            <button id="downloadPronounce" class="secondary" type="button">Download</button>
+          </div>
+          </div>
+          <p id="pronounceStatus" role="status" aria-live="polite"></p>
+        </div>
+        <p class="hint unavailable" id="pronounceUnavailable" hidden>Pronunciation guides are not switched on for this account.</p>
+      </section>
+
+      <section class="view" id="viewModels" hidden aria-labelledby="modelsTitle">
+        <h2 id="modelsTitle">AI model</h2>
+        <p class="hint">Used for translation. Speech, picture reading and pronunciation each use their own fixed model and are not affected by this choice.</p>
+        <div id="modelList"></div>
+        <p class="hint" id="modelCaveat"></p>
+        <p class="hint">Both are reviewed and price-capped by the owner. Many other models exist on OpenRouter, but only ones the owner has checked can be chosen here.</p>
+      </section>
+
+      <section class="view" id="viewAccount" hidden aria-labelledby="accountTitle">
+        <h2 id="accountTitle">Settings</h2>
+        <p id="accountEmail" class="hint"></p>
+        <p id="spending" role="status">Loading your usage…</p>
+        <p class="hint">USD estimates from recorded API use — not the provider’s final invoice. Hosting, taxes and API use outside this app are excluded. Unresolved holds stay deducted from the budget.</p>
+        <button id="checkAccess" class="secondary" type="button">Refresh</button>
+        <button id="signOut" class="secondary" type="button">Sign out</button>
+
+        <section aria-labelledby="appearanceTitle">
+          <h3 id="appearanceTitle">Appearance</h3>
+          <p class="hint">Choose Studio or Minimal and a typeface. Use the top pill to switch between day and night.</p>
+          <label for="themeChoice">Look</label>
+          <select id="themeChoice"></select>
+          <label for="fontChoice">Typeface</label>
+          <select id="fontChoice"></select>
+          <p class="hint">Typefaces use what is already on your device, so nothing is downloaded and this keeps working offline.</p>
+        </section>
+
+        <section class="update-panel" aria-labelledby="updatesTitle">
+          <h3 id="updatesTitle">App updates</h3>
+          <p class="hint">Online mode · <span id="appVersion"></span></p>
+          <button id="checkUpdates" class="secondary" type="button">Check for updates</button>
+          <p id="updateStatus" role="status" aria-live="polite"></p>
+          <div id="updateOffer" hidden>
+            <p class="hint">Updating reloads the interface and clears unsaved text and results. Copy or download anything you want to keep first.</p>
+            <button id="applyUpdate" type="button">Reload and update</button>
+          </div>
+        </section>
+
+        <section id="ownerPanel" hidden aria-labelledby="ownerTitle">
+          <h2 id="ownerTitle">Owner</h2>
+
+          <div id="reviewDue" class="confirm" hidden>
+            <p id="reviewText"></p>
+            <button id="reviewDone" type="button">I have checked usage and prices</button>
+          </div>
+          <p class="hint" id="reviewNext"></p>
+
+          <p id="ownerTotal"></p>
+
+          <h3 id="requestsHeading">Access requests</h3>
+          <button id="refreshRequests" type="button" class="secondary">Refresh requests</button>
+          <div id="requestList"></div>
+
+          <h3 id="usersHeading">People with access</h3>
+          <button id="refreshUsers" type="button" class="secondary">Refresh people and usage</button>
+          <div id="ownerUsers"></div>
+
+          <h3 id="failuresHeading">Recent provider failures</h3>
+          <button id="refreshFailures" type="button" class="secondary">Refresh failures</button>
+          <div id="failureList"></div>
+
+          <button id="toggleAdvanced" type="button" class="secondary" aria-expanded="false" aria-controls="ownerPolicyForm">Advanced: edit a policy by UID</button>
+          <form id="ownerPolicyForm" hidden>
+            <label for="policyUid">Firebase user UID</label>
+            <input id="policyUid" required maxlength="128" placeholder="e.g. kLqjJka0cHXTCZX0TQxA2QMlzKi1" autocomplete="off" spellcheck="false">
+            <p class="hint">A Firebase UID, not an email address. You normally do not need this: approve people from Access requests above and the UID is filled in for you.</p>
+            <label class="check"><input id="policyEnabled" type="checkbox"> Permit online access</label>
+            <label for="policyRequests">Monthly attempted-request limit</label>
+            <input id="policyRequests" type="number" min="0" max="10000" step="1" value="540" required>
+            <label for="policyBudget">Monthly API budget (USD)</label>
+            <input id="policyBudget" type="number" min="0" max="1000" step="0.01" value="5.40" required>
+            <p class="hint">Saving a budget does not enable paid AI. Provider credentials remain server-controlled. Already-dispatched requests cannot be recalled.</p>
+            <button id="savePolicy" type="submit">Save user policy</button>
+          </form>
+        </section>
+      </section>
+
+      <nav class="bottom-nav" aria-label="Main features">
+        <button id="navSpeech" type="button" class="nav-item active" data-view="viewSpeech"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0 0 14 0v-2M12 19v3m-4 0h8"/></svg><span>Speak</span></button>
+        <button id="navTranslate" type="button" class="nav-item" data-view="viewTranslate"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h12M9 2v3m-4 3c2 4 5 7 9 9M13 5c0 6-4 10-10 12m12 5 4-11 4 11m-6-4h4"/></svg><span>Translate</span></button>
+        <button id="navRead" type="button" class="nav-item" data-view="viewRead"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg><span>Read</span></button>
+        <button id="navSay" type="button" class="nav-item" data-view="viewSay"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4m4-7v10m4-14v18m4-14v10m4-7v4"/></svg><span>Say it</span></button>
+        <button id="navModels" type="button" class="nav-item" data-view="viewModels"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5m-18 5 9 5 9-5"/></svg><span>Model</span></button>
+        <button id="navAccount" type="button" class="nav-item" data-view="viewAccount"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3Z"/></svg><span>Settings</span></button>
+      </nav>
+    </div>
+
+    <footer id="pageFooter">Private pilot · Account approval required</footer>
+  </main>
+  <script type="module" src="/pilot/pilot.mjs"></script>
+</body>
+</html>

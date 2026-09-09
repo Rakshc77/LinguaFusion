@@ -1,0 +1,202 @@
+/* Map this app's tokens onto the shared LinguaFusion look tokens, so the seven
+   phone looks apply here too. Each falls back to the built-in palette when no
+   look is selected, which keeps the app readable if the theme sheet is missing. */
+:root { color-scheme: light dark;
+  --bg: var(--lf-app-bg, #f5f7fc); --panel: var(--lf-surface-bg, #fff);
+  --text: var(--lf-text, #172338); --muted: var(--lf-text-muted, #526079);
+  --line:#c8d2e3; --accent: var(--lf-accent, #1155cf); --notice:#eaf1ff;
+  --warn:#fff4e2; --warn-line:#b4650a;
+  --radius: var(--lf-surface-radius, 12px); }
+* { box-sizing:border-box; }
+body { margin:0; background:var(--bg); color:var(--text); line-height:1.6; font-size:16px;
+       font-family: var(--lf-font-body, system-ui, -apple-system, "Segoe UI", sans-serif); }
+h1,h2,h3,.brand { font-family: var(--lf-font-display, inherit); }
+.fingerprint,code { font-family: var(--lf-font-mono, ui-monospace, Consolas, monospace); }
+main { width:min(100%,760px); margin:auto; padding:max(24px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(28px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left)); }
+header,.account { display:flex; gap:16px; align-items:center; justify-content:space-between; flex-wrap:wrap; }
+.brand { font-size:23px; font-weight:750; letter-spacing:-.6px; }
+.badge { border:1px solid var(--line); border-radius:20px; padding:4px 12px; font-size:13px; }
+h1 { font-size:clamp(28px,6vw,40px); line-height:1.2; letter-spacing:-1px; margin:40px 0 14px; }
+h2 { font-size:21px; margin:0 0 12px; }
+p { margin:8px 0; }
+.intro,.hint,footer,#accountName { color:var(--muted); }
+aside { background:var(--notice); padding:18px; border-radius:14px; margin:24px 0; font-size:14px; }
+#status { border-left:3px solid var(--accent); padding:8px 12px; overflow-wrap:anywhere; }
+#loginForm,#signUpForm,#accessRequest,#verifyEmail,#androidOffer { padding:24px; background:var(--panel);
+  border:var(--lf-surface-border, 1px solid var(--line)); border-radius:18px; margin-top:20px; }
+fieldset { border:0; padding:0; margin:0; min-width:0; }
+label { display:block; font-weight:600; margin-top:16px; }
+input:not([type=checkbox]),select,textarea { width:100%; min-height:48px; padding:12px; font:inherit; color:var(--text); background:var(--panel); border:1px solid var(--line); border-radius:9px; }
+textarea { resize:vertical; }
+.check { display:flex; align-items:center; gap:10px; font-size:14px; font-weight:400; }
+input[type=checkbox] { width:20px; height:20px; accent-color:var(--accent); flex-shrink:0; }
+button { min-height:48px; padding:10px 18px; border:1px solid transparent; border-radius:9px; background:var(--accent); color:white; font:600 16px/1.4 system-ui,sans-serif; cursor:pointer; margin-top:16px; }
+button.secondary { color:var(--text); background:var(--panel); border-color:var(--line); }
+#signIn,#translate { width:100%; }
+button:disabled,fieldset:disabled { opacity:.65; cursor:default; }
+:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
+.languages { display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.languages>div { min-width:0; }
+#result { white-space:pre-wrap; overflow-wrap:anywhere; min-height:120px; border:1px solid var(--line); border-radius:9px; padding:14px; margin-top:8px; }
+.hint,footer { font-size:13px; }
+footer { margin-top:30px; text-align:center; }
+[hidden] { display:none!important; }
+#modelTitle,#ownerTitle { margin-top:28px; }
+#ownerPanel { border-top:1px solid var(--line); margin-top:24px; padding-top:8px; }
+#ownerUsers p { overflow-wrap:anywhere; border-bottom:1px solid var(--line); padding-bottom:12px; }
+@media(max-width:420px) { #loginForm,#workspace { padding:18px; } .languages { grid-template-columns:1fr; gap:0; } }
+/* The device's dark preference is only a FALLBACK. It must defer to the chosen
+   look, or every theme is silently inert on a dark-mode phone: this block
+   comes later in the cascade at equal specificity and would otherwise win. */
+@media(prefers-color-scheme:dark) { :root {
+  --bg: var(--lf-app-bg, #101724); --panel: var(--lf-surface-bg, #192333);
+  --text: var(--lf-text, #eff4ff); --muted: var(--lf-text-muted, #b6c4d9);
+  --line:#52617a; --accent: var(--lf-accent, #3778e8); --notice:#1b2d49;
+  --warn:#3a2c14; --warn-line:#e0a45c; } }
+
+/* Pronunciation pane. The guide reads as secondary to the original text, and
+   every colour comes from the shared tokens so dark mode stays correct. */
+#pronounceNative,#pronounceRoman { border:1px solid var(--line); border-radius:9px; padding:12px 14px; margin:4px 0 8px; background:var(--panel); min-height:1.6em; white-space:pre-wrap; overflow-wrap:anywhere; }
+#pronounceNative { font-size:19px; }
+#pronounceRoman { font-style:italic; color:var(--muted); }
+#pronunciationPane h3 { font-size:15px; margin:14px 0 0; }
+#pronunciationPane { border-top:1px solid var(--line); margin-top:24px; padding-top:8px; }
+#pronounceStatus { color:var(--muted); font-size:14px; overflow-wrap:anywhere; }
+.warn { background:var(--warn); border-left:4px solid var(--warn-line); padding:10px 14px; border-radius:9px; margin:12px 0; font-size:14px; }
+
+/* Access request queue. Requester-supplied text is inserted with textContent. */
+.request { border:1px solid var(--line); border-radius:12px; padding:14px; margin:12px 0; }
+.request p { margin:2px 0; font-size:14px; overflow-wrap:anywhere; }
+.request button { margin-right:10px; min-height:40px; }
+#requestsHeading { margin-top:24px; }
+#accessRequest { padding:24px; background:var(--panel); border:1px solid var(--line); border-radius:18px; margin-top:20px; }
+#accessStatus { color:var(--muted); font-size:14px; }
+
+/* In-page confirmation for owner decisions; never a browser dialog. */
+.confirm { background: var(--warn); border-left: 4px solid var(--warn-line); border-radius: 9px;
+           padding: 10px 14px; margin-top: 10px; font-size: 14px; }
+.confirm button { margin: 8px 10px 0 0; min-height: 40px; }
+
+/* Android download offer, shown before sign-in for people arriving from a QR. */
+#androidOffer { background: var(--panel); border: 1px solid var(--line); border-radius: 18px; padding: 20px; margin-top: 20px; }
+a.download { display: inline-block; background: var(--accent); color: #fff; text-decoration: none;
+             padding: 12px 20px; border-radius: 9px; font-weight: 600; min-height: 24px; }
+.fingerprint { display: block; font: 12px/1.5 ui-monospace, Consolas, monospace; overflow-wrap: anywhere;
+               background: var(--bg); border: 1px solid var(--line); border-radius: 9px; padding: 10px; }
+
+/* ---- app shell: one view at a time, chosen from the bar at the bottom ---- */
+.app-head { display:flex; align-items:center; justify-content:space-between; gap:12px;
+            padding:4px 0 12px; border-bottom:1px solid var(--line); margin-bottom:12px; }
+.account-chip { font-size:13px; color:var(--muted); overflow-wrap:anywhere; text-align:right; }
+#workspace { padding-bottom:96px; }          /* clear the fixed navigation bar */
+.view { animation:lf-fade .18s ease-out; }
+@keyframes lf-fade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
+@media (prefers-reduced-motion:reduce) { .view { animation:none; } }
+
+/* The bar must fully occlude what scrolls beneath it, so it CANNOT use --panel:
+   several looks define that as a translucent overlay meant to sit on a blurred
+   backdrop (rgba(...,.07), and one is literally `transparent`), which let page
+   text show straight through the bar. --lf-app-bg is opaque in every look. */
+.bottom-nav { position:fixed; left:0; right:0; bottom:0; display:flex; justify-content:center;
+              gap:2px; padding:6px max(8px,env(safe-area-inset-left)) max(6px,env(safe-area-inset-bottom));
+              background:var(--lf-app-bg, var(--bg)); background-attachment:fixed;
+              border-top:var(--lf-surface-border, 1px solid var(--line));
+              -webkit-backdrop-filter:blur(12px); backdrop-filter:blur(12px); z-index:10; }
+.nav-item { flex:1 1 0; max-width:132px; min-height:56px; margin:0; padding:6px 2px;
+            display:flex; flex-direction:column; align-items:center; justify-content:center; gap:2px;
+            background:transparent; border:0; border-radius:12px; color:var(--muted);
+            font:500 11px/1.2 system-ui,sans-serif; cursor:pointer; }
+.nav-item span:first-child { font-size:19px; line-height:1; }
+.nav-item.active { color:var(--accent); background:var(--lf-chip-bg, var(--notice)); font-weight:700; }
+
+/* ---- owner: people and requests ---- */
+.person { border:var(--lf-surface-border, 1px solid var(--line)); border-radius:14px; padding:14px; margin:12px 0; background:var(--panel); }
+.person p { margin:2px 0; overflow-wrap:anywhere; }
+.person-name { font-weight:700; font-size:16px; }
+.person button { margin:10px 10px 0 0; min-height:42px; }
+.tag { display:inline-block; font-size:12px; font-weight:700; padding:2px 10px; border-radius:20px;
+       margin:8px 0 2px; }
+.tag.ok { background:var(--notice); color:var(--accent); }
+.tag.off { background:var(--warn); color:var(--warn-line); }
+button.danger { background:transparent; color:#b3261e; border:1px solid #b3261e; }
+@media (prefers-color-scheme:dark) { button.danger { color:#f2b8b5; border-color:#f2b8b5; } }
+.unavailable { border:1px dashed var(--line); border-radius:12px; padding:14px; }
+#translate,#pronounce,#recordToggle,#runOcr { width:100%; }
+
+/* Result actions sit in one wrapping row so a narrow phone never clips them. */
+.actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
+.actions button { margin:0; min-height:42px; }
+.actions select { width:auto; min-width:150px; flex:0 1 auto; min-height:42px; }
+/* OCR keeps tabs and alignment, so the result must not reflow like prose. */
+#ocrResult { white-space:pre-wrap; tab-size:8; font-variant-numeric:tabular-nums; }
+p.warn { font-weight:600; }
+
+/* Model cards, and a six-item bar that still fits a narrow phone. */
+.model.chosen { border:2px solid var(--accent); }
+.model button { margin-top:12px; }
+.nav-item { max-width:none; }
+@media (max-width:400px) { .nav-item { font-size:10px; } .nav-item span:first-child { font-size:17px; } }
+
+
+/* The selected look controls every surface, including on dark-mode devices. */
+:root {
+  --line:var(--lf-line); --notice:var(--lf-notice);
+  --warn:var(--lf-warn); --warn-line:var(--lf-warn-line);
+}
+button, a.download { color:var(--lf-on-accent); font-family:var(--lf-font-body); border-radius:var(--radius); }
+button.secondary { color:var(--text); }
+button.danger { color:var(--lf-danger); border-color:var(--lf-danger); }
+.nav-item { color:var(--muted); border-radius:var(--radius); }
+.nav-item.active { color:var(--accent); }
+main { padding-top:max(24px,env(safe-area-inset-top)); }
+.app-head { padding-bottom:18px; margin-bottom:24px; }
+.view > h2 { font-size:30px; line-height:1.2; letter-spacing:-.8px; margin-bottom:20px; }
+#status:empty { display:none; }
+#transcript,#result,#ocrResult,#pronounceNative,#pronounceRoman {
+  padding:20px; border:1px solid var(--line); border-radius:var(--radius);
+  background:var(--lf-xlate-bg); color:var(--lf-xlate-text);
+  white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.65;
+}
+#transcript:empty::before { content:"Your words will appear here."; color:var(--muted); }
+#transcript { min-height:120px; }
+#recordToggle { min-height:68px; font-size:18px; }
+#loginForm,#signUpForm,#accessRequest,#verifyEmail,#androidOffer,.person {
+  border-radius:var(--radius); box-shadow:var(--lf-surface-shadow);
+}
+input:not([type=checkbox]),select,textarea { border-radius:var(--radius); }
+[data-theme="minimal"] .view { animation:none; }
+[data-theme="minimal"] aside { background:transparent; border-left:2px solid var(--line); border-radius:0; }
+[data-theme="minimal"] .person { box-shadow:none; }
+[data-theme="minimal"] .bottom-nav { backdrop-filter:none; -webkit-backdrop-filter:none; }
+@media(max-width:420px) {
+  #workspace { padding:0 0 96px; }
+  .languages { grid-template-columns:1fr 1fr; gap:12px; }
+  .languages select { padding:10px 8px; }
+}
+
+/* Approved Studio / Minimal composition. All real controls remain available. */
+.brand-accent { color:var(--accent); }
+.view > h2 { font-size:clamp(30px,8vw,40px); margin-bottom:6px; }
+.view-intro { color:var(--muted); margin:0 0 24px; font-size:18px; }
+.nav-item svg { width:22px; height:22px; flex-shrink:0; }
+.nav-item { min-height:58px; gap:6px; }
+.actions button { min-height:44px; }
+#translationFields > label:not(.check),#resultHeading,#transcriptHeading,#ocrHeading {
+  font-size:12px; font-weight:650; letter-spacing:.1em; text-transform:uppercase;
+}
+#text,#result { font-size:18px; line-height:1.55; }
+[data-theme="studio"] #text,[data-theme="studio"] #result {
+  box-shadow:var(--lf-surface-shadow);
+}
+[data-theme="studio"][data-font="theme"] #text,
+[data-theme="studio"][data-font="theme"] #result {
+  font-family:Georgia,"Times New Roman",serif;
+}
+#pronunciationPane { border-top:0; padding-top:0; }
+@media(min-width:640px) { .view { padding:24px 0; } }
+
+.app-head .mode-toggle { margin:0 0 0 auto; min-height:44px; padding:8px 16px; border-radius:999px; font-size:13px; background:var(--lf-chip-bg); }
+.app-head .account-chip:not(:empty) { flex-basis:100%; font-size:12px; text-align:left; }
+
+.update-panel { margin-top:28px; padding-top:16px; border-top:1px solid var(--line); }
+#updateStatus { font-size:14px; color:var(--muted); overflow-wrap:anywhere; }

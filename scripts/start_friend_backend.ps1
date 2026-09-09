@@ -59,4 +59,4 @@ if (-not $NoOpenDashboard) {
     Start-Process $ownerUrl
 }
 
-& .\.venv\Scripts\python.exe -m uvicorn backend.server:app --host 127.0.0.1 --port $Port
+& .\.venv\Scripts\python.exe -m uvicorn backend.server:app --host 127.0.0.1 --port $Port --no-proxy-headers

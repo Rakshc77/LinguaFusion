@@ -103,7 +103,7 @@ if ($needsPairing) {
 }
 Write-Host ""
 
-$uvicornArgs = @("-m", "uvicorn", "backend.server:app", "--host", $mobileHost, "--port", "8000")
+$uvicornArgs = @("-m", "uvicorn", "backend.server:app", "--host", $mobileHost, "--port", "8000", "--no-proxy-headers")
 if ($Reload) {
     $uvicornArgs += "--reload"
 }

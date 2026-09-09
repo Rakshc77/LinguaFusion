@@ -32,32 +32,19 @@ else:
     if _project_root not in sys.path:
         sys.path.insert(0, _project_root)
 
-def _register_cuda_dll_dirs() -> None:
-    seen_dirs = set()
-    search_roots = []
-    if getattr(sys, "frozen", False):
-        search_roots.append(Path(getattr(sys, "_MEIPASS", Path(sys.executable).resolve().parent)))
-    else:
-        proj_dir = Path(__file__).resolve().parents[1]
-        venv_site = proj_dir / ".venv" / "Lib" / "site-packages"
-        torch_lib = venv_site / "torch" / "lib"
-        if torch_lib.exists():
-            search_roots.append(torch_lib)
-        search_roots.extend([venv_site, proj_dir])
+from backend.config.paths import STORAGE_DIR as BACKEND_STORAGE_DIR
 
-    for base_dir in search_roots:
-        if not base_dir.exists():
-            continue
-        for dll_name in ("cublas64_12.dll", "cublasLt64_12.dll", "cudnn64_9.dll", "cudart64_12.dll", "nvJitLink_120_0.dll"):
-            for dll_path in base_dir.rglob(dll_name):
-                parent = dll_path.parent
-                if parent not in seen_dirs:
-                    seen_dirs.add(parent)
-                    try:
-                        os.add_dll_directory(str(parent))
-                        os.environ["PATH"] = str(parent) + os.pathsep + os.environ.get("PATH", "")
-                    except (AttributeError, OSError):
-                        pass
+def _register_cuda_dll_dirs() -> None:
+    # Use the backend's deterministic NVIDIA-package registration. The old
+    # recursive search also registered torch/lib, allowing Windows to combine
+    # cuBLAS and cuBLASLt from different CUDA releases and display an entry-
+    # point error before the app opened.
+    try:
+        from backend.services.whisper_service import _register_windows_cuda_dll_dirs
+
+        _register_windows_cuda_dll_dirs()
+    except Exception:
+        pass
 
 _register_cuda_dll_dirs()
 
@@ -97,7 +84,17 @@ def _desktop_api_key() -> str:
     if value:
         return value
     try:
-        return (Path(__file__).resolve().parents[1] / "backend" / "storage" / "mobile_api_key.txt").read_text(encoding="utf-8").strip()
+        return (BACKEND_STORAGE_DIR / "mobile_api_key.txt").read_text(encoding="utf-8").strip()
+    except OSError:
+        return ""
+
+
+def _desktop_admin_key() -> str:
+    value = os.environ.get("LINGUAFUSION_ADMIN_KEY", "").strip()
+    if value:
+        return value
+    try:
+        return (BACKEND_STORAGE_DIR / "mobile_admin_key.txt").read_text(encoding="utf-8").strip()
     except OSError:
         return ""
 
@@ -108,31 +105,42 @@ class _AuthenticatedRequests:
     def __init__(self, module):
         self._module = module
 
-    def _kwargs(self, kwargs):
+    def _kwargs(self, kwargs, url=""):
         key = _desktop_api_key()
         headers = dict(kwargs.pop("headers", {}) or {})
         if key:
             headers.setdefault("X-API-Key", key)
+        request_url = str(url)
+        if request_url == SERVER_URL or request_url.startswith(SERVER_URL + "/"):
+            admin_key = _desktop_admin_key()
+            if admin_key:
+                headers.setdefault("X-Admin-Key", admin_key)
         kwargs["headers"] = headers
         return kwargs
 
     def get(self, *args, **kwargs):
-        return self._module.get(*args, **self._kwargs(kwargs))
+        url = args[0] if args else kwargs.get("url", "")
+        return self._module.get(*args, **self._kwargs(kwargs, url))
 
     def post(self, *args, **kwargs):
-        return self._module.post(*args, **self._kwargs(kwargs))
+        url = args[0] if args else kwargs.get("url", "")
+        return self._module.post(*args, **self._kwargs(kwargs, url))
 
     def delete(self, *args, **kwargs):
-        return self._module.delete(*args, **self._kwargs(kwargs))
+        url = args[0] if args else kwargs.get("url", "")
+        return self._module.delete(*args, **self._kwargs(kwargs, url))
 
     def put(self, *args, **kwargs):
-        return self._module.put(*args, **self._kwargs(kwargs))
+        url = args[0] if args else kwargs.get("url", "")
+        return self._module.put(*args, **self._kwargs(kwargs, url))
 
     def patch(self, *args, **kwargs):
-        return self._module.patch(*args, **self._kwargs(kwargs))
+        url = args[0] if args else kwargs.get("url", "")
+        return self._module.patch(*args, **self._kwargs(kwargs, url))
 
     def request(self, *args, **kwargs):
-        return self._module.request(*args, **self._kwargs(kwargs))
+        url = args[1] if len(args) > 1 else kwargs.get("url", "")
+        return self._module.request(*args, **self._kwargs(kwargs, url))
 
     def __getattr__(self, name):
         return getattr(self._module, name)
@@ -6882,7 +6890,7 @@ class LinguaFusionWindow(QMainWindow):
 
     def check_health(self):
         def task():
-            response = requests.get(f"{SERVER_URL}/health", timeout=10)
+            response = requests.get(f"{SERVER_URL}/diagnostics", timeout=10)
             response.raise_for_status()
             return response.json()
 
@@ -7055,8 +7063,9 @@ def ensure_backend_running():
         venv_site = project_root / ".venv" / "Lib" / "site-packages"
         cuda_bins = [
             str(venv_site / "nvidia" / "cublas" / "bin"),
+            str(venv_site / "nvidia" / "cudnn" / "bin"),
             str(venv_site / "nvidia" / "cuda_runtime" / "bin"),
-            str(venv_site / "torch" / "lib"),
+            str(venv_site / "nvidia" / "nvjitlink" / "bin"),
         ]
         env["PATH"] = os.pathsep.join([p for p in cuda_bins if os.path.exists(p)]) + os.pathsep + env.get("PATH", "")
         env["PYTHONPATH"] = str(project_root)
@@ -7113,6 +7122,8 @@ if __name__ == "__main__":
         sys.exit(run_frozen_piper_worker(worker_args))
 
     if "--backend" in sys.argv:
+        os.environ.setdefault("LF_TRUST_PROXY_HEADERS", "1")
+        os.environ.setdefault("LF_PUBLIC_ACCESS", "1")
         os.environ.setdefault("LF_WHISPER_MODEL", "medium")
         os.environ.setdefault("LF_WHISPER_DEVICE", "cuda")
         os.environ.setdefault("NLLB_DEVICE", "cuda")
@@ -7121,9 +7132,10 @@ if __name__ == "__main__":
         import uvicorn
         from backend.server import app
 
-        host = os.environ.get("HOST", "0.0.0.0")
+        host = os.environ.get("HOST", "127.0.0.1")
         port = int(os.environ.get("PORT", "8000"))
-        uvicorn.run(app, host=host, port=port, log_level="warning")
+        # Preserve the socket peer: the API validates forwarding headers itself.
+        uvicorn.run(app, host=host, port=port, log_level="warning", proxy_headers=False)
         sys.exit(0)
 
     set_windows_app_user_model_id()

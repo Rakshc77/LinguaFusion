@@ -57,7 +57,9 @@ backend/storage/ai_providers.json
 backend/storage/corrections.json
 backend/storage/settings.json
 backend/storage/mobile_api_key.txt
+backend/storage/mobile_admin_key.txt
 backend/storage/mobile_paired.flag
+backend/storage/agent_artifacts/
 
 # Large local models and external binaries
 models/
@@ -97,3 +99,12 @@ build_*/
 # Local agent helper docs
 CLAUDE.md
 AGENTS.md
+backups/
+.venv-cloud/
+cloud_api/.env
+cloud_api/local-data/
+.claude/
+# Runtime ledger module is source code, despite the historical test_ name.
+!cloud_api/test_budget.py
+# Small, publicly distributed and signature/credential-checked pilot installer.
+!cloud_api/web/linguafusion-android.apk
