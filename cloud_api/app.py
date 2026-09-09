@@ -365,18 +365,31 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
         reported = None
         if settings.openrouter_key and providers is not None:
             reported = await providers.account_usage(settings.openrouter_key)
+        # Every provider carries a link, including the one that answers: the
+        # figure here is a total, and the console is where it can be broken
+        # down. Scoped to this project where the console supports it, so the
+        # link lands on the right account rather than a chooser.
+        project = settings.project or 'linguafusion-f24fe'
+        openrouter = dict(reported or {'provider': 'openrouter', 'spent_usd': None,
+                                       'unavailable': 'Could not read OpenRouter usage just now.'})
+        openrouter['console'] = 'https://openrouter.ai/activity'
+        openrouter['console_label'] = 'OpenRouter activity'
+        openrouter['name'] = 'OpenRouter'
         return {
             'ledger_estimate_usd': ledger.get('estimated_spent_usd'),
             'ledger_held_usd': ledger.get('unresolved_reserved_usd'),
             'providers': [
-                reported or {'provider': 'openrouter', 'spent_usd': None,
-                             'unavailable': 'Could not read OpenRouter usage just now.'},
-                {'provider': 'groq', 'spent_usd': None,
-                 'unavailable': 'Groq publishes no usage API; see its console.',
-                 'console': 'https://console.groq.com/settings/billing'},
-                {'provider': 'google_vision', 'spent_usd': None,
-                 'unavailable': 'Vision billing lives in Google Cloud Billing.',
-                 'console': 'https://console.cloud.google.com/billing'},
+                openrouter,
+                {'provider': 'groq', 'name': 'Groq', 'spent_usd': None,
+                 'unavailable': 'Groq publishes no usage API, so this must be read by hand.',
+                 'console': 'https://console.groq.com/settings/billing',
+                 'console_label': 'Groq billing'},
+                {'provider': 'google_vision', 'name': 'Google Vision', 'spent_usd': None,
+                 'unavailable': 'Vision billing lives in Google Cloud, behind different credentials.',
+                 'console': f'https://console.cloud.google.com/billing/reports?project={project}',
+                 'console_label': 'Google Cloud billing report',
+                 'also': {'label': 'Vision API usage',
+                          'url': f'https://console.cloud.google.com/apis/api/vision.googleapis.com/metrics?project={project}'}},
             ],
             'note': ('The ledger prices at a model ceiling, so it should read a '
                      'little HIGH against OpenRouter. Reading low means something '

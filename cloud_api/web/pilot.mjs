@@ -368,25 +368,42 @@ async function loadProviderSpend() {
     const data = await api.request('/owner/provider-spend');
     if (current !== epoch) return;
     panel.replaceChildren();
-    line(panel, `This app's ledger estimates $${data.ledger_estimate_usd}` +
+    // Money at six decimal places is how the ledger stores it, not how anyone
+    // reads it. Sub-cent amounts still need their digits, though, because most
+    // of what this app spends is well under a cent.
+    const money = (value) => {
+      const amount = Number(value);
+      if (!Number.isFinite(amount)) return String(value);
+      if (amount === 0) return '$0.00';
+      return amount < 0.01 ? `$${amount.toFixed(6)}` : `$${amount.toFixed(2)}`;
+    };
+    line(panel, `This app's ledger estimates ${money(data.ledger_estimate_usd)}` +
                 (data.ledger_held_usd && Number(data.ledger_held_usd) > 0
-                  ? `, plus $${data.ledger_held_usd} still held` : ''), 'person-name');
+                  ? `, plus ${money(data.ledger_held_usd)} still held` : ''), 'person-name');
     for (const item of data.providers) {
       const row = document.createElement('div');
       row.className = 'person';
+      const who = item.name || item.provider;
       line(row, item.spent_usd === null || item.spent_usd === undefined
-        ? `${item.provider}: not available`
-        : `${item.provider}: $${item.spent_usd} billed`, 'person-name');
+        ? `${who}: not available`
+        : `${who}: ${money(item.spent_usd)} billed`, 'person-name');
       if (item.unavailable) line(row, item.unavailable, 'hint');
-      if (item.console) {
+      // Links open in the browser, not in this app: the app has no business
+      // holding a session for a billing console.
+      const links = document.createElement('p');
+      links.className = 'actions';
+      for (const target of [item, item.also].filter(Boolean)) {
+        const url = target.console || target.url;
+        if (!url) continue;
         const link = document.createElement('a');
-        link.href = item.console;
+        link.href = url;
         link.target = '_blank';
         link.rel = 'noreferrer noopener';
-        link.textContent = 'Open its console';
-        link.className = 'hint';
-        row.append(link);
+        link.textContent = target.console_label || target.label || 'Open console';
+        link.className = 'console-link';
+        links.append(link);
       }
+      if (links.childElementCount) row.append(links);
       panel.append(row);
     }
     line(panel, data.note, 'hint');

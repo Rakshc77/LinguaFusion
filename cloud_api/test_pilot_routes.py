@@ -754,3 +754,22 @@ def test_provider_spend_is_owner_only_and_names_what_it_cannot_see():
         assert provider in route, f'{provider} must be accounted for, even if unavailable'
     assert 'unavailable' in route, 'the ones with no API must say so'
     assert 'console' in route, 'and point at where the figure can be read by hand'
+
+
+def test_every_provider_carries_a_console_link_scoped_to_this_project():
+    # Two of the three can only be read by hand, so the link is the whole
+    # answer for them. The third gets one too: this shows a total, and the
+    # console is where it breaks down.
+    import pathlib
+    import re
+    source = (pathlib.Path(__file__).parent / 'app.py').read_text(encoding='utf-8')
+    route = source[source.index("@app.get('/owner/provider-spend')"):]
+    route = route[:route.index("@app.get('/owner/users')")]
+    for host in ['openrouter.ai/activity', 'console.groq.com', 'console.cloud.google.com']:
+        assert host in route, f'no link to {host}'
+    # Google's consoles need the project or they land on a chooser.
+    for link in re.findall(r'https://console\.cloud\.google\.com[^\'"]*', route):
+        assert 'project=' in link, f'{link} is not scoped to a project'
+    # And the raw identifiers are not what an owner should be reading.
+    for name in ["'OpenRouter'", "'Groq'", "'Google Vision'"]:
+        assert name in route, f'{name} missing; the owner would see a raw key'
