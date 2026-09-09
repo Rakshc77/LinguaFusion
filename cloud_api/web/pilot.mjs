@@ -59,6 +59,29 @@ $('modeToggle').addEventListener('click', () => {
 $('themeChoice').addEventListener('change', () => applyTheme($('themeChoice').value));
 $('fontChoice').addEventListener('change', () => applyFont($('fontChoice').value));
 
+// The full Offline Android app marks the hosted page after it has loaded. The
+// small Online-only wrapper never sets this flag, so it is never offered a mode
+// it cannot run. The native app owns the offline screen and downloaded models.
+function revealOfflineModeWhenAvailable(attempt = 0) {
+  if (window.LFNativeOfflineMode === true) {
+    $('offlineModePanel').hidden = false;
+    return;
+  }
+  if (attempt < 24 && /;\s*wv\)/.test(navigator.userAgent)) {
+    setTimeout(() => revealOfflineModeWhenAvailable(attempt + 1), 250);
+  }
+}
+revealOfflineModeWhenAvailable();
+$('switchToOffline').addEventListener('click', () => {
+  if (updateActivityInProgress()) {
+    $('offlineModeStatus').textContent = 'Finish the current recording or processing before switching modes.';
+    return;
+  }
+  // Fixed app route only: no server address, token or user-provided data enters
+  // the native handoff. The original Offline app recognizes this exact URI.
+  window.location.assign('linguafusion-mode://offline');
+});
+
 // Status goes wherever the person is actually looking.
 function status(message) {
   ($('workspace').hidden ? $('setupStatus') : $('status')).textContent = message;

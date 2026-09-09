@@ -583,3 +583,15 @@ def test_online_update_assets_are_public_and_uncached():
         assert module.status_code == 200
         assert module.headers['content-type'].startswith('text/javascript')
         assert client.get('/pilot/updates.test.mjs').status_code == 404
+
+
+def test_hosted_app_restores_the_original_phone_only_offline_handoff():
+    import pathlib
+    root = pathlib.Path(__file__).parent / 'web'
+    html = (root / 'index.html').read_text(encoding='utf-8')
+    module = (root / 'pilot.mjs').read_text(encoding='utf-8')
+    assert 'id="switchToOffline"' in html
+    assert 'id="offlineModePanel"' in html
+    assert 'window.LFNativeOfflineMode === true' in module
+    assert "window.location.assign('linguafusion-mode://offline')" in module
+    assert 'PC / Offline' not in html

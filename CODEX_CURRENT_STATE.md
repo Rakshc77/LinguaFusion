@@ -95,24 +95,27 @@ python -m pytest cloud_api -o python_files=test_*.py -q
 node --test cloud_api/web/*.test.mjs
 ```
 
-## Offline Android plan — not implemented
+## Offline Android implementation recovered
 
-Approved initial language scope: English, German, Arabic, Spanish, French.
-No Hindi or Odia in the initial OFFLINE release; this does not authorize removing
-those languages from the existing cloud app.
+The owner supplied the original 22 MB Android APK on September 9. It is a real
+phone-only offline app, separate from the 33 KB Online WebView wrapper that is
+currently published from this repository. It contains native whisper.cpp,
+ML Kit offline translation, on-device OCR and a local Offline screen with model
+and language-pack downloads. The downloaded speech model serves all languages;
+translation packs are managed per language.
 
-Proposed: ML Kit downloadable translation packs plus a multilingual
-whisper.cpp model on the phone. Benchmark Base versus Small/quantized variants
-on the S26 Ultra; validate Arabic dialects, noise, latency, heat and battery.
-Start with record -> stop -> transcribe -> translate, not live streaming.
+The APK's local UI includes “Work offline on this phone” and exits back to
+Online through the native `linguafusion-mode://offline` route. The hosted Online
+interface now restores that handoff only when this original app marks the
+WebView with `LFNativeOfflineMode`; ordinary browsers and the small Online-only
+wrapper never see the control. No PC backend is involved.
 
-Required work: maintainable Android dependency/NDK build, packaged offline UI
-that does not require cloud sign-in, explicit Online/Offline selection, resumable
-verified model downloads/removal, storage display, local inference lifecycle
-and cancellation, and airplane-mode cold-start tests. Additional supported
-translation languages can use downloaded packs; Whisper-supported languages
-usually share one multilingual model. No offline inference is currently shipped.
-Storage estimates discussed with the owner were approximate, not measured builds.
+The corresponding full Android source and signing material are not in this
+Git repository yet. Do not replace the published small APK with this binary or
+claim an APK update path until the owner provides the original source and the
+signing situation is verified. Initial offline language scope remains English,
+German, Arabic, Spanish and French; do not add Hindi or Odia to this phone-only
+release without a new decision.
 
 ## Spending, privacy and operations
 
