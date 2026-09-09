@@ -20,7 +20,7 @@ WEB = pathlib.Path(__file__).resolve().parents[1] / 'cloud_api' / 'web'
 SOURCE = WEB / 'icon.svg'
 
 # From icon.svg, on its 512x512 canvas.
-BACKGROUND = '#1155cf'
+BACKGROUND = '#b04a2f'
 LETTER = '#ffffff'
 # "L": M150 348V164h34v154h86v30z
 L_SHAPE = [(150, 348), (150, 164), (184, 164), (184, 318), (270, 318), (270, 348)]

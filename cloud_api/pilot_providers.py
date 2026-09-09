@@ -5,8 +5,10 @@ not refunded automatically: invoices, failures and missing usage are uncertain.
 Only small inputs are supported here. No automatic retries or model fallback.
 """
 import base64
+import contextvars
 from datetime import date
 import io
+import math
 import json
 import wave
 
@@ -124,6 +126,35 @@ except Exception:                       # a missing or broken set must not
     _PROVERBS = _NoProverbs()
 
 
+# What the provider said the last call actually cost, so a hold can be settled
+# against reality instead of standing forever. A ContextVar rather than an
+# attribute: each request is its own asyncio task, and an attribute would let
+# two concurrent translations settle each other's charge.
+LAST_USAGE = contextvars.ContextVar('pilot_last_usage', default=None)
+
+
+def token_cost_micro(model, usage):
+    """Micro-dollars for a completion, from the tokens the provider reported.
+
+    Priced at the model's own ceiling, which is roughly 1.5x what DeepInfra
+    charges. That overstates the bill, and deliberately: a ledger that guesses
+    low would let real spending run past a limit the owner believes is holding.
+    """
+    if not isinstance(usage, dict):
+        return None
+    prompt = usage.get('prompt_tokens')
+    completion = usage.get('completion_tokens')
+    if not isinstance(prompt, int) or not isinstance(completion, int):
+        return None
+    ceiling = (TRANSLATION_MODELS.get(model) or {}).get('max_price')
+    if ceiling is None:
+        ceiling = .20                       # the romanisation ceiling
+    dollars = (prompt + completion) * ceiling / 1_000_000
+    # Round up, never down: a fraction of a micro-dollar that rounds to zero
+    # would make a real call look free.
+    return max(1, math.ceil(dollars * 1_000_000))
+
+
 class ProviderFailure(RuntimeError):
     pass
 
@@ -218,6 +249,7 @@ class PilotProviders:
             result = choice['message']['content']
             if not isinstance(result, str) or not result.strip():
                 raise ValueError()
+            LAST_USAGE.set({'model': model, 'usage': data.get('usage')})
             return result
         except (KeyError, IndexError, TypeError, ValueError):
             raise ProviderFailure('Translation missing or incomplete; reservation retained.') from None

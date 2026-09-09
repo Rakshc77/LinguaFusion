@@ -1,5 +1,5 @@
 // Public release metadata is deliberately excluded from the offline cache.
-export const APP_VERSION = '2026.09.09.11';
+export const APP_VERSION = '2026.09.09.12';
 const TIMEOUT_MS = 10000;
 
 export async function checkForUpdate(fetcher = fetch) {

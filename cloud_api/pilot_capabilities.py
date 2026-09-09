@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
-from cloud_api.pilot_providers import ProviderFailure
+from cloud_api.pilot_providers import LAST_USAGE, ProviderFailure, token_cost_micro
 
 # Flat conservative hold per request, matching what PilotProviders reserves from
 # the lifetime allowance. These adapters are not billed per token here, so a
@@ -133,8 +133,9 @@ class PilotGateway:
         # A wasted per-user hold resets next month and the owner can raise the
         # budget; a wasted lifetime hold is permanent, so it must be risked last.
         reservation = await asyncio.to_thread(self.policy.reserve, uid, charge_id, PILOT_HOLD_MICRO)
+        LAST_USAGE.set(None)
         try:
-            return await call()
+            result = await call()
         except ValueError as error:
             # Raised by input validation or by the exhausted lifetime allowance,
             # both strictly before dispatch. Nothing was sent, so recording zero
@@ -155,6 +156,22 @@ class PilotGateway:
                                     'reason': str(failure)[:200]}))
             raise HTTPException(502, 'The cloud provider could not complete this request; '
                                      'the reserved amount is retained.') from None
+        # Succeeded. Settle the hold against what the provider said it cost,
+        # when it said anything. The hold is a conservative ceiling -- $0.01 a
+        # request, roughly fifty times a real translation -- so leaving it
+        # standing made the ledger unreadable and burned the shared allowance
+        # far faster than actual spending.
+        #
+        # When a provider reports no usage, the hold deliberately stands. An
+        # unresolved hold says "this cost at most a cent", which is true;
+        # settling at a guess would say something we do not know.
+        reported = LAST_USAGE.get()
+        if reported:
+            actual = token_cost_micro(reported.get('model'), reported.get('usage'))
+            if actual is not None:
+                await asyncio.to_thread(self.policy.settle, reservation,
+                                        min(actual, PILOT_HOLD_MICRO))
+        return result
 
 
 class ManagedBudget:
