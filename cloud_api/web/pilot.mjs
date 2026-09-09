@@ -69,6 +69,17 @@ $('themeChoice').addEventListener('change', () => describeTheme(applyTheme($('th
 $('modeChoice').addEventListener('change', () => setMode($('modeChoice').value));
 $('modeToggle').addEventListener('click', () => setMode(getMode() === 'dark' ? 'light' : 'dark'));
 $('fontChoice').addEventListener('change', () => applyFont($('fontChoice').value));
+/* The Android app injects LFNativeOfflineMode after the page loads, so the
+   offer is revealed then rather than on first paint. On the website the
+   section stays hidden: there is no on-device app to switch to. */
+function revealOfflineSwitch() {
+  if (window.LFNativeOfflineMode === true) $('offlineSwitch').hidden = false;
+}
+revealOfflineSwitch();
+// The flag arrives after onPageFinished, which can land after this module runs.
+setTimeout(revealOfflineSwitch, 400);
+setTimeout(revealOfflineSwitch, 1500);
+
 describeTheme(getTheme());
 setMode(getMode());
 

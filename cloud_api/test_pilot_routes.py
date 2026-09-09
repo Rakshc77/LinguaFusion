@@ -489,6 +489,26 @@ def test_a_changed_shell_asset_forces_a_new_cache_version():
         f"SHELL_STAMP to '{expected}', or installed copies keep the old app.")
 
 
+def test_the_offline_switch_is_hidden_outside_the_android_app():
+    # linguafusion-mode:// is only meaningful inside the app, which intercepts
+    # it. In a browser it is a dead link that goes nowhere and reports nothing,
+    # so the section must start hidden and be revealed only by the flag the app
+    # injects.
+    import pathlib
+    import re
+    web = pathlib.Path(__file__).parent / 'web'
+    html = (web / 'index.html').read_text(encoding='utf-8')
+    section = re.search(r'<section id="offlineSwitch"([^>]*)>', html)
+    assert section, 'the offline switch section moved; re-check this guard'
+    assert 'hidden' in section.group(1), 'it must not be visible on the website'
+    assert 'linguafusion-mode://offline' in html
+
+    module = (web / 'pilot.mjs').read_text(encoding='utf-8')
+    reveal = re.search(r'function revealOfflineSwitch\(\)\s*\{(.*?)\n\}', module, re.S)
+    assert reveal, 'the reveal moved; re-check this guard'
+    assert 'LFNativeOfflineMode === true' in reveal.group(1),         'the switch must be gated on the flag the app injects, strictly'
+
+
 def test_the_appearance_assets_are_served():
     client, _, _ = build(ok_completion())
     with client:

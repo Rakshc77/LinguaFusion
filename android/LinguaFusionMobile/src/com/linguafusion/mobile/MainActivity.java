@@ -436,6 +436,27 @@ public final class MainActivity extends Activity {
         webView.loadUrl(OFFLINE_PAGE); setInsetContentView(webView);
     }
 
+    /** Confirms, then leaves the cloud for the on-device app.
+     *
+     *  Confirmed rather than immediate because the cloud session is signed in
+     *  and offline mode is not: this is a change of where the work happens,
+     *  not a view toggle. Nothing is signed out -- the mode is remembered and
+     *  coming back is one tap. */
+    private void askToWorkOffline(){
+        boolean ready=OfflineSpeech.isSupported();
+        new AlertDialog.Builder(this)
+            .setTitle("Work offline on this phone")
+            .setMessage(ready
+                ? "Speech and translation run on this phone instead of the cloud, for English, German, Arabic, Spanish and French.\n\nThe language files download once and then it works with no signal. You stay signed in to the cloud and can switch back at any time."
+                : "This phone cannot run offline speech, so only translation would work offline.\n\nSwitch anyway?")
+            .setPositiveButton("Work offline", (dialog,which) -> {
+                preferences.edit().putString("mode","offline").putString("mode.before","cloud").apply();
+                showOfflineApp();
+            })
+            .setNegativeButton("Stay on the cloud", null)
+            .show();
+    }
+
     private static boolean isBundledAsset(Uri target){
         return target!=null && "file".equalsIgnoreCase(target.getScheme())
             && target.getPath()!=null && target.getPath().startsWith("/android_asset/offline/");
@@ -469,8 +490,17 @@ public final class MainActivity extends Activity {
         @Override public String recall(String key,String fallback){return preferences.getString(key,fallback);}
         @Override public void leaveOfflineMode(){
             runOnUiThread(() -> {
-                preferences.edit().remove("mode").apply();
+                String before=preferences.getString("mode.before","");
                 if(offlineSpeech!=null)offlineSpeech.unload();
+                if("cloud".equals(before)){
+                    // Came from the cloud, so go back to it. The WebView kept
+                    // the Firebase session, so this does not sign anyone in again.
+                    preferences.edit().putString("mode","cloud").remove("mode.before")
+                        .putString("server",CLOUD_BASE).putString("key","").apply();
+                    showCloudApp();
+                    return;
+                }
+                preferences.edit().remove("mode").remove("mode.before").apply();
                 showConnectionScreen();
             });
         }
@@ -495,6 +525,18 @@ public final class MainActivity extends Activity {
                     }
                     return true;
                 }
+                // Switching to offline mode, requested by the cloud page. It
+                // goes through a scheme rather than a JavaScript interface for
+                // the same reason recording does: the page is served remotely
+                // and must not hold a native handle. The gesture and origin
+                // checks mean only a real tap on the real page can do this.
+                if("linguafusion-mode".equals(target.getScheme())){
+                    if(request.isForMainFrame() && request.hasGesture()
+                            && isCloudOrigin(Uri.parse(view.getUrl()==null?"":view.getUrl()))) {
+                        askToWorkOffline();
+                    }
+                    return true;
+                }
                 if(isCloudOrigin(target))return false;
                 // Sign-in and confirmation links belong in the real browser,
                 // not inside this WebView.
@@ -503,7 +545,7 @@ public final class MainActivity extends Activity {
             }
             @Override public void onPageFinished(WebView view,String url){
                 if(view==webView && isCloudOrigin(Uri.parse(url)))
-                    view.evaluateJavascript("window.LFNativeCloudRecording=true;",null);
+                    view.evaluateJavascript("window.LFNativeCloudRecording=true;window.LFNativeOfflineMode=true;",null);
             }
             @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){
                 super.onReceivedError(view,request,error);

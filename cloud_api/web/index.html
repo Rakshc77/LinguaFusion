@@ -217,6 +217,15 @@
         <button id="checkAccess" class="secondary" type="button">Refresh</button>
         <button id="signOut" class="secondary" type="button">Sign out</button>
 
+        <!-- Only shown inside the Android app, which sets LFNativeOfflineMode.
+             On the website there is nothing to switch to. -->
+        <section id="offlineSwitch" hidden aria-labelledby="offlineSwitchTitle">
+          <h3 id="offlineSwitchTitle">On this phone</h3>
+          <p class="hint">Speech and translation can run on the phone itself for English, German, Arabic, Spanish and French. The language files download once, then it works with no signal, no account and no cost. You stay signed in here and can come back at any time.</p>
+          <p class="hint">Quality is below the cloud models, and it needs a few hundred megabytes of storage.</p>
+          <a id="goOffline" class="download" href="linguafusion-mode://offline">Work offline on this phone</a>
+        </section>
+
         <section aria-labelledby="appearanceTitle">
           <h3 id="appearanceTitle">Appearance</h3>
           <p class="hint">Look, brightness and typeface are independent, and each is remembered on this device.</p>
