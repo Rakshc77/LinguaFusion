@@ -452,9 +452,13 @@ comparing the two offline and online will notice the gap.
 
   Losing it is equally unrecoverable: no other key can update an installed
   copy, so every user would have to uninstall, losing their downloaded models
-  and packs. A copy lives at `W:\LinguaFusion-signing\` with a README
-  explaining why. **That copy is on the same drive as the working one**, so it
-  survives a mistake but not a disk failure — get one off this machine.
+  and packs. The owner has copied `LinguaFusion-signing\` (keystore plus a
+  README explaining what it is) to **every drive on the build machine**, so a
+  single disk failure no longer loses it.
+
+  What that does not cover is losing the machine itself — theft, fire, or
+  ransomware reaching every mounted drive at once. One copy somewhere off the
+  machine would close that, and is the only outstanding step.
 
 ---
 
