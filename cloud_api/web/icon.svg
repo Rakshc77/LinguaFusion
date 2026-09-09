@@ -1,5 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" role="img" aria-label="LinguaFusion">
   <rect width="512" height="512" rx="112" fill="#1155cf"/>
   <path d="M150 348V164h34v154h86v30z" fill="#fff"/>
-  <path d="M300 348l58-184h32l58 184h-34l-13-44h-54l-13 44zm55-72h38l-19-64z" fill="#fff"/>
+  <path d="M300 164h110v30h-76v46h58v30h-58v78h-34z" fill="#fff"/>
 </svg>

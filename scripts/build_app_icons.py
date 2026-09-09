@@ -24,22 +24,21 @@ BACKGROUND = '#1155cf'
 LETTER = '#ffffff'
 # "L": M150 348V164h34v154h86v30z
 L_SHAPE = [(150, 348), (150, 164), (184, 164), (184, 318), (270, 318), (270, 348)]
-# "A" outline: M300 348l58-184h32l58 184h-34l-13-44h-54l-13 44z
-A_SHAPE = [(300, 348), (358, 164), (390, 164), (448, 348),
-           (414, 348), (401, 304), (347, 304), (334, 348)]
-# The counter of the A, wound the other way so it reads as a hole.
-A_COUNTER = [(355, 276), (393, 276), (374, 212)]
+# "F": M300 164h110v30h-76v46h58v30h-58v78h-34z
+# Same 34-wide stem and 30-tall arms as the L, so they read as one typeface.
+F_SHAPE = [(300, 164), (410, 164), (410, 194), (334, 194), (334, 240),
+           (392, 240), (392, 270), (334, 270), (334, 348), (300, 348)]
 
 # 180 is what modern iPhones ask for; the other two are for the manifest.
 SIZES = {'apple-touch-icon.png': 180, 'icon-192.png': 192, 'icon-512.png': 512}
 
 
 def render(size):
-    """Draw at 4x and downsample: the diagonals of the A alias badly otherwise."""
+    """Draw at 4x and downsample, so the small sizes keep clean edges."""
     scale = 4
     canvas = Image.new('RGB', (512 * scale, 512 * scale), BACKGROUND)
     pen = ImageDraw.Draw(canvas)
-    for shape, colour in [(L_SHAPE, LETTER), (A_SHAPE, LETTER), (A_COUNTER, BACKGROUND)]:
+    for shape, colour in [(L_SHAPE, LETTER), (F_SHAPE, LETTER)]:
         pen.polygon([(x * scale, y * scale) for x, y in shape], fill=colour)
     return canvas.resize((size, size), Image.LANCZOS)
 
