@@ -691,7 +691,23 @@ $('copyTranscript').addEventListener('click', () => void copyText($('transcript'
 /** Say which microphone problem actually happened.
  *  One catch-all "Microphone unavailable" told someone who had already granted
  *  permission to go and grant permission, which is worse than saying nothing. */
+/* Added to the Home Screen on iPhone, Safari has a long-standing bug where the
+   microphone works on the first launch and then fails when the app is reopened.
+   Nothing in the page can fix it, so when the conditions match, the failure is
+   named and a way round it offered rather than left looking like a broken app. */
+function isIosStandalone() {
+  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  return ios && window.navigator.standalone === true;
+}
+
 function microphoneProblem(error) {
+  if (isIosStandalone()) {
+    return 'On iPhone, recording often stops working once this app has been reopened '
+      + 'from the Home Screen — a long-standing Safari bug, not a fault here. '
+      + 'Open the same address in Safari itself to record, or close the app fully '
+      + 'and open it again. Translating, reading pictures and Say it are unaffected.';
+  }
   switch (error?.name) {
     case 'NotAllowedError':
       return 'Microphone access is blocked for this app. Allow it in your browser or phone settings — '

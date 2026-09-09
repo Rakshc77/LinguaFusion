@@ -7,6 +7,15 @@
   <link rel="stylesheet" href="/pilot/linguafusion-themes.css">
   <link rel="stylesheet" href="/pilot/pilot.css">
   <link rel="manifest" href="/pilot/manifest.webmanifest">
+  <!-- Safari ignores SVG icons on the Home Screen, so without this PNG an
+       installed app shows a screenshot of the page instead of its own icon.
+       Square and opaque: iOS applies its own rounded mask. -->
+  <link rel="apple-touch-icon" href="/pilot/apple-touch-icon.png">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-title" content="LinguaFusion">
+  <!-- "default" rather than black-translucent: the app themes its own
+       background and content must not slide under the status bar. -->
+  <meta name="apple-mobile-web-app-status-bar-style" content="default">
   <link rel="icon" href="/pilot/icon.svg" type="image/svg+xml">
   <meta name="theme-color" content="#f4efe4">
   <meta name="mobile-web-app-capable" content="yes">

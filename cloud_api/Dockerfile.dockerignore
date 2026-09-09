@@ -25,6 +25,9 @@
 !cloud_api/web/wav.mjs
 !cloud_api/web/manifest.webmanifest
 !cloud_api/web/icon.svg
+!cloud_api/web/apple-touch-icon.png
+!cloud_api/web/icon-192.png
+!cloud_api/web/icon-512.png
 !cloud_api/web/sw.js
 !cloud_api/web/updates.mjs
 !cloud_api/web/app-version.json

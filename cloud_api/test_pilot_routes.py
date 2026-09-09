@@ -674,3 +674,44 @@ def test_waiting_on_the_app_to_answer_is_bounded():
     reply = module[module.index('window.LFNativeUpdateResult = '):]
     reply = reply[:reply.index('\n};')]
     assert 'stopAwaitingApp()' in reply, 'a real answer must cancel the fallback'
+
+
+def test_the_app_can_be_installed_on_an_iphone_with_its_own_icon():
+    # Safari ignores SVG icons on the Home Screen. Without a PNG apple-touch-icon
+    # an installed app shows a screenshot of the page instead of its icon, which
+    # is the difference between looking like an app and looking like a bookmark.
+    import pathlib
+    web = pathlib.Path(__file__).parent / 'web'
+    icon = web / 'apple-touch-icon.png'
+    assert icon.is_file(), 'no PNG icon; iOS will not use icon.svg'
+    assert icon.read_bytes()[:8] == b'\x89PNG\r\n\x1a\n', 'not actually a PNG'
+
+    html = (web / 'index.html').read_text(encoding='utf-8')
+    assert 'rel="apple-touch-icon"' in html
+    assert 'apple-mobile-web-app-capable' in html
+    assert 'apple-mobile-web-app-title' in html
+
+    # The manifest needs PNGs too: Chrome accepts the SVG, launchers prefer PNG.
+    import json
+    manifest = json.loads((web / 'manifest.webmanifest').read_text(encoding='utf-8'))
+    types = {icon.get('type') for icon in manifest['icons']}
+    assert 'image/png' in types, 'the manifest offers no PNG icon'
+    for entry in manifest['icons']:
+        assert (web / entry['src']).is_file(), f"manifest names {entry['src']}, which is absent"
+
+
+def test_the_iphone_microphone_quirk_is_explained_rather_than_left_mysterious():
+    # Recording in a Home Screen web app on iOS fails after the first launch, a
+    # WebKit bug nothing here can fix. Saying so, and naming the way round it,
+    # is the difference between a known limitation and an app that looks broken.
+    import pathlib
+    module = (pathlib.Path(__file__).parent / 'web' / 'pilot.mjs').read_text(encoding='utf-8')
+    assert 'isIosStandalone' in module
+    guard = module[module.index('function isIosStandalone'):]
+    guard = guard[:guard.index('\n}')]
+    assert 'navigator.standalone' in guard, 'must detect the Home Screen case specifically'
+    assert 'iPad|iPhone|iPod' in guard
+    problem = module[module.index('function microphoneProblem'):]
+    problem = problem[:problem.index('\n}')]
+    assert 'isIosStandalone()' in problem, 'the advice must reach the person who sees the failure'
+    assert 'Safari' in problem, 'it must say what to do instead'
