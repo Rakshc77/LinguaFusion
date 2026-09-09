@@ -407,9 +407,20 @@ comparing the two offline and online will notice the gap.
   means waiting for the next app launch to see it again.
 - **Production signing.** Still unresolved and now more load-bearing: the app
   installs its own updates, and Android refuses to replace an app signed with a
-  different key. `debug.keystore` is **not in git**; losing it means every user
-  must uninstall and lose what is on their device. A test pins its fingerprint
-  so its absence fails loudly, but a test cannot restore it. Back it up.
+  different key.
+
+  `debug.keystore` is **deliberately not in git, and must never be**:
+  `github.com/Rakshc77/LinguaFusion` is **public**, and the store password is
+  the standard `android`, so the file is the whole secret. Anyone holding it
+  could sign an APK that Android accepts as an update to the real app.
+  `.gitignore` blocks `*.keystore` and `*.jks`, and a test fails if one is ever
+  tracked — git history is effectively permanent, so it must not land even once.
+
+  Losing it is equally unrecoverable: no other key can update an installed
+  copy, so every user would have to uninstall, losing their downloaded models
+  and packs. A copy lives at `W:\LinguaFusion-signing\` with a README
+  explaining why. **That copy is on the same drive as the working one**, so it
+  survives a mistake but not a disk failure — get one off this machine.
 
 ---
 

@@ -5,3 +5,12 @@ build/
 # CMake/ninja intermediates for the native build. AGP puts these next to the
 # project rather than under build/, and they are ~190 MB of regenerable output.
 .cxx/
+
+# The app's signing key. This repository is PUBLIC: anyone holding this file
+# could sign an APK that Android accepts as an update to the real app, and the
+# store password is the standard "android", so the file is the whole secret.
+# Losing it is equally bad -- no other key can update an installed copy.
+# Backed up outside the tree; see test_build_contract.py for the guard.
+debug.keystore
+*.keystore
+*.jks

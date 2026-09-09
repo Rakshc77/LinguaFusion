@@ -49,6 +49,22 @@ def test_the_signing_keystore_is_present_and_unchanged():
         'the keystore holds a different certificate; upgrades would break'
 
 
+def test_the_signing_key_is_not_committed():
+    # github.com/Rakshc77/LinguaFusion is public. Committing this key would let
+    # anyone sign an APK that Android accepts as an update to the real app, and
+    # its password is the standard "android", so the file is the whole secret.
+    # Git history is effectively permanent, so this must never land even once.
+    import subprocess
+    tracked = subprocess.run(['git', 'ls-files', '--', 'android/LinguaFusionMobile'],
+                             capture_output=True, text=True,
+                             cwd=str(PROJECT.parent.parent))
+    if tracked.returncode != 0:
+        return  # not a git checkout; nothing to protect
+    committed = [line for line in tracked.stdout.splitlines()
+                 if line.endswith(('.keystore', '.jks'))]
+    assert not committed, f'a signing key is tracked by git: {committed}'
+
+
 def test_the_version_code_only_ever_goes_up():
     # Android refuses to install a lower version code over a higher one, and
     # the last hand-built APK shipped 6.
