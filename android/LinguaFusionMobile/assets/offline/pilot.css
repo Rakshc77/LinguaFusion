@@ -205,3 +205,8 @@ input:not([type=checkbox]),select,textarea { border-radius:var(--radius); }
 /* The two header pills stay together and wrap as a unit, so the account chip
    never lands between them on a narrow phone. */
 .head-pills { display:inline-flex; align-items:center; gap:8px; }
+
+/* Billing console links in the owner panel: plainly links, so it is obvious
+   they leave the app, and spaced enough to hit on a phone. */
+.console-link { color:var(--accent); text-decoration:underline; font-size:13px;
+                min-height:36px; display:inline-flex; align-items:center; }
