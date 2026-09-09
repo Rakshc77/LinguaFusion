@@ -43,6 +43,9 @@ final class OfflineBridge {
 
         /** Leaves offline mode and returns to the connection screen. */
         void leaveOfflineMode();
+
+        /** Opens the picture chooser; the answer arrives on this request id. */
+        void pickImageForText(String requestId);
     }
 
     private final Host host;
@@ -92,6 +95,17 @@ final class OfflineBridge {
             description.put("chosenModel", chosenModelId());
             description.put("recommendedModel", WhisperModels.RECOMMENDED);
             description.put("modelLoaded", speech.isLoaded());
+            description.put("readingSupported", true);
+            description.put("romanizeSupported", OfflineRomanize.isSupported());
+            final JSONArray romanizable = new JSONArray();
+            for (String[] entry : OfflineRomanize.LANGUAGES) {
+                romanizable.put(new JSONObject()
+                        .put("code", entry[0]).put("name", entry[1]).put("nativeName", entry[2]));
+            }
+            description.put("romanizeLanguages", romanizable);
+            // Named so the page can say which pictures it cannot read, rather
+            // than letting someone photograph Arabic and get silence.
+            description.put("readableLanguages", readable());
             description.put("sourceLanguage", host.recall("offline.from", "auto"));
             description.put("targetLanguage", host.recall("offline.to", "en"));
             return description.toString();
@@ -257,12 +271,47 @@ final class OfflineBridge {
         host.remember("offline.to", OfflineLanguages.normalise(to));
     }
 
+    /** Reads a picture the person chooses. The image never enters
+     *  JavaScript: the picker is native and the bytes go straight to ML Kit. */
+    @JavascriptInterface
+    public void readPicture(String requestId) {
+        host.pickImageForText(requestId);
+    }
+
+    @JavascriptInterface
+    public void romanize(String requestId, String text, String language) {
+        executor.execute(() -> {
+            try {
+                final JSONObject result = new JSONObject();
+                final String romanised = OfflineRomanize.romanize(text, language);
+                if (romanised.startsWith("ERROR: ")) {
+                    result.put("error", romanised.substring(7));
+                } else {
+                    result.put("romanized", romanised);
+                }
+                host.resolve(requestId, result.toString());
+            } catch (JSONException impossible) {
+                host.resolve(requestId, "{}");
+            }
+        });
+    }
+
     @JavascriptInterface
     public void leaveOfflineMode() {
         host.leaveOfflineMode();
     }
 
     /* ---------- helpers ---------- */
+
+    private static JSONArray readable() {
+        final JSONArray codes = new JSONArray();
+        for (OfflineLanguages.Entry entry : OfflineLanguages.all()) {
+            if (OfflineVision.canRead(entry.code)) {
+                codes.put(entry.code);
+            }
+        }
+        return codes;
+    }
 
     private String chosenModelId() {
         return WhisperModels.chosen(host.recall("offline.model", WhisperModels.RECOMMENDED)).id;

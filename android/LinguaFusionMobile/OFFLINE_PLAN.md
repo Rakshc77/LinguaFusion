@@ -102,6 +102,13 @@ Done:
 3. **ML Kit translation wired up**, with pack download and removal.
 4. **A bundled offline page** (`assets/offline/`) and an offline mode: record,
    transcribe, translate and manage storage, with no network at all.
+5. **Reading pictures**, via ML Kit's unbundled Latin model -- English, German,
+   Spanish and French.
+6. **Romanising** Arabic, Hindi and Odia through ICU, which Android carries in
+   the platform, so it needs no dependency and nothing downloaded. Android 10
+   and newer; below that the feature is hidden rather than broken.
+7. **A switch in the app header**, beside day/night, so offline mode is
+   reachable from anywhere rather than only before signing in.
 
 Not done, and why:
 
@@ -109,8 +116,11 @@ Not done, and why:
   is installed, and limiting the APK to arm ABIs means the usual x86 emulator
   could not run it anyway. Everything below the interface is compiled and
   unit-tested; on-device behaviour is unverified.
-- **OCR is still online-only.** Codex's level 3 included it; this covers
-  speech and translation.
+- **Arabic OCR is still online-only.** ML Kit's scripts are Latin, Chinese,
+  Devanagari, Japanese and Korean, so a photo of Arabic still needs the cloud.
+  Tesseract through the NDK would close that, at roughly 40 MB for
+  `ara.traineddata` and a second OCR engine to maintain -- the desktop app
+  already uses Tesseract, so the path is known.
 - **No live transcription while speaking.** Codex placed it after this, and it
   stays there.
 - **No benchmarking on the S26 Ultra**, so Small q5_1 as the default is a
@@ -160,3 +170,21 @@ be wrong:
 6. **Installing over the existing app** without uninstalling. This should work,
    because the certificate matches, but it is the most expensive thing to get
    wrong.
+
+## Two size traps, both real
+
+The published APK is downloaded through Cloud Run, which refuses to serve any
+response over **32 MiB**, with an HTTP 500 from Google's frontend that never
+reaches the app's logs. Two separate things pushed past it:
+
+- Building for `armeabi-v7a` as well as `arm64-v8a` (33.3 MiB).
+- Bundling ML Kit's Latin OCR model instead of letting Play Services fetch it
+  (33.2 MiB against 21.2 MiB unbundled).
+
+And a third that only looked like size: Gradle's incremental packaging left a
+16 MiB unreferenced copy of a native library inside the APK, so a 21 MiB build
+measured 38 MiB. `gradlew clean stageApk` fixed it, and a test now fails if the
+published APK carries more than 2 MiB that is not entry data.
+
+The lesson for anyone measuring this later: **compare clean builds**. An
+incremental one led me to the right conclusion for the wrong reason once.

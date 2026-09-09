@@ -66,6 +66,27 @@ def test_the_apk_carries_only_64_bit_phone_native_code():
     assert "'arm64-v8a'" in abi.group(1)
 
 
+def test_the_published_apk_has_no_dead_space_in_it():
+    # Gradle's incremental packaging can leave the previous build's data in the
+    # APK as an unreferenced hole. It happened here: a 21 MiB APK measured 38
+    # MiB, 16 MiB of it a stale copy of a native library nothing pointed at.
+    # The APK still installs, so the only symptom is size -- which is exactly
+    # what pushes it over the limit Cloud Run will serve.
+    import zipfile
+    published = PROJECT.parent.parent / 'cloud_api' / 'web' / 'linguafusion-android.apk'
+    if not published.is_file():
+        return
+    with zipfile.ZipFile(published) as archive:
+        packed = sum(entry.compress_size for entry in archive.infolist())
+    actual = published.stat().st_size
+    # Headers, the central directory and alignment are a small overhead; a
+    # whole duplicated library is not.
+    overhead = actual - packed
+    assert overhead < 2 * 1024 * 1024, (
+        f'{overhead / 1048576:.1f} MiB of the APK is not entry data. Build it '
+        f'with "gradlew clean stageApk" -- incremental packaging left a hole.')
+
+
 def test_the_published_apk_is_small_enough_for_cloud_run_to_serve():
     # The QR onboarding flow serves this file, and Cloud Run refuses any
     # response over 32 MiB with a 500 from Google's frontend -- not from the

@@ -128,6 +128,48 @@ nav button[aria-current="true"] { color:var(--accent); }
     </div>
   </section>
 
+  <!-- Read -->
+  <section id="viewRead" hidden>
+    <h2>Read a picture</h2>
+    <div class="card">
+      <p class="hint">Reads text out of a photo or screenshot, on this phone.</p>
+      <div class="warn" id="readLimits">
+        Latin letters only offline, so English, German, Spanish and French.
+        Arabic script cannot be read without the cloud.
+      </div>
+      <button id="readPicture" type="button">Choose a picture</button>
+      <p class="hint" id="readStatus" role="status" aria-live="polite"></p>
+      <div class="out" id="readResult"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="secondary slim" id="copyRead" type="button">Copy</button>
+        <button class="secondary slim" id="sendReadToTranslate" type="button">Translate this</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Say it -->
+  <section id="viewSay" hidden>
+    <h2>Say it</h2>
+    <div class="card">
+      <p class="hint">Shows roughly how Arabic, Hindi or Odia text looks in Latin
+        letters. A reading aid, not a translation, and it never replaces the original.</p>
+      <div class="warn" id="sayLimits" hidden>
+        This phone is too old to do that offline; it needs Android 10 or newer.
+      </div>
+      <label for="sayLang">Language of the text</label>
+      <select id="sayLang"></select>
+      <label for="sayText">Text in that language</label>
+      <textarea id="sayText" dir="auto" placeholder="Paste Arabic, Hindi or Odia text"></textarea>
+      <button id="romanize" type="button">Write it in Latin letters</button>
+      <p class="hint" id="sayStatus" role="status" aria-live="polite"></p>
+      <div class="out" id="sayResult" dir="ltr"></div>
+      <p class="hint">Offline this maps letter to letter, so it shows which letters
+        are there rather than how a speaker would say them. Short vowels missing
+        from written Arabic stay missing. The cloud's guide reads better.</p>
+      <button class="secondary slim" id="copySay" type="button" style="margin-top:6px">Copy</button>
+    </div>
+  </section>
+
   <!-- Storage -->
   <section id="viewStorage" hidden>
     <h2>Storage</h2>
@@ -149,6 +191,8 @@ nav button[aria-current="true"] { color:var(--accent); }
 <nav>
   <button type="button" data-view="viewSpeak" aria-current="true">Speak</button>
   <button type="button" data-view="viewTranslate">Translate</button>
+  <button type="button" data-view="viewRead">Read</button>
+  <button type="button" data-view="viewSay">Say it</button>
   <button type="button" data-view="viewStorage">Storage</button>
 </nav>
 

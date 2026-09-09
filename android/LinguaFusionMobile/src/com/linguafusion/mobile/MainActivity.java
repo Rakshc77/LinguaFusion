@@ -61,6 +61,8 @@ import java.util.concurrent.Executors;
 public final class MainActivity extends Activity {
     private static final int FILE_REQUEST = 41;
     private static final int AUDIO_PERMISSION = 42;
+    private static final int OCR_IMAGE_REQUEST = 43;
+    private String pendingReadRequestId;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private SharedPreferences preferences;
     private WebView webView;
@@ -86,6 +88,7 @@ public final class MainActivity extends Activity {
     private static final int OFFLINE_RECORDING_SECONDS = 300;
     private OfflineSpeech offlineSpeech;
     private OfflineTranslation offlineTranslation;
+    private OfflineVision offlineVision;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -419,6 +422,7 @@ public final class MainActivity extends Activity {
         releaseWebView();
         if(offlineSpeech==null)offlineSpeech=new OfflineSpeech(this);
         if(offlineTranslation==null)offlineTranslation=new OfflineTranslation();
+        if(offlineVision==null)offlineVision=new OfflineVision(this);
         webView=newWebViewWithMediaSupport();
         webView.getSettings().setAllowFileAccess(false);
         webView.getSettings().setAllowContentAccess(false);
@@ -488,6 +492,20 @@ public final class MainActivity extends Activity {
         }
         @Override public void remember(String key,String value){preferences.edit().putString(key,value).apply();}
         @Override public String recall(String key,String fallback){return preferences.getString(key,fallback);}
+        @Override public void pickImageForText(String requestId){
+            runOnUiThread(() -> {
+                pendingReadRequestId=requestId;
+                Intent chooser=new Intent(Intent.ACTION_GET_CONTENT);
+                chooser.setType("image/*");
+                chooser.addCategory(Intent.CATEGORY_OPENABLE);
+                try{
+                    startActivityForResult(chooser,OCR_IMAGE_REQUEST);
+                }catch(Exception missing){
+                    pendingReadRequestId=null;
+                    resolve(requestId,"{\"error\":\"This phone has no way to choose a picture.\"}");
+                }
+            });
+        }
         @Override public void leaveOfflineMode(){
             runOnUiThread(() -> {
                 String before=preferences.getString("mode.before","");
@@ -841,7 +859,28 @@ public final class MainActivity extends Activity {
     private void writeLittleEndian(ByteArrayOutputStream output,int value,int bytes){for(int index=0;index<bytes;index++)output.write((value>>(8*index))&0xff);}
 
     @Override protected void onActivityResult(int requestCode,int resultCode,Intent data){
-        super.onActivityResult(requestCode,resultCode,data);if(requestCode==FILE_REQUEST&&fileCallback!=null){fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode,data));fileCallback=null;}
+        super.onActivityResult(requestCode,resultCode,data);
+        if(requestCode==FILE_REQUEST&&fileCallback!=null){fileCallback.onReceiveValue(WebChromeClient.FileChooserParams.parseResult(resultCode,data));fileCallback=null;return;}
+        if(requestCode!=OCR_IMAGE_REQUEST)return;
+        final String requestId=pendingReadRequestId; pendingReadRequestId=null;
+        if(requestId==null)return;
+        final Uri picture=resultCode==RESULT_OK&&data!=null?data.getData():null;
+        final OfflineHost host=new OfflineHost();
+        if(picture==null){
+            // Cancelling is not an error; the page just stops waiting.
+            host.resolve(requestId,"{\"cancelled\":true}");
+            return;
+        }
+        executor.execute(() -> {
+            String text=offlineVision==null?"ERROR: Reading is unavailable.":offlineVision.read(picture);
+            String json;
+            try{
+                json=text.startsWith("ERROR: ")
+                    ? new JSONObject().put("error",text.substring(7)).toString()
+                    : new JSONObject().put("text",text).toString();
+            }catch(Exception impossible){json="{}";}
+            host.resolve(requestId,json);
+        });
     }
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
         super.onRequestPermissionsResult(requestCode,permissions,grantResults);

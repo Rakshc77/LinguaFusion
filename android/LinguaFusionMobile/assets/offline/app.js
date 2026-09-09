@@ -165,6 +165,41 @@ async function translateTyped() {
     : 'Done.');
 }
 
+/* ---------- Read ---------- */
+
+async function readPicture() {
+  $('readPicture').disabled = true;
+  say('readStatus', 'Choose a picture…');
+  const result = await ask('readPicture', null);
+  $('readPicture').disabled = false;
+  if (result.cancelled) { say('readStatus', ''); return; }
+  if (result.error) { say('readStatus', result.error); $('readResult').textContent = ''; return; }
+  $('readResult').textContent = result.text || '';
+  say('readStatus', 'Read on this phone.');
+}
+
+function sendReadToTranslate() {
+  const text = $('readResult').textContent;
+  if (!text) { say('readStatus', 'Read a picture first.'); return; }
+  $('sourceText').value = text;
+  show('viewTranslate');
+  say('translateStatus', 'Brought over from the picture. Choose the languages and translate.');
+}
+
+/* ---------- Say it ---------- */
+
+async function romanize() {
+  const text = $('sayText').value.trim();
+  if (!text) { say('sayStatus', 'Paste some text first.'); return; }
+  $('romanize').disabled = true;
+  say('sayStatus', 'Working…');
+  const result = await ask('romanize', null, text, $('sayLang').value);
+  $('romanize').disabled = false;
+  if (result.error) { say('sayStatus', result.error); $('sayResult').textContent = ''; return; }
+  $('sayResult').textContent = result.romanized || '';
+  say('sayStatus', 'Done.');
+}
+
 /* ---------- Storage ---------- */
 
 function renderModels() {
@@ -324,6 +359,21 @@ async function refresh() {
     $('record').disabled = true;
     say('speakStatus', 'This phone cannot run offline transcription. Translation still works.');
   }
+
+  fill($('sayLang'), state.romanizeLanguages || []);
+  if (!state.romanizeSupported) {
+    $('sayLimits').hidden = false;
+    $('romanize').disabled = true;
+  }
+  // Name the languages that can actually be read, rather than leaving someone
+  // to photograph Arabic and get an empty box.
+  const readable = (state.readableLanguages || [])
+    .map((code) => nameOf(code)).filter(Boolean);
+  if (readable.length) {
+    $('readLimits').textContent =
+      `Offline this reads Latin letters only, so ${readable.join(', ')}. `
+      + 'Arabic script needs the cloud.';
+  }
   renderModels();
   updatePivotWarning();
 
@@ -333,7 +383,7 @@ async function refresh() {
 }
 
 function show(view) {
-  for (const section of ['viewSpeak', 'viewTranslate', 'viewStorage']) {
+  for (const section of ['viewSpeak', 'viewTranslate', 'viewRead', 'viewSay', 'viewStorage']) {
     $(section).hidden = section !== view;
   }
   for (const button of document.querySelectorAll('nav button')) {
@@ -363,6 +413,11 @@ function start() {
   $('copyTranscript').onclick = () => copy($('transcript').textContent, 'speakStatus');
   $('copyTranslation').onclick = () => copy($('translation').textContent, 'speakStatus');
   $('copyText').onclick = () => copy($('textResult').textContent, 'translateStatus');
+  $('readPicture').onclick = readPicture;
+  $('sendReadToTranslate').onclick = sendReadToTranslate;
+  $('copyRead').onclick = () => copy($('readResult').textContent, 'readStatus');
+  $('romanize').onclick = romanize;
+  $('copySay').onclick = () => copy($('sayResult').textContent, 'sayStatus');
 
   refresh();
 }

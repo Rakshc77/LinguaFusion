@@ -124,6 +124,17 @@ dependencies {
     // Google Play Services and are managed from the app, so the APK stays
     // small and languages can be added and removed without a new build.
     implementation 'com.google.mlkit:translate:17.0.3'
+    // On-device text recognition, unbundled. Measured with clean builds: the
+    // bundled variant carries the Latin model in the APK and comes to 33.2 MiB,
+    // over the 32 MiB Cloud Run will serve, so nobody could download it. This
+    // one is 21.2 MiB.
+    //
+    // Unbundled, Play Services fetches the model once and it then works with no
+    // network, exactly as the translation packs and the speech model already
+    // do. Recognition itself always runs on the device. Covers English, German,
+    // Spanish and French; Arabic is not one of ML Kit's scripts, so those
+    // pictures still need the cloud.
+    implementation 'com.google.android.gms:play-services-mlkit-text-recognition:19.0.1'
 }
 
 /* The publish script and the QR download flow both expect the APK at
