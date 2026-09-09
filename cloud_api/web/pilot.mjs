@@ -2,7 +2,7 @@ import { createCloudAuth } from './cloud-auth.mjs';
 import { createCloudClient } from './cloud-client.mjs';
 import { PRONUNCIATION_LANGUAGES, pronunciationView, validateRequest } from './pronunciation.mjs';
 import { buildWav, MAX_SECONDS } from './wav.mjs';
-import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, getFont, getTheme, initAppearance } from './themes.mjs';
+import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, getFont, getTheme, getMode, applyMode, initAppearance } from './themes.mjs';
 
 const $ = id => document.getElementById(id);
 const auth = createCloudAuth();
@@ -45,6 +45,8 @@ for (const theme of CLOUD_THEMES) $('themeChoice').add(new Option(theme.name, th
 for (const font of LF_FONTS) $('fontChoice').add(new Option(font.name, font.id));
 $('themeChoice').value = getTheme();
 $('fontChoice').value = getFont();
+$('modeChoice').value = getMode();
+$('modeChoice').addEventListener('change', () => applyMode($('modeChoice').value));
 $('themeChoice').addEventListener('change', () => applyTheme($('themeChoice').value));
 $('fontChoice').addEventListener('change', () => applyFont($('fontChoice').value));
 

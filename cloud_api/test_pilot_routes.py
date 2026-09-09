@@ -474,17 +474,16 @@ def test_the_appearance_assets_are_served():
             assert response.headers['content-type'].startswith(media), asset
 
 
-def test_the_cloud_app_offers_the_phone_looks_and_every_font():
-    # The nine PC looks belong to the desktop app; offering them here would
-    # promise appearances this client does not implement.
+def test_the_cloud_app_offers_studio_minimal_and_every_font():
     import pathlib
     import re
-    module = (pathlib.Path(__file__).parent / 'web' / 'themes.mjs').read_text(encoding='utf-8')
-    mobile = re.findall(r'id:"([a-z-]+)"[^}]*platforms:\["mobile"\]', module)
-    assert len(mobile) >= 7, mobile
-    assert "platforms.includes('mobile')" in module, 'PC looks must be filtered out'
-    fonts = re.findall(r'id:"([a-z]+)", name:"[^"]+", group:"(?:Sans|Serif|Monospace)"', module)
+    web = pathlib.Path(__file__).parent / 'web'
+    module = (web / 'themes.mjs').read_text(encoding='utf-8')
+    registry = module.split('export const CLOUD_THEMES = [', 1)[1].split('];', 1)[0]
+    assert re.findall(r'id:"([a-z-]+)"', registry) == ['studio', 'minimal']
+    fonts = re.findall(r'id:"([a-z]+)", name:"[^\"]+", group:"(?:Sans|Serif|Monospace)"', module)
     assert set(fonts) == {'modern', 'friendly', 'accessible', 'editorial', 'classic', 'technical'}
+    assert 'id="modeChoice"' in (web / 'index.html').read_text()
 
 
 def test_appearance_survives_storage_being_unavailable():

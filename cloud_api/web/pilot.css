@@ -137,3 +137,39 @@ p.warn { font-weight:600; }
 .nav-item { max-width:none; }
 @media (max-width:400px) { .nav-item { font-size:10px; } .nav-item span:first-child { font-size:17px; } }
 
+
+/* The selected look controls every surface, including on dark-mode devices. */
+:root {
+  --line:var(--lf-line); --notice:var(--lf-notice);
+  --warn:var(--lf-warn); --warn-line:var(--lf-warn-line);
+}
+button, a.download { color:var(--lf-on-accent); font-family:var(--lf-font-body); border-radius:var(--radius); }
+button.secondary { color:var(--text); }
+button.danger { color:var(--lf-danger); border-color:var(--lf-danger); }
+.nav-item { color:var(--muted); border-radius:var(--radius); }
+.nav-item.active { color:var(--accent); }
+main { padding-top:max(24px,env(safe-area-inset-top)); }
+.app-head { padding-bottom:18px; margin-bottom:24px; }
+.view > h2 { font-size:30px; line-height:1.2; letter-spacing:-.8px; margin-bottom:20px; }
+#status:empty { display:none; }
+#transcript,#result,#ocrResult,#pronounceNative,#pronounceRoman {
+  padding:20px; border:1px solid var(--line); border-radius:var(--radius);
+  background:var(--lf-xlate-bg); color:var(--lf-xlate-text);
+  white-space:pre-wrap; overflow-wrap:anywhere; line-height:1.65;
+}
+#transcript:empty::before { content:"Your words will appear here."; color:var(--muted); }
+#transcript { min-height:120px; }
+#recordToggle { min-height:68px; font-size:18px; }
+#loginForm,#signUpForm,#accessRequest,#verifyEmail,#androidOffer,.person {
+  border-radius:var(--radius); box-shadow:var(--lf-surface-shadow);
+}
+input:not([type=checkbox]),select,textarea { border-radius:var(--radius); }
+[data-theme="minimal"] .view { animation:none; }
+[data-theme="minimal"] aside { background:transparent; border-left:2px solid var(--line); border-radius:0; }
+[data-theme="minimal"] .person { box-shadow:none; }
+[data-theme="minimal"] .bottom-nav { backdrop-filter:none; -webkit-backdrop-filter:none; }
+@media(max-width:420px) {
+  #workspace { padding:0 0 96px; }
+  .languages { grid-template-columns:1fr 1fr; gap:12px; }
+  .languages select { padding:10px 8px; }
+}

@@ -13,6 +13,17 @@ policy and spending ledger; OpenRouter translation/pronunciation, Groq speech,
 Google Vision OCR. Production needs no PC, local Ollama, tunnel or local disk.
 The offline desktop/PC-paired clients remain separate.
 
+## September 9 appearance update (source only)
+
+Cloud/PWA/Android cloud UI now offers only Studio and Minimal, with independent
+Day/Night and typeface controls. Studio day uses Warm Editorial parchment
+(#f4efe4), ink (#2b2622) and terracotta (#b04a2f). Studio night uses Sunset
+rose (#f24e7a) on plum (#1a1015). Minimal stays neutral in both modes.
+Removed look choices migrate to Studio or Minimal and preserve legacy dark
+selection and font. Static cache version is v3-appearance. Offline inference
+is still planned, not implemented. These source changes are not yet deployed.
+The user reports the Android 1.5 microphone update works smoothly on the S26 Ultra.
+
 ## September 8 microphone update
 
 Samsung S26 Ultra: owner confirmed cloud speech works well in Chrome, but APK

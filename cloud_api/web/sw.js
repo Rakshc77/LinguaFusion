@@ -4,7 +4,7 @@
 // responses are per-user and carry approval state, spending and personal data,
 // and a cached copy could be shown to a different person on a shared device or
 // long after it stopped being true.
-const VERSION = 'linguafusion-cloud-v2';
+const VERSION = 'linguafusion-cloud-v3-appearance';
 const SHELL = [
   '/pilot/', '/pilot/pilot.css', '/pilot/pilot.mjs', '/pilot/cloud-auth.mjs',
   '/pilot/cloud-client.mjs', '/pilot/firebase-config.mjs', '/pilot/pronunciation.mjs',
