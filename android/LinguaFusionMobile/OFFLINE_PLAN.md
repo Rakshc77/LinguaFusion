@@ -41,8 +41,17 @@ later is a normal app action rather than a new build.
 
 ### Expected size installed
 
-~300–400 MB with Whisper Base, ~650–750 MB with Small. Most of that is
-downloaded models, so the APK itself stays much smaller.
+Codex's estimate assumed unquantised models. The q5_1 builds change the deal
+considerably, and are what the app offers:
+
+| Model | Download | Note |
+|---|---|---|
+| Base q5_1 | 60 MB | smallest and fastest |
+| **Small q5_1** | **190 MB** | **the default** |
+| Small, full precision | 488 MB | last few points of accuracy |
+
+With translation packs (~30 MB each) and a 35 MB APK, a full install is around
+**300 MB** with Small q5_1 rather than the 650-750 MB originally estimated.
 
 ## Toolchain findings — read this before estimating
 
@@ -72,19 +81,41 @@ Consequences:
   therefore enough to unblock the whole translation half.
 - **Whisper needs Gradle *and* the NDK and CMake**, to cross-compile
   `whisper.cpp` for arm64-v8a and package the `.so` plus JNI bindings. Neither
-  is installed, and without `cmdline-tools` they must be added through Android
-  Studio's SDK Manager by hand. **This is a prerequisite the owner has to do;
-  it cannot be scripted from here.**
+  is installed. I first concluded they could only be added by hand through
+  Android Studio's SDK Manager; that was wrong, and the update below says how
+  they were actually obtained.
 
-So the real order of work is:
+**Update, same day: the toolchain problem is solved.** The NDK and CMake are
+published as plain archives in the same repository index the SDK Manager reads,
+so they were fetched directly, with checksums verified, rather than through
+Android Studio. NDK r28c and CMake 4.1.2 now sit in the SDK where the SDK
+Manager would have put them, and `ndkVersion` is pinned so AGP does not quietly
+substitute its own -- left unset, it downloaded and used NDK 27.
 
-1. Migrate `build_apk.ps1` to Gradle, changing nothing else. Verify the APK
-   still installs *over* the existing one — the debug keystore must be reused,
-   or every install breaks (see below).
-2. Offline translation via ML Kit, behind the Cloud/Offline switch.
-3. Install NDK + CMake, then offline transcription via whisper.cpp.
+## Status
 
-Steps 1 and 2 are unblocked. Step 3 waits on an SDK Manager install.
+Done:
+
+1. **Gradle migration.** AGP 8.13.2 on Gradle 8.14.5, same debug keystore --
+   verified, the built APK carries the original certificate -- versionCode 7.
+2. **whisper.cpp compiled in**, both ABIs, 1.7 MB and 1.2 MB.
+3. **ML Kit translation wired up**, with pack download and removal.
+4. **A bundled offline page** (`assets/offline/`) and an offline mode: record,
+   transcribe, translate and manage storage, with no network at all.
+
+Not done, and why:
+
+- **Nothing has run on a phone.** No device is attached and no emulator image
+  is installed, and limiting the APK to arm ABIs means the usual x86 emulator
+  could not run it anyway. Everything below the interface is compiled and
+  unit-tested; on-device behaviour is unverified.
+- **OCR is still online-only.** Codex's level 3 included it; this covers
+  speech and translation.
+- **No live transcription while speaking.** Codex placed it after this, and it
+  stays there.
+- **No benchmarking on the S26 Ultra**, so Small q5_1 as the default is a
+  reasoned choice rather than a measured one. That was the open question
+  Codex flagged, and it is why the model picker exists.
 
 ## What already helps
 
@@ -108,3 +139,24 @@ right shape for exposing local engines to the web UI.
 - **Size.** A 300–700 MB install is a different proposition from today's APK.
   Model downloads need to be resumable and removable, which is what the
   "Manage offline languages" screen is for.
+
+## What to check on the phone
+
+None of this could be verified here, in rough order of what is most likely to
+be wrong:
+
+1. **Transcription accuracy and speed** in each of the five languages, and how
+   long a one-minute recording really takes. Arabic is the one to watch.
+2. **Whether Small q5_1 beats Base q5_1** on that hardware, which decides the
+   default.
+3. **The microphone permission path**: refuse it, then grant it and record
+   again. Refusing used to look like a successful recording that captured
+   nothing.
+4. **A model download interrupted** by killing the app or dropping Wi-Fi, then
+   resumed. A partial file should resume; a damaged one should be discarded
+   rather than loaded.
+5. **Removing a translation pack**, then confirming that pair refuses cleanly
+   instead of returning bad output.
+6. **Installing over the existing app** without uninstalling. This should work,
+   because the certificate matches, but it is the most expensive thing to get
+   wrong.

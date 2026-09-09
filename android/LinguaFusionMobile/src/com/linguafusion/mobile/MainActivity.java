@@ -80,6 +80,12 @@ public final class MainActivity extends Activity {
     // Owner-hosted cloud service. Unlike PC mode this needs no pairing key:
     // the page signs in with Firebase and the owner approves each account.
     private static final String CLOUD_BASE = "https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app";
+    private static final String OFFLINE_PAGE = "file:///android_asset/offline/index.html";
+    /** Five minutes. Long enough for anything spoken in one go, short
+     *  enough that the float array it becomes still fits in memory. */
+    private static final int OFFLINE_RECORDING_SECONDS = 300;
+    private OfflineSpeech offlineSpeech;
+    private OfflineTranslation offlineTranslation;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -87,6 +93,7 @@ public final class MainActivity extends Activity {
         preferences = getSharedPreferences("linguafusion", MODE_PRIVATE);
         if (handlePairingIntent(getIntent())) return;
         if ("cloud".equals(preferences.getString("mode", ""))) { showCloudApp(); return; }
+        if ("offline".equals(preferences.getString("mode", ""))) { showOfflineApp(); return; }
         String server = preferences.getString("server", "");
         if (server.isEmpty()) showConnectionScreen(); else verifySavedConnection(server, preferences.getString("key", ""));
     }
@@ -235,6 +242,16 @@ public final class MainActivity extends Activity {
         TextView cloudTitle=text("No PC to connect to?",15,true); margin(cloudTitle,26); root.addView(cloudTitle);
         TextView cloudHelp=text("Use the owner's cloud service instead: translation, pronunciation guides, speech and reading text from pictures. You create an account and the owner approves it by hand. No pairing key needed.",13,false); cloudHelp.setTextColor(Color.rgb(102,112,133)); margin(cloudHelp,6); root.addView(cloudHelp);
         Button cloudButton=new Button(this); cloudButton.setText("Use LinguaFusion Cloud"); cloudButton.setTextSize(15); cloudButton.setAllCaps(false); cloudButton.setTextColor(Color.rgb(11,87,208)); cloudButton.setBackground(background(Color.WHITE,Color.rgb(11,87,208),10)); margin(cloudButton,14); root.addView(cloudButton,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));
+        TextView offlineTitle=text("No signal either?",15,true); margin(offlineTitle,26); root.addView(offlineTitle);
+        TextView offlineHelp=text("Work entirely on this phone: speech and translation for English, German, Arabic, Spanish and French. Download the language files once over Wi-Fi and it keeps working with no signal, no account and no cost.",13,false); offlineHelp.setTextColor(Color.rgb(102,112,133)); margin(offlineHelp,6); root.addView(offlineHelp);
+        Button offlineButton=new Button(this); offlineButton.setText("Work offline on this phone"); offlineButton.setTextSize(15); offlineButton.setAllCaps(false); offlineButton.setTextColor(Color.rgb(11,87,208)); offlineButton.setBackground(background(Color.WHITE,Color.rgb(11,87,208),10)); margin(offlineButton,14); root.addView(offlineButton,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));
+        offlineButton.setOnClickListener(view -> {
+            // No server and no key: offline mode talks to nothing. Clearing
+            // them also stops isTrustedOrigin() from treating a stale cloud
+            // origin as trusted while the phone is in offline mode.
+            preferences.edit().putString("mode","offline").putString("server","").putString("key","").apply();
+            showOfflineApp();
+        });
         cloudButton.setOnClickListener(view -> {
             // isTrustedOrigin() checks the microphone request against "server",
             // so the cloud origin is recorded there. The pairing key stays empty:
@@ -388,6 +405,75 @@ public final class MainActivity extends Activity {
             }
         });
         return view;
+    }
+
+    /** Everything on this phone, with no network at all.
+     *
+     *  Unlike the cloud screen this one DOES get a JavaScript interface, and
+     *  the difference is deliberate: this page ships inside the APK, so its
+     *  content is ours. To keep it that way the WebView refuses to navigate
+     *  anywhere but the bundled assets -- were it ever to load a remote page,
+     *  that page would inherit the microphone and file access below. */
+    private void showOfflineApp(){
+        applySystemBarTheme(false);
+        releaseWebView();
+        if(offlineSpeech==null)offlineSpeech=new OfflineSpeech(this);
+        if(offlineTranslation==null)offlineTranslation=new OfflineTranslation();
+        webView=newWebViewWithMediaSupport();
+        webView.getSettings().setAllowFileAccess(false);
+        webView.getSettings().setAllowContentAccess(false);
+        webView.addJavascriptInterface(new OfflineBridge(new OfflineHost(),executor,offlineSpeech,offlineTranslation),"LinguaFusionOffline");
+        webView.setWebViewClient(new WebViewClient(){
+            @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
+                Uri target=request.getUrl();
+                if(isBundledAsset(target))return false;
+                // Anything else opens in the real browser. The interface above
+                // must never be exposed to a page we did not ship.
+                try{startActivity(new Intent(Intent.ACTION_VIEW,target));}catch(Exception ignored){}
+                return true;
+            }
+        });
+        webView.loadUrl(OFFLINE_PAGE); setInsetContentView(webView);
+    }
+
+    private static boolean isBundledAsset(Uri target){
+        return target!=null && "file".equalsIgnoreCase(target.getScheme())
+            && target.getPath()!=null && target.getPath().startsWith("/android_asset/offline/");
+    }
+
+    /** The small surface OfflineBridge is allowed to reach back through. */
+    private final class OfflineHost implements OfflineBridge.Host {
+        @Override public byte[] takeRecordedPcm(){return stopNativeAudioRecordingToPcm();}
+        @Override public String startRecording(){
+            String result=startNativeAudioRecording();
+            if("OK".equals(result))return null;
+            // PERMISSION_REQUIRED means the dialog is up and nothing is
+            // recording. Reporting success here would leave the page saying
+            // "speak now" over a microphone that was never opened.
+            if("PERMISSION_REQUIRED".equals(result))
+                return "Allow the microphone, then press record again.";
+            if(result!=null&&result.startsWith("ERROR: "))return result.substring(7);
+            return "The microphone could not be started.";
+        }
+        @Override public void cancelRecording(){cancelNativeAudioRecording();}
+        @Override public void resolve(String requestId,String json){
+            runOnUiThread(() -> {
+                if(webView==null)return;
+                // JSON.parse on the page side, so the payload is data and
+                // never script, however it was built.
+                webView.evaluateJavascript(
+                    "window.LF&&window.LF.resolve("+JSONObject.quote(requestId)+","+JSONObject.quote(json)+")",null);
+            });
+        }
+        @Override public void remember(String key,String value){preferences.edit().putString(key,value).apply();}
+        @Override public String recall(String key,String fallback){return preferences.getString(key,fallback);}
+        @Override public void leaveOfflineMode(){
+            runOnUiThread(() -> {
+                preferences.edit().remove("mode").apply();
+                if(offlineSpeech!=null)offlineSpeech.unload();
+                showConnectionScreen();
+            });
+        }
     }
 
     /** The owner-hosted cloud service.
@@ -582,7 +668,7 @@ public final class MainActivity extends Activity {
         if(pendingAudioRequest!=null){pendingAudioRequest.deny();pendingAudioRequest=null;}
         cancelNativeAudioRecording();
         if(webView==null)return;
-        webView.stopLoading();webView.removeJavascriptInterface("LinguaFusionNative");webView.setWebChromeClient(null);webView.setWebViewClient(null);webView.destroy();webView=null;
+        webView.stopLoading();webView.removeJavascriptInterface("LinguaFusionNative");webView.removeJavascriptInterface("LinguaFusionOffline");webView.setWebChromeClient(null);webView.setWebViewClient(null);webView.destroy();webView=null;
     }
     private String jsQuote(String value){
         return JSONObject.quote(value == null ? "" : value);
@@ -641,7 +727,11 @@ public final class MainActivity extends Activity {
 
     private void writeNativePcm(AudioRecord recorder,File outputFile,int bufferSize){
         byte[] buffer=new byte[bufferSize];
-        int remaining=cloudRecorderDialog!=null?NATIVE_SAMPLE_RATE*2*60:Integer.MAX_VALUE;
+        // Cloud recordings are capped at 60s by the dialog. Offline ones need
+        // their own cap: transcription turns every sample into a 4-byte float,
+        // so an unbounded recording becomes an unbounded allocation.
+        int remaining=cloudRecorderDialog!=null?NATIVE_SAMPLE_RATE*2*60
+            :("offline".equals(preferences.getString("mode",""))?NATIVE_SAMPLE_RATE*2*OFFLINE_RECORDING_SECONDS:Integer.MAX_VALUE);
         try(FileOutputStream output=new FileOutputStream(outputFile,false)){
             while(nativeAudioRecording && remaining>0){
                 int count=recorder.read(buffer,0,Math.min(buffer.length,remaining));
@@ -651,10 +741,14 @@ public final class MainActivity extends Activity {
         }catch(Exception ignored){}
     }
 
-    private String stopNativeAudioRecording(){
+    /** Stops the recorder and returns the raw 16 kHz mono PCM it captured.
+     *  Offline transcription wants exactly this, so the audio can go straight
+     *  into Whisper without a WAV header, a base64 round trip through
+     *  JavaScript, or ever leaving Java. Returns null if nothing was recorded. */
+    private byte[] stopNativeAudioRecordingToPcm(){
         File pcmFile;AudioRecord recorder;Thread thread;
         synchronized(nativeAudioLock){
-            if(!nativeAudioRecording||nativeAudioRecord==null)return "ERROR: No recording is active.";
+            if(!nativeAudioRecording||nativeAudioRecord==null)return null;
             nativeAudioRecording=false;recorder=nativeAudioRecord;thread=nativeAudioThread;pcmFile=nativeAudioFile;
             nativeAudioRecord=null;nativeAudioThread=null;nativeAudioFile=null;
         }
@@ -664,7 +758,21 @@ public final class MainActivity extends Activity {
         try{
             byte[] pcm=Files.readAllBytes(pcmFile.toPath());
             pcmFile.delete();
-            if(pcm.length<2)return "ERROR: No speech was recorded.";
+            return pcm;
+        }catch(Exception error){
+            if(pcmFile!=null)pcmFile.delete();
+            return null;
+        }
+    }
+
+    private String stopNativeAudioRecording(){
+        boolean active;
+        synchronized(nativeAudioLock){active=nativeAudioRecording&&nativeAudioRecord!=null;}
+        if(!active)return "ERROR: No recording is active.";
+        byte[] pcm=stopNativeAudioRecordingToPcm();
+        if(pcm==null)return "ERROR: Could not prepare the recording.";
+        if(pcm.length<2)return "ERROR: No speech was recorded.";
+        try{
             return Base64.encodeToString(wavFromPcm(pcm),Base64.NO_WRAP);
         }catch(Exception error){return "ERROR: Could not prepare the recording: "+error.getMessage();}
     }

@@ -74,3 +74,70 @@ def test_the_build_still_stages_the_apk_where_publishing_expects_it():
     task = re.search(r"tasks\.register\('stageApk'.*?\n\}", GRADLE, re.S)
     assert task, 'the staging task moved; publishing would break'
     assert "dist" in task.group(0) and 'assembleDebug' in task.group(0)
+
+
+MAIN = (PROJECT / 'src' / 'com' / 'linguafusion' / 'mobile' / 'MainActivity.java').read_text(encoding='utf-8')
+
+
+def test_only_the_bundled_page_gets_the_javascript_bridge():
+    # The bridge drives the microphone, deletes model files and clears saved
+    # settings. The cloud screen deliberately has none; the offline screen has
+    # one only because its page ships inside the APK. If the offline WebView
+    # could navigate to a remote page, that page would inherit all of it.
+    offline = MAIN[MAIN.index('private void showOfflineApp'):MAIN.index('private static boolean isBundledAsset')]
+    assert 'addJavascriptInterface' in offline
+    assert 'isBundledAsset' in offline, 'the offline WebView must refuse foreign pages'
+
+    guard = MAIN[MAIN.index('private static boolean isBundledAsset'):]
+    guard = guard[:guard.index('\n    }')]
+    assert '"file".equalsIgnoreCase' in guard and '/android_asset/offline/' in guard, guard
+
+    cloud = MAIN[MAIN.index('private void showCloudApp'):MAIN.index('private void saveDataUrl')]
+    assert 'addJavascriptInterface' not in cloud, \
+        'the cloud page must never receive a native bridge'
+
+
+def test_the_bridge_is_removed_when_the_web_view_goes():
+    teardown = MAIN[MAIN.index('private void releaseWebView'):]
+    teardown = teardown[:teardown.index('\n    }')]
+    for name in ['LinguaFusionNative', 'LinguaFusionOffline']:
+        assert f'removeJavascriptInterface("{name}")' in teardown, name
+
+
+def test_a_denied_microphone_is_not_reported_as_a_started_recording():
+    # startNativeAudioRecording answers "OK", "ERROR: ..." or
+    # "PERMISSION_REQUIRED". Folding the last into success leaves the page
+    # saying "speak now" over a microphone that was never opened, and the only
+    # symptom is an empty recording afterwards.
+    host = MAIN[MAIN.index('private final class OfflineHost'):]
+    host = host[:host.index('/** The owner-hosted cloud service')]
+    start = host[host.index('public String startRecording'):host.index('public void cancelRecording')]
+    # Comments stripped first: a guard that a comment can satisfy guards
+    # nothing, and the explaining comment here names the very constant that
+    # the code must act on.
+    code = re.sub(r'//[^\n]*', '', start)
+    assert '"PERMISSION_REQUIRED".equals(result)' in code,         'the permission case must be branched on, not merely described'
+    assert '"OK".equals(result)' in code,         'success must be recognised positively, not by elimination'
+
+
+def test_offline_recordings_are_length_capped():
+    # Transcription turns each 2-byte sample into a 4-byte float, so an
+    # uncapped recording is an uncapped allocation. The cloud path is capped by
+    # its dialog; the offline path needs its own.
+    import re
+    writer = MAIN[MAIN.index('private void writeNativePcm'):]
+    writer = writer[:writer.index('\n    }')]
+    assert 'Integer.MAX_VALUE' in writer, 'the PC path is unchanged and still unbounded'
+    assert 'OFFLINE_RECORDING_SECONDS' in writer, 'offline recordings must be capped'
+    seconds = int(re.search(r'OFFLINE_RECORDING_SECONDS = (\d+)', MAIN).group(1))
+    assert 0 < seconds <= 600, seconds
+
+
+def test_the_offline_page_ships_in_the_apk():
+    offline = PROJECT / 'assets' / 'offline'
+    assert (offline / 'index.html').is_file()
+    assert (offline / 'app.js').is_file()
+    page = (offline / 'index.html').read_text(encoding='utf-8')
+    # It must render with no network at all: nothing may be fetched.
+    for remote in ['http://', 'https://', '//cdn', 'fonts.googleapis']:
+        assert remote not in page, f'the offline page must not reference {remote}'
