@@ -2,3 +2,6 @@
 local.properties
 .gradle/
 build/
+# CMake/ninja intermediates for the native build. AGP puts these next to the
+# project rather than under build/, and they are ~190 MB of regenerable output.
+.cxx/

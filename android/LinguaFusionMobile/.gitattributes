@@ -1,0 +1,2 @@
+# Gradle wrapper must keep LF endings or it breaks on macOS and Linux.
+gradlew text eol=lf
