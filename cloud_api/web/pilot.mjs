@@ -1034,7 +1034,32 @@ let updateBusy = false;
 // The app answers its own check here. Only it knows whether the installed
 // build is current, so the page waits to be told rather than claiming.
 let interfaceUpToDate = true;
+let awaitingApp = null;
+
+/* Older builds intercept the check but cannot report back -- reporting only
+   arrived in 1.12. Waiting for an answer they will never send left the status
+   stuck on "Checking the app" forever, which is worse than not asking. So the
+   wait is bounded, and the fallback says what is actually known rather than
+   guessing a verdict. */
+function stopAwaitingApp() {
+  if (awaitingApp === null) return false;
+  clearTimeout(awaitingApp);
+  awaitingApp = null;
+  return true;
+}
+
+function awaitAppAnswer() {
+  stopAwaitingApp();
+  awaitingApp = setTimeout(() => {
+    awaitingApp = null;
+    $('updateStatus').textContent =
+      `Interface ${APP_VERSION} is current. This app build cannot report on `
+      + 'itself, so if no update box appeared there is nothing waiting.';
+  }, 6000);
+}
+
 window.LFNativeUpdateResult = (json) => {
+  stopAwaitingApp();
   let answer;
   try { answer = JSON.parse(json); } catch { return; }
   if (answer.available) {
@@ -1061,6 +1086,7 @@ $('checkUpdates').addEventListener('click', async () => {
   // asks about both. The app answers in its own dialog, and only when asked --
   // it never interrupts on launch.
   if (window.LFNativeOfflineMode === true) {
+    awaitAppAnswer();
     window.location.assign('linguafusion-update://check');
   }
   try {
@@ -1076,6 +1102,7 @@ $('checkUpdates').addEventListener('click', async () => {
           ? `Interface ${APP_VERSION} is current. Checking the app…`
           : `You’re up to date. Version ${APP_VERSION}.`);
   } catch {
+    stopAwaitingApp();
     $('updateStatus').textContent = 'Could not check for updates. Check your internet connection and try again.';
   } finally { updateBusy = false; $('checkUpdates').disabled = false; }
 });

@@ -648,3 +648,22 @@ def test_hosted_app_restores_the_original_phone_only_offline_handoff():
     import re
     pill = re.search(r'<button id="goOffline"(.*?)>', html, re.S)
     assert pill and 'hidden' in pill.group(1), 'the pill must not show on the website'
+
+
+def test_waiting_on_the_app_to_answer_is_bounded():
+    # The page asks the installed app to check itself, but builds before 1.12
+    # cannot report back. Waiting for an answer they never send left the status
+    # stuck on "Checking the app" indefinitely -- worse than not asking at all.
+    import pathlib
+    import re
+    module = (pathlib.Path(__file__).parent / 'web' / 'pilot.mjs').read_text(encoding='utf-8')
+    assert 'awaitAppAnswer' in module, 'the wait must be bounded'
+    wait = module[module.index('function awaitAppAnswer'):]
+    wait = wait[:wait.index('\n}')]
+    assert 'setTimeout' in wait, 'nothing ever ends the wait'
+    delay = re.search(r'\}, (\d+)\);', wait)
+    assert delay and 1000 <= int(delay.group(1)) <= 20000, delay and delay.group(1)
+    # And an answer must cancel it, or a real reply gets overwritten later.
+    reply = module[module.index('window.LFNativeUpdateResult = '):]
+    reply = reply[:reply.index('\n};')]
+    assert 'stopAwaitingApp()' in reply, 'a real answer must cancel the fallback'
