@@ -51,11 +51,16 @@ The 20 cloud tests marked "env" fail only on this machine, on
 build interpreter does not have. They are not a code problem, but they do mean
 the Firestore-backed paths are not being exercised locally.
 
-The offline app has **never run on a phone**. There is no device attached to
-the build machine and no emulator image installed, and the arm64-only ABI list
-means the usual x86 emulator could not run it. Everything below the interface
-is compiled and unit-tested; on-device behaviour is unverified. See
-`android/LinguaFusionMobile/OFFLINE_PLAN.md` for what to check first.
+**The offline app now works on the owner's phone**, confirmed 9 September on
+app 1.13 (versionCode 14): speech, translation, reading pictures and
+romanisation all running with no network. Quality is below the online path,
+which is expected and has three separate causes -- see "Why offline is worse"
+below.
+
+It still cannot be tested from the build machine: no device is attached, no
+emulator image is installed, and the arm64-only ABI list means the usual x86
+emulator could not run it. Everything here was verified by the owner, not by
+this workspace.
 
 ---
 
@@ -304,6 +309,35 @@ without bumping `VERSION` leaves every installed copy — home-screen PWAs and t
 Android app included — running the old code indefinitely, with no error
 anywhere. `sw.js` now records a fingerprint of its own shell and a test fails if
 it changes without a version bump. It has caught this three times since.
+
+---
+
+## 5b. Why offline is worse, and by how much
+
+Not one cause but three, and they are worth telling apart before anyone tries
+to close the gap:
+
+| | Online | Offline |
+|---|---|---|
+| Speech | `whisper-large-v3-turbo` (Groq) | Whisper Small, quantised q5_1, ~190 MB |
+| Translation | Mistral Small 24B | ML Kit, **pivots through English** |
+| Romanisation | a language model | ICU, script to script only |
+
+The translation gap is the sharpest and the least obvious. ML Kit has no direct
+model for most pairs, so German to Spanish is really German to English to
+Spanish: it loses twice, and on exactly the pairs where the owner is least able
+to check the result. `OfflineLanguages.pivotsThroughEnglish` identifies these
+and the app says so rather than hiding it.
+
+The speech gap is the one with a lever attached. **Small q5_1 was chosen by
+reasoning, never measured on the S26 Ultra** -- the open question Codex flagged
+and the reason the model picker exists. Full-precision Small (488 MB) is the
+next thing to try if transcription is the weak point; Base q5_1 (60 MB) is
+worth trying if speed is.
+
+Romanisation is not really a quality gap but a different feature wearing the
+same name: ICU says which letters are present, not how a speaker would say
+them. Nothing tunes that; it would need a different approach entirely.
 
 ---
 
