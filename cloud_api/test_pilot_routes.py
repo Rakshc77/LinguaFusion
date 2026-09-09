@@ -573,11 +573,30 @@ def test_the_microphone_is_released_and_retried_before_giving_up():
 
 
 def test_online_update_assets_are_public_and_uncached():
+    import pathlib
+    import re
     client, _, _ = build(ok_completion())
     with client:
         metadata = client.get('/pilot/app-version.json')
         assert metadata.status_code == 200
-        assert metadata.json()['version'] == '2026.09.09.2'
+        # Not pinned to a literal: that would have to be edited on every
+        # release, and an edit that has to happen gets forgotten. What must
+        # hold is that the three places carrying the version agree -- the
+        # served metadata, the module the page compares against, and the
+        # service worker cache. If they drift, the page either never notices
+        # an update or offers one forever.
+        published = metadata.json()['version']
+        assert published, 'app-version.json carries no version'
+        web = pathlib.Path(__file__).parent / 'web'
+        declared = re.search(r"APP_VERSION = '([^']+)'",
+                             (web / 'updates.mjs').read_text(encoding='utf-8'))
+        assert declared and declared.group(1) == published, (
+            f'updates.mjs says {declared and declared.group(1)}, '
+            f'app-version.json says {published}')
+        cache = re.search(r"const VERSION = '([^']+)'",
+                          (web / 'sw.js').read_text(encoding='utf-8'))
+        assert cache and cache.group(1).endswith(published), (
+            f'sw.js cache is {cache and cache.group(1)}, expected it to carry {published}')
         assert 'no-store' in metadata.headers['cache-control']
         module = client.get('/pilot/updates.mjs')
         assert module.status_code == 200
@@ -590,8 +609,18 @@ def test_hosted_app_restores_the_original_phone_only_offline_handoff():
     root = pathlib.Path(__file__).parent / 'web'
     html = (root / 'index.html').read_text(encoding='utf-8')
     module = (root / 'pilot.mjs').read_text(encoding='utf-8')
-    assert 'id="switchToOffline"' in html
-    assert 'id="offlineModePanel"' in html
+    # The handoff moved from a Settings panel to a header pill, so it is
+    # reachable from every view rather than only from Settings. What must hold
+    # is unchanged: exactly one route, gated on the flag only the offline app
+    # sets, going to the fixed URI that app recognises.
+    assert 'id="goOffline"' in html
+    assert 'id="offlineModePanel"' not in html, 'two routes to the same handoff'
     assert 'window.LFNativeOfflineMode === true' in module
     assert "window.location.assign('linguafusion-mode://offline')" in module
     assert 'PC / Offline' not in html
+
+    # Hidden until the app says otherwise: in a browser the scheme goes
+    # nowhere and reports nothing.
+    import re
+    pill = re.search(r'<button id="goOffline"(.*?)>', html, re.S)
+    assert pill and 'hidden' in pill.group(1), 'the pill must not show on the website'

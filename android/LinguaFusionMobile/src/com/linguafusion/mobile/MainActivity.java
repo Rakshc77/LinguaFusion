@@ -543,6 +543,14 @@ public final class MainActivity extends Activity {
             .show();
     }
 
+    /** The version name Android has for this install, for the page to show. */
+    private String appVersionName(){
+        try{
+            String name=getPackageManager().getPackageInfo(getPackageName(),0).versionName;
+            return name==null?"":name;
+        }catch(Exception unknown){return "";}
+    }
+
     private static boolean isBundledAsset(Uri target){
         return target!=null && "file".equalsIgnoreCase(target.getScheme())
             && target.getPath()!=null && target.getPath().startsWith("/android_asset/offline/");
@@ -671,7 +679,7 @@ public final class MainActivity extends Activity {
             }
             @Override public void onPageFinished(WebView view,String url){
                 if(view==webView && isCloudOrigin(Uri.parse(url)))
-                    view.evaluateJavascript("window.LFNativeCloudRecording=true;window.LFNativeOfflineMode=true;",null);
+                    view.evaluateJavascript("window.LFNativeCloudRecording=true;window.LFNativeOfflineMode=true;window.LFNativeAppVersion="+JSONObject.quote(appVersionName())+";",null);
             }
             @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){
                 super.onReceivedError(view,request,error);

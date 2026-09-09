@@ -195,8 +195,13 @@ input:not([type=checkbox]),select,textarea { border-radius:var(--radius); }
 #pronunciationPane { border-top:0; padding-top:0; }
 @media(min-width:640px) { .view { padding:24px 0; } }
 
-.app-head .mode-toggle { margin:0 0 0 auto; min-height:44px; padding:8px 16px; border-radius:999px; font-size:13px; background:var(--lf-chip-bg); }
+.app-head .head-pills { margin-left:auto; }
+.app-head .mode-toggle { margin:0; min-height:44px; padding:8px 16px; border-radius:999px; font-size:13px; background:var(--lf-chip-bg); }
 .app-head .account-chip:not(:empty) { flex-basis:100%; font-size:12px; text-align:left; }
 
 .update-panel { margin-top:28px; padding-top:16px; border-top:1px solid var(--line); }
 #updateStatus { font-size:14px; color:var(--muted); overflow-wrap:anywhere; }
+
+/* The two header pills stay together and wrap as a unit, so the account chip
+   never lands between them on a narrow phone. */
+.head-pills { display:inline-flex; align-items:center; gap:8px; }

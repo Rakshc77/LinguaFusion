@@ -64,7 +64,14 @@ $('fontChoice').addEventListener('change', () => applyFont($('fontChoice').value
 // it cannot run. The native app owns the offline screen and downloaded models.
 function revealOfflineModeWhenAvailable(attempt = 0) {
   if (window.LFNativeOfflineMode === true) {
-    $('offlineModePanel').hidden = false;
+    $('goOffline').hidden = false;
+    $('apkUpdateRow').hidden = false;
+    // Only the app knows its own version, and only newer builds report it.
+    // Older ones say nothing rather than showing a label that never resolves.
+    const installed = window.LFNativeAppVersion;
+    if (typeof installed === 'string' && /^[\w. ]{1,20}$/.test(installed)) {
+      $('apkVersion').textContent = `Installed app · ${installed}. `;
+    }
     return;
   }
   if (attempt < 24 && /;\s*wv\)/.test(navigator.userAgent)) {
@@ -72,14 +79,21 @@ function revealOfflineModeWhenAvailable(attempt = 0) {
   }
 }
 revealOfflineModeWhenAvailable();
-$('switchToOffline').addEventListener('click', () => {
+$('goOffline').addEventListener('click', () => {
   if (updateActivityInProgress()) {
-    $('offlineModeStatus').textContent = 'Finish the current recording or processing before switching modes.';
+    status('Finish the current recording or processing before switching modes.');
     return;
   }
   // Fixed app route only: no server address, token or user-provided data enters
-  // the native handoff. The original Offline app recognizes this exact URI.
+  // the native handoff. The Offline app recognizes this exact URI.
   window.location.assign('linguafusion-mode://offline');
+});
+
+// The installed app, as opposed to this page. The app intercepts the scheme,
+// compares its own versionCode against what is published, and shows its own
+// dialog; nothing about the APK is decided here.
+$('checkApkUpdate').addEventListener('click', () => {
+  window.location.assign('linguafusion-update://check');
 });
 
 // Status goes wherever the person is actually looking.
