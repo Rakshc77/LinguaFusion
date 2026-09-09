@@ -143,7 +143,11 @@ def test_only_the_bundled_page_gets_the_javascript_bridge():
 
     guard = MAIN[MAIN.index('private static boolean isBundledAsset'):]
     guard = guard[:guard.index('\n    }')]
-    assert '"file".equalsIgnoreCase' in guard and '/android_asset/offline/' in guard, guard
+    # Served over a real origin now, because a module script cannot load from
+    # file://. The guard still has to pin it to our own assets and nothing else.
+    assert '"https".equalsIgnoreCase' in guard, guard
+    assert 'appassets.androidplatform.net' in guard, guard
+    assert '/assets/offline/' in guard, guard
 
     cloud = MAIN[MAIN.index('private void showCloudApp'):MAIN.index('private void saveDataUrl')]
     assert 'addJavascriptInterface' not in cloud, \
@@ -293,3 +297,28 @@ def test_the_app_tells_the_page_what_its_own_check_found():
     report = report[:report.index('\n    }')]
     assert 'LFNativeUpdateResult' in report
     assert 'JSONObject.quote' in report, 'the payload must cross as data, not script'
+
+
+def test_the_offline_page_is_served_from_an_origin_modules_can_load_from():
+    # The page uses an ES module script, and module scripts need CORS. Served
+    # from file:///android_asset the origin is opaque, the import is refused,
+    # and the whole script silently never runs: the page renders correctly --
+    # stylesheets are not modules -- while every button is dead. It must come
+    # from a real origin, which WebViewAssetLoader provides out of the APK.
+    page = (PROJECT / 'assets' / 'offline' / 'index.html').read_text(encoding='utf-8')
+    uses_modules = 'type="module"' in page or "type='module'" in page
+    app = (PROJECT / 'assets' / 'offline' / 'app.js').read_text(encoding='utf-8')
+    imports = bool(re.search(r'^\s*import\s', app, re.M))
+    if not (uses_modules or imports):
+        return  # a classic script is fine from anywhere
+
+    origin = re.search(r'OFFLINE_PAGE = ([^;]+);', MAIN)
+    assert origin, 'the offline page URL moved; re-check this guard'
+    assert 'file://' not in origin.group(1), \
+        'a module script cannot load from file://; serve it over an origin'
+    assert 'WebViewAssetLoader' in MAIN, \
+        'something must map that origin onto the APK assets'
+    # The call, not the method name: overriding shouldInterceptRequest and
+    # returning null leaves the name in the file and every asset unserved.
+    assert 'assets.shouldInterceptRequest(' in MAIN, \
+        'the loader has to actually serve, not merely be constructed'

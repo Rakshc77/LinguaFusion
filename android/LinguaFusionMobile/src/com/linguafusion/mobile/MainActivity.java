@@ -82,7 +82,10 @@ public final class MainActivity extends Activity {
     // Owner-hosted cloud service. Unlike PC mode this needs no pairing key:
     // the page signs in with Firebase and the owner approves each account.
     private static final String CLOUD_BASE = "https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app";
-    private static final String OFFLINE_PAGE = "file:///android_asset/offline/index.html";
+    // A real origin, not file://. WebViewAssetLoader maps it to the APK's
+    // assets; nothing leaves the device and no network is involved.
+    private static final String OFFLINE_ORIGIN = "https://appassets.androidplatform.net";
+    private static final String OFFLINE_PAGE = OFFLINE_ORIGIN + "/assets/offline/index.html";
     /** Five minutes. Long enough for anything spoken in one go, short
      *  enough that the float array it becomes still fits in memory. */
     private static final int OFFLINE_RECORDING_SECONDS = 300;
@@ -503,7 +506,16 @@ public final class MainActivity extends Activity {
         webView.getSettings().setAllowFileAccess(false);
         webView.getSettings().setAllowContentAccess(false);
         webView.addJavascriptInterface(new OfflineBridge(new OfflineHost(),executor,offlineSpeech,offlineTranslation),"LinguaFusionOffline");
+        final androidx.webkit.WebViewAssetLoader assets=new androidx.webkit.WebViewAssetLoader.Builder()
+            .setDomain("appassets.androidplatform.net")
+            .addPathHandler("/assets/",new androidx.webkit.WebViewAssetLoader.AssetsPathHandler(this))
+            .build();
         webView.setWebViewClient(new WebViewClient(){
+            @Override public WebResourceResponse shouldInterceptRequest(WebView view,WebResourceRequest request){
+                // Everything the page asks for comes out of the APK. Anything
+                // not under the offline assets gets nothing.
+                return isBundledAsset(request.getUrl())?assets.shouldInterceptRequest(request.getUrl()):null;
+            }
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
                 Uri target=request.getUrl();
                 if(isBundledAsset(target))return false;
@@ -545,9 +557,13 @@ public final class MainActivity extends Activity {
         }catch(Exception unknown){return "";}
     }
 
+    /** Only the offline page's own files, served from the APK. The bridge
+     *  below drives the microphone and deletes model files, so the WebView
+     *  holding it must never reach anything we did not ship. */
     private static boolean isBundledAsset(Uri target){
-        return target!=null && "file".equalsIgnoreCase(target.getScheme())
-            && target.getPath()!=null && target.getPath().startsWith("/android_asset/offline/");
+        return target!=null && "https".equalsIgnoreCase(target.getScheme())
+            && "appassets.androidplatform.net".equals(target.getHost())
+            && target.getPath()!=null && target.getPath().startsWith("/assets/offline/");
     }
 
     /** The small surface OfflineBridge is allowed to reach back through. */

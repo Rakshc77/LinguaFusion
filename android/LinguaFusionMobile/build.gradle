@@ -25,8 +25,8 @@ android {
         targetSdk 36
         // Was 6 / 1.5 under the old script. Android refuses to install over a
         // higher code, so this must only ever go up.
-        versionCode 13
-        versionName '1.12'
+        versionCode 14
+        versionName '1.13'
 
         ndk {
             // 64-bit phones only. ML Kit ships native code for four ABIs: the
@@ -123,6 +123,11 @@ dependencies {
     // On-device translation. The models are not bundled: they arrive through
     // Google Play Services and are managed from the app, so the APK stays
     // small and languages can be added and removed without a new build.
+    // Serves the bundled offline page over a real https origin. Loaded from
+    // file:///android_asset the page rendered but none of its script ran: an
+    // ES module script needs CORS, and file:// is an opaque origin, so the
+    // import was refused and every button was dead.
+    implementation 'androidx.webkit:webkit:1.17.0'
     implementation 'com.google.mlkit:translate:17.0.3'
     // On-device text recognition, unbundled. Measured with clean builds: the
     // bundled variant carries the Latin model in the APK and comes to 33.2 MiB,
