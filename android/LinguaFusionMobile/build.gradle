@@ -29,12 +29,17 @@ android {
         versionName '1.6'
 
         ndk {
-            // Real phones only. ML Kit ships native code for four ABIs and the
-            // x86 pair -- 35 MB of the 63 MB -- exists for emulators, which
-            // this app is never installed on. armeabi-v7a is kept so a 32-bit
-            // device is not silently excluded. whisper.cpp is built for the
-            // same two.
-            abiFilters 'arm64-v8a', 'armeabi-v7a'
+            // 64-bit phones only. ML Kit ships native code for four ABIs: the
+            // x86 pair exists for emulators this app is never installed on,
+            // and armeabi-v7a is another 11.6 MB for 32-bit devices that could
+            // not usefully run a 190 MB speech model anyway.
+            //
+            // Dropping it is also what keeps the APK downloadable: Cloud Run
+            // refuses to serve a response over 32 MiB, and the QR onboarding
+            // flow serves this file. With both arm ABIs the APK was 33.3 MiB
+            // and every download failed with a 500 from Google's frontend, not
+            // from the app -- see the size guard in test_build_contract.py.
+            abiFilters 'arm64-v8a'
         }
 
         externalNativeBuild {

@@ -56,13 +56,29 @@ def test_the_version_code_only_ever_goes_up():
     assert code > 6, f'versionCode {code} would not install over the shipped 6'
 
 
-def test_the_apk_carries_no_emulator_only_native_code():
-    # ML Kit ships four ABIs. The x86 pair is 35 MB that no phone can use, and
-    # this app is only ever installed on phones.
+def test_the_apk_carries_only_64_bit_phone_native_code():
+    # ML Kit ships four ABIs. The x86 pair is for emulators, and armeabi-v7a
+    # is 11.6 MB for 32-bit phones that could not run a 190 MB speech model.
     abi = re.search(r'abiFilters\s+([^\n]+)', GRADLE)
-    assert abi, 'without an abiFilters list the APK doubles in size'
+    assert abi, 'without an abiFilters list the APK triples in size'
     assert 'x86' not in abi.group(1), abi.group(1)
+    assert 'armeabi' not in abi.group(1), abi.group(1)
     assert "'arm64-v8a'" in abi.group(1)
+
+
+def test_the_published_apk_is_small_enough_for_cloud_run_to_serve():
+    # The QR onboarding flow serves this file, and Cloud Run refuses any
+    # response over 32 MiB with a 500 from Google's frontend -- not from the
+    # app, so nothing in our own logs explains it. At 33.3 MiB every download
+    # failed. The only symptom is that nobody can install, so it is guarded.
+    published = PROJECT.parent.parent / 'cloud_api' / 'web' / 'linguafusion-android.apk'
+    if not published.is_file():
+        return  # nothing published on this machine
+    limit = 32 * 1024 * 1024
+    size = published.stat().st_size
+    assert size < limit, (
+        f'the published APK is {size / 1048576:.1f} MiB; Cloud Run will not '
+        f'serve anything over {limit / 1048576:.0f} MiB')
 
 
 def test_the_build_still_stages_the_apk_where_publishing_expects_it():
