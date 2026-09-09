@@ -120,6 +120,22 @@ public final class MainActivity extends Activity {
         });
     }
 
+    /** An explicit check, which ignores the once-per-launch guard and says so
+     *  when there is nothing, because this one the person did ask for. */
+    private void checkForUpdateNow(){
+        Toast.makeText(this,"Checking for updates…",Toast.LENGTH_SHORT).show();
+        executor.execute(() -> {
+            AppUpdate updater=new AppUpdate(this,CLOUD_BASE);
+            AppUpdate.Available update=updater.check();
+            runOnUiThread(() -> {
+                if(update!=null){showUpdateOffer(updater,update);return;}
+                // A failed check and being current look identical from here, so
+                // do not claim to be up to date.
+                Toast.makeText(this,"Nothing newer was offered.",Toast.LENGTH_LONG).show();
+            });
+        });
+    }
+
     private void showUpdateOffer(AppUpdate updater,AppUpdate.Available update){
         if(isFinishing()||isDestroyed())return;
         new AlertDialog.Builder(this)
@@ -631,6 +647,15 @@ public final class MainActivity extends Activity {
                 // the same reason recording does: the page is served remotely
                 // and must not hold a native handle. The gesture and origin
                 // checks mean only a real tap on the real page can do this.
+                // Checking for an update, asked for by the cloud page. Same
+                // reasoning as the mode switch: a scheme, not a bridge.
+                if("linguafusion-update".equals(target.getScheme())){
+                    if(request.isForMainFrame() && request.hasGesture()
+                            && isCloudOrigin(Uri.parse(view.getUrl()==null?"":view.getUrl()))) {
+                        checkForUpdateNow();
+                    }
+                    return true;
+                }
                 if("linguafusion-mode".equals(target.getScheme())){
                     if(request.isForMainFrame() && request.hasGesture()
                             && isCloudOrigin(Uri.parse(view.getUrl()==null?"":view.getUrl()))) {

@@ -506,7 +506,11 @@ def test_the_offline_pill_is_hidden_outside_the_android_app():
     module = (web / 'pilot.mjs').read_text(encoding='utf-8')
     reveal = re.search(r'function revealOfflineSwitch\(\)\s*\{(.*?)\n\}', module, re.S)
     assert reveal, 'the reveal moved; re-check this guard'
-    assert 'LFNativeOfflineMode === true' in reveal.group(1),         'the switch must be gated on the flag the app injects, strictly'
+    # Strict either way: `=== true` to show, or `!== true` to return early.
+    # What must not appear is a loose truthy test, which any stray value passes.
+    gate = re.search(r'LFNativeOfflineMode\s*(===|!==|==|!=)\s*true', reveal.group(1))
+    assert gate, 'the switch must be gated on the flag the app injects'
+    assert gate.group(1) in ('===', '!=='),         f'the gate must be strict, found {gate.group(1)}'
 
 
 def test_the_appearance_assets_are_served():
