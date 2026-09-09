@@ -264,6 +264,14 @@
             <p id="reviewText"></p>
             <button id="reviewDone" type="button">I have checked usage and prices</button>
           </div>
+
+          <section aria-labelledby="providerSpendTitle">
+            <h3 id="providerSpendTitle">What the providers say</h3>
+            <p class="hint">The ledger only estimates. This fetches what OpenRouter
+              has actually billed, so the estimate can be judged against it.</p>
+            <button id="checkProviderSpend" class="secondary" type="button">Check provider spend</button>
+            <div id="providerSpend" role="status" aria-live="polite"></div>
+          </section>
           <p class="hint" id="reviewNext"></p>
 
           <p id="ownerTotal"></p>

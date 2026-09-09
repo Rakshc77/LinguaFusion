@@ -726,3 +726,31 @@ def test_the_iphone_microphone_quirk_is_explained_rather_than_left_mysterious():
     problem = problem[:problem.index('\n}')]
     assert 'isIosStandalone()' in problem, 'the advice must reach the person who sees the failure'
     assert 'Safari' in problem, 'it must say what to do instead'
+
+
+def test_reading_the_bill_does_not_reserve_budget():
+    # _post reserves before dispatch, so routing a balance check through it
+    # would charge the owner for looking at what they had spent -- and would
+    # consume the shared allowance every time the page was opened.
+    import pathlib
+    import re
+    source = (pathlib.Path(__file__).parent / 'pilot_providers.py').read_text(encoding='utf-8')
+    body = source[source.index('async def account_usage'):]
+    body = body[:body.index('\n    async def ')]
+    assert 'self._post(' not in body, 'the billing read must not go through the reserving path'
+    assert 'client.get(' in body, 'it is a plain read'
+    assert 'except Exception' in body, 'a billing lookup must not be able to break the owner page'
+
+
+def test_provider_spend_is_owner_only_and_names_what_it_cannot_see():
+    # Two of the three providers have no usable API. Reporting one number
+    # without saying so would read as covering all three.
+    import pathlib
+    source = (pathlib.Path(__file__).parent / 'app.py').read_text(encoding='utf-8')
+    route = source[source.index("@app.get('/owner/provider-spend')"):]
+    route = route[:route.index("@app.get('/owner/users')")]
+    assert 'Depends(owner)' in route, 'provider spend is owner-only'
+    for provider in ['openrouter', 'groq', 'google_vision']:
+        assert provider in route, f'{provider} must be accounted for, even if unavailable'
+    assert 'unavailable' in route, 'the ones with no API must say so'
+    assert 'console' in route, 'and point at where the figure can be read by hand'

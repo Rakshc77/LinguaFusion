@@ -346,6 +346,43 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
         return {'recent_failures': recent_failures(), 'kept': 25,
                 'note': 'Recent failures on this server instance only; cleared when it restarts.'}
 
+    @app.get('/owner/provider-spend')
+    async def owner_provider_spend(uid=Depends(owner)):
+        """What the providers say, next to what the ledger estimated.
+
+        The ledger only ever estimates: it prices at a model ceiling and
+        settles against reported tokens. This puts the invoice beside it, so
+        the estimate is trusted on evidence rather than on the fact that it
+        looks plausible.
+
+        Only OpenRouter answers. Groq's billing is dashboard-only and Vision's
+        lives in Cloud Billing behind different credentials, so both are
+        reported as unavailable with a link rather than quietly omitted --
+        a number covering two providers out of three would read as covering
+        all three.
+        """
+        ledger = await asyncio.to_thread(policy.spending)
+        reported = None
+        if settings.openrouter_key and providers is not None:
+            reported = await providers.account_usage(settings.openrouter_key)
+        return {
+            'ledger_estimate_usd': ledger.get('estimated_spent_usd'),
+            'ledger_held_usd': ledger.get('unresolved_reserved_usd'),
+            'providers': [
+                reported or {'provider': 'openrouter', 'spent_usd': None,
+                             'unavailable': 'Could not read OpenRouter usage just now.'},
+                {'provider': 'groq', 'spent_usd': None,
+                 'unavailable': 'Groq publishes no usage API; see its console.',
+                 'console': 'https://console.groq.com/settings/billing'},
+                {'provider': 'google_vision', 'spent_usd': None,
+                 'unavailable': 'Vision billing lives in Google Cloud Billing.',
+                 'console': 'https://console.cloud.google.com/billing'},
+            ],
+            'note': ('The ledger prices at a model ceiling, so it should read a '
+                     'little HIGH against OpenRouter. Reading low means something '
+                     'is going unrecorded.'),
+        }
+
     @app.get('/owner/users')
     def owner_users(uid=Depends(owner)):
         # Join the access request so the owner sees who a row actually is. A bare

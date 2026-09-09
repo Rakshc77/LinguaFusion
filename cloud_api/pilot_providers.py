@@ -296,6 +296,41 @@ class PilotProviders:
         except (KeyError, IndexError, TypeError, ValueError):
             raise ProviderFailure('Translation missing or incomplete; reservation retained.') from None
 
+    async def account_usage(self, key):
+        """What OpenRouter says this key has actually spent.
+
+        The ledger only ever estimates: it prices at a ceiling and settles
+        against reported tokens. This is the invoice side, so the two can be
+        compared and the estimate trusted or not on evidence.
+
+        Groq has no equivalent -- billing there is dashboard-only -- and
+        Vision's costs live in Cloud Billing behind different credentials, so
+        neither is covered here rather than being faked.
+
+        Never raises: a billing lookup must not be able to break the owner's
+        page, which has to keep working when a provider does not.
+        """
+        # Deliberately NOT through _post: that reserves budget before dispatch,
+        # so reading the bill would charge the owner for looking at it. This is
+        # a plain read that spends nothing and consumes no allowance.
+        try:
+            async with httpx.AsyncClient(timeout=15, follow_redirects=False,
+                                         trust_env=False, transport=self.transport) as client:
+                response = await client.get('https://openrouter.ai/api/v1/credits',
+                                            headers=self._headers(key))
+            if response.status_code != 200:
+                return None
+            data = response.json()
+            body = data.get('data') if isinstance(data.get('data'), dict) else data
+            used, granted = body.get('total_usage'), body.get('total_credits')
+            if not isinstance(used, (int, float)):
+                return None
+            return {'provider': 'openrouter', 'spent_usd': round(float(used), 6),
+                    'credits_usd': round(float(granted), 6) if isinstance(granted, (int, float)) else None,
+                    'source': 'openrouter /api/v1/credits'}
+        except Exception:
+            return None
+
     async def romanize(self, key, text, language):
         """Optional reading aid; preserve native text and never substitute translation."""
         import unicodedata

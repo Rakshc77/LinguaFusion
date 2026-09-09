@@ -341,6 +341,7 @@ function showReview(review) {
     : `Prices last reviewed ${review.last_reviewed}. Next check due ${review.next_due}.`;
 }
 
+$('checkProviderSpend').addEventListener('click', loadProviderSpend);
 $('reviewDone').addEventListener('click', async () => {
   const current = epoch;
   $('reviewDone').disabled = true;
@@ -352,6 +353,51 @@ $('reviewDone').addEventListener('click', async () => {
   } catch (error) { if (current === epoch) status(error.message); }
   finally { $('reviewDone').disabled = false; }
 });
+
+/* The ledger's own number beside the provider's, because the useful fact is
+   not either figure but the gap between them. Fetched on demand rather than
+   with the page: it calls out to OpenRouter, and the owner page must load
+   whether or not a provider is answering. */
+async function loadProviderSpend() {
+  const panel = $('providerSpend');
+  const current = epoch;
+  $('checkProviderSpend').disabled = true;
+  panel.replaceChildren();
+  line(panel, 'Asking the providers…', 'hint');
+  try {
+    const data = await api.request('/owner/provider-spend');
+    if (current !== epoch) return;
+    panel.replaceChildren();
+    line(panel, `This app's ledger estimates $${data.ledger_estimate_usd}` +
+                (data.ledger_held_usd && Number(data.ledger_held_usd) > 0
+                  ? `, plus $${data.ledger_held_usd} still held` : ''), 'person-name');
+    for (const item of data.providers) {
+      const row = document.createElement('div');
+      row.className = 'person';
+      line(row, item.spent_usd === null || item.spent_usd === undefined
+        ? `${item.provider}: not available`
+        : `${item.provider}: $${item.spent_usd} billed`, 'person-name');
+      if (item.unavailable) line(row, item.unavailable, 'hint');
+      if (item.console) {
+        const link = document.createElement('a');
+        link.href = item.console;
+        link.target = '_blank';
+        link.rel = 'noreferrer noopener';
+        link.textContent = 'Open its console';
+        link.className = 'hint';
+        row.append(link);
+      }
+      panel.append(row);
+    }
+    line(panel, data.note, 'hint');
+  } catch (error) {
+    if (current !== epoch) return;
+    panel.replaceChildren();
+    line(panel, 'Could not read provider spend just now.', 'hint');
+  } finally {
+    $('checkProviderSpend').disabled = false;
+  }
+}
 
 async function loadFailures() {
   const current = epoch;
@@ -430,6 +476,7 @@ async function checkAccess() {
     $('workspace').hidden = false;
     $('pageFooter').hidden = true;
     $('ownerPanel').hidden = !caps.is_owner;
+    // Fetched only when asked: it calls out to a provider.
     applyReadiness();
 
     const spending = await api.request('/usage');
