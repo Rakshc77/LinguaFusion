@@ -1023,7 +1023,13 @@ void (async () => {
     const details = await response.json();
     if (!/^[a-f0-9]{64}$/.test(details.sha256 || '')) return;
     $('androidFingerprint').textContent = `SHA-256 ${details.sha256}`;
-    $('androidDownload').textContent = `Download for Android (${Math.round((details.bytes || 0) / 1024)} KB)`;
+    // Megabytes once it is one: the APK carries a speech engine now, so
+    // "21543 KB" is both unreadable and alarming.
+    const bytes = details.bytes || 0;
+    const size = bytes >= 1024 * 1024
+      ? `${(bytes / (1024 * 1024)).toFixed(1)} MB`
+      : `${Math.round(bytes / 1024)} KB`;
+    $('androidDownload').textContent = `Download for Android (${size})`;
     if (!signedIn) $('androidOffer').hidden = false;
   } catch { /* No Android build published; the website is the whole product. */ }
 })();
