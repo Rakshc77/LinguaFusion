@@ -178,3 +178,54 @@ def test_the_offline_page_ships_in_the_apk():
     # It must render with no network at all: nothing may be fetched.
     for remote in ['http://', 'https://', '//cdn', 'fonts.googleapis']:
         assert remote not in page, f'the offline page must not reference {remote}'
+
+
+UPDATER = (PROJECT / 'src' / 'com' / 'linguafusion' / 'mobile' / 'AppUpdate.java').read_text(encoding='utf-8')
+
+
+def test_an_update_is_checksummed_before_it_reaches_the_installer():
+    # This downloads an executable over the public internet and asks Android to
+    # install it over the running app. The published SHA-256 must be verified
+    # first, and a mismatch must destroy the file rather than leave it for a
+    # later attempt to pick up.
+    body = UPDATER[UPDATER.index('String downloadAndInstall'):UPDATER.index('private String install(')]
+    verify = body.index('sha256(target)')
+    handoff = body.index('return install(target);')
+    assert verify < handoff, 'the file is handed to the installer before it is checked'
+
+    mismatch = body[verify:handoff]
+    assert 'target.delete()' in mismatch, 'a file that fails its checksum must be deleted'
+    assert 'equalsIgnoreCase' in body[:verify + 60], 'hex digests differ only in case'
+
+
+def test_a_published_update_must_declare_a_version_and_a_digest():
+    # Without a versionCode the app cannot tell new from old; without a valid
+    # digest there is nothing to verify the download against. Either one
+    # missing means offer nothing, not offer blindly.
+    check = UPDATER[UPDATER.index('Available check()'):UPDATER.index('boolean canInstall')]
+    assert 'published <= installedVersion(context)' in check, \
+        'it must compare against what is installed, not merely find a version'
+    assert '[0-9a-f]{64}' in check, 'a malformed digest must stop the offer'
+    assert 'return null;' in check
+
+
+def test_the_installer_permission_is_declared():
+    manifest = (PROJECT / 'AndroidManifest.xml').read_text(encoding='utf-8')
+    assert 'android.permission.REQUEST_INSTALL_PACKAGES' in manifest, \
+        'without it the update flow silently does nothing'
+
+
+def test_a_failed_update_check_stays_quiet():
+    # The check runs unprompted on launch. A network failure there is not the
+    # person's problem and must not produce an error they did not ask for.
+    check = UPDATER[UPDATER.index('Available check()'):UPDATER.index('boolean canInstall')]
+    catch = check[check.index('catch (Exception'):]
+    assert 'return null' in catch[:120], 'a failed check must be silent, not an error'
+
+
+def test_the_publisher_records_the_version_it_published():
+    # The app compares against this. If publishing stops writing it, every
+    # future update becomes invisible and people go back to reinstalling.
+    script = (PROJECT.parent.parent / 'scripts' / 'publish_android_apk.py').read_text(encoding='utf-8')
+    assert "'versionCode'" in script and "'versionName'" in script
+    assert 'dump' in script and 'badging' in script, 'the version must come from the APK itself'

@@ -89,6 +89,7 @@ public final class MainActivity extends Activity {
     private OfflineSpeech offlineSpeech;
     private OfflineTranslation offlineTranslation;
     private OfflineVision offlineVision;
+    private boolean updateOffered;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -99,6 +100,71 @@ public final class MainActivity extends Activity {
         if ("offline".equals(preferences.getString("mode", ""))) { showOfflineApp(); return; }
         String server = preferences.getString("server", "");
         if (server.isEmpty()) showConnectionScreen(); else verifySavedConnection(server, preferences.getString("key", ""));
+    }
+
+    @Override protected void onResume(){
+        super.onResume();
+        offerUpdateIfAny();
+    }
+
+    /** Looks for a newer build and offers it. Once per launch, quietly: a
+     *  failed check says nothing, because nobody asked. */
+    private void offerUpdateIfAny(){
+        if(updateOffered)return;
+        updateOffered=true;
+        executor.execute(() -> {
+            AppUpdate updater=new AppUpdate(this,CLOUD_BASE);
+            AppUpdate.Available update=updater.check();
+            if(update==null)return;
+            runOnUiThread(() -> showUpdateOffer(updater,update));
+        });
+    }
+
+    private void showUpdateOffer(AppUpdate updater,AppUpdate.Available update){
+        if(isFinishing()||isDestroyed())return;
+        new AlertDialog.Builder(this)
+            .setTitle("Update available")
+            .setMessage("Version "+update.versionName+" is ready ("+update.megabytes()+" MB)." + "\n\n"
+                + "It installs over this one, so nothing on the phone is lost. Android will "
+                + "ask you to confirm the install.")
+            .setPositiveButton("Update", (dialog,which) -> startUpdate(updater,update))
+            .setNegativeButton("Not now", null)
+            .show();
+    }
+
+    private void startUpdate(AppUpdate updater,AppUpdate.Available update){
+        if(!updater.canInstall()){
+            // Android 8 and later gate this per app. Send them straight to the
+            // switch rather than describing where it is.
+            new AlertDialog.Builder(this)
+                .setTitle("Allow updates first")
+                .setMessage("Android needs your permission for this app to install its own updates. "
+                    + "Turn on \"Allow from this source\", then press Update again.")
+                .setPositiveButton("Open settings", (dialog,which) -> {
+                    try{
+                        startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+                            Uri.parse("package:"+getPackageName())));
+                    }catch(Exception missing){
+                        Toast.makeText(this,"Find it under Apps, Special access, Install unknown apps.",Toast.LENGTH_LONG).show();
+                    }
+                })
+                .setNegativeButton("Cancel", null)
+                .show();
+            return;
+        }
+        final ProgressBar spinner=new ProgressBar(this);
+        final AlertDialog progress=new AlertDialog.Builder(this)
+            .setTitle("Downloading update")
+            .setMessage("This can take a minute. Android will ask you to confirm the install.")
+            .setView(spinner).setCancelable(false).create();
+        progress.show();
+        executor.execute(() -> {
+            String failure=updater.downloadAndInstall(update,null);
+            runOnUiThread(() -> {
+                progress.dismiss();
+                if(failure!=null)Toast.makeText(this,failure,Toast.LENGTH_LONG).show();
+            });
+        });
     }
 
     @Override protected void onNewIntent(Intent intent) {

@@ -188,3 +188,30 @@ published APK carries more than 2 MiB that is not entry data.
 
 The lesson for anyone measuring this later: **compare clean builds**. An
 incremental one led me to the right conclusion for the wrong reason once.
+
+## Updating the app
+
+The app is distributed privately, so nothing updates it automatically. It now
+checks on each launch, compares the published `versionCode` with its own, and
+offers the newer build. Downloading, verifying and handing it to the installer
+happens in the app.
+
+**Android always shows its own install confirmation** for an app from outside
+Play. That prompt cannot be removed and should not be. What is removed is
+everything around it -- noticing an update exists, opening a browser, finding
+the file, checking a fingerprint by eye.
+
+Two things are load-bearing:
+
+- The download is verified against the published SHA-256 **before** the
+  installer sees it, and a mismatch deletes the file. It is an executable
+  fetched over the public internet and installed over the running app.
+- The signature must keep matching. Android refuses to replace an app with one
+  signed by a different key, so the debug keystore stays as important as ever.
+
+`REQUEST_INSTALL_PACKAGES` is declared for this, and on Android 8 and later the
+person must also allow this specific app to install; the app sends them to that
+switch rather than describing where it is.
+
+The one manual step left is a single install of version 8, because the version
+before it has no updater in it.
