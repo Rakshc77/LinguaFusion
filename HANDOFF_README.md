@@ -1,4 +1,7 @@
-# LinguaFusion — Project Handoff
+# LinguaFusion — Historical Windows Project Handoff
+
+For the current cloud/Android project, read [CODEX_CURRENT_STATE.md](CODEX_CURRENT_STATE.md).
+The August desktop checkpoint below is historical and is not the current cloud roadmap.
 
 **Last updated:** August 7, 2026  
 **Application version:** `1.0-rc2.14-agentic-phase-a`  

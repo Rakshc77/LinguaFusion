@@ -173,3 +173,27 @@ input:not([type=checkbox]),select,textarea { border-radius:var(--radius); }
   .languages { grid-template-columns:1fr 1fr; gap:12px; }
   .languages select { padding:10px 8px; }
 }
+
+/* Approved Studio / Minimal composition. All real controls remain available. */
+.brand-accent { color:var(--accent); }
+.view > h2 { font-size:clamp(30px,8vw,40px); margin-bottom:6px; }
+.view-intro { color:var(--muted); margin:0 0 24px; font-size:18px; }
+.nav-item svg { width:22px; height:22px; flex-shrink:0; }
+.nav-item { min-height:58px; gap:6px; }
+.actions button { min-height:44px; }
+#translationFields > label:not(.check),#resultHeading,#transcriptHeading,#ocrHeading {
+  font-size:12px; font-weight:650; letter-spacing:.1em; text-transform:uppercase;
+}
+#text,#result { font-size:18px; line-height:1.55; }
+[data-theme="studio"] #text,[data-theme="studio"] #result {
+  box-shadow:var(--lf-surface-shadow);
+}
+[data-theme="studio"][data-font="theme"] #text,
+[data-theme="studio"][data-font="theme"] #result {
+  font-family:Georgia,"Times New Roman",serif;
+}
+#pronunciationPane { border-top:0; padding-top:0; }
+@media(min-width:640px) { .view { padding:24px 0; } }
+
+.app-head .mode-toggle { margin:0 0 0 auto; min-height:44px; padding:8px 16px; border-radius:999px; font-size:13px; background:var(--lf-chip-bg); }
+.app-head .account-chip:not(:empty) { flex-basis:100%; font-size:12px; text-align:left; }

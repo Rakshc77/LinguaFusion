@@ -5,6 +5,7 @@ export const CLOUD_THEMES = [
 ];
 export const LF_THEMES = CLOUD_THEMES;
 export const LF_FONTS = [
+  { id:"theme", name:"Match the look", group:"Default" },
   { id:"modern", name:"Modern Sans", group:"Sans" },
   { id:"friendly", name:"Friendly Rounded", group:"Sans" },
   { id:"accessible", name:"Accessibility Sans", group:"Sans" },
@@ -39,7 +40,7 @@ export function getMode() {
 }
 export function getFont() {
   const saved = stored(FONT_KEY);
-  return LF_FONTS.some(font => font.id === saved) ? saved : 'modern';
+  return LF_FONTS.some(font => font.id === saved) ? saved : 'theme';
 }
 export function applyMode(mode) {
   const selected = mode === 'dark' ? 'dark' : 'light';
@@ -61,7 +62,7 @@ export function applyTheme(id) {
   return selected;
 }
 export function applyFont(id) {
-  const selected = LF_FONTS.some(font => font.id === id) ? id : 'modern';
+  const selected = LF_FONTS.some(font => font.id === id) ? id : 'theme';
   document.documentElement.dataset.font = selected;
   persist(FONT_KEY, selected);
   return selected;

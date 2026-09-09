@@ -46,7 +46,18 @@ for (const font of LF_FONTS) $('fontChoice').add(new Option(font.name, font.id))
 $('themeChoice').value = getTheme();
 $('fontChoice').value = getFont();
 $('modeChoice').value = getMode();
-$('modeChoice').addEventListener('change', () => applyMode($('modeChoice').value));
+function syncModeControl() {
+  const mode = document.documentElement.dataset.mode;
+  $('modeChoice').value = mode;
+  $('modeToggle').textContent = mode === 'dark' ? 'Night' : 'Day';
+  $('modeToggle').setAttribute('aria-label', mode === 'dark' ? 'Switch to day mode' : 'Switch to night mode');
+}
+syncModeControl();
+$('modeChoice').addEventListener('change', () => { applyMode($('modeChoice').value); syncModeControl(); });
+$('modeToggle').addEventListener('click', () => {
+  applyMode(document.documentElement.dataset.mode === 'dark' ? 'light' : 'dark');
+  syncModeControl();
+});
 $('themeChoice').addEventListener('change', () => applyTheme($('themeChoice').value));
 $('fontChoice').addEventListener('change', () => applyFont($('fontChoice').value));
 

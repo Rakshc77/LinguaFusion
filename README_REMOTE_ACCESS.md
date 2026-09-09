@@ -1,3 +1,6 @@
+> Current cloud/Android continuation: [CODEX_CURRENT_STATE.md](CODEX_CURRENT_STATE.md).
+> The PC tunnel instructions below apply only to the separate legacy desktop mode.
+
 # LinguaFusion friend access
 
 Friend access uses a stable HTTPS hostname in front of the local FastAPI

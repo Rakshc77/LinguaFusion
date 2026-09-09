@@ -77,3 +77,13 @@
   --lf-font-mono:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
   --lf-label-font:ui-monospace,"Cascadia Mono","SFMono-Regular",Consolas,monospace;
 }
+
+/* Automatic typography follows the look; explicit typeface choices override it. */
+[data-theme="studio"][data-font="theme"] {
+  --lf-font-display:Georgia,"Times New Roman",serif;
+  --lf-font-body:system-ui,-apple-system,"Segoe UI",sans-serif;
+}
+[data-theme="minimal"][data-font="theme"] {
+  --lf-font-display:system-ui,-apple-system,"Segoe UI",sans-serif;
+  --lf-font-body:system-ui,-apple-system,"Segoe UI",sans-serif;
+}

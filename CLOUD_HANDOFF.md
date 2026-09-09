@@ -1,11 +1,12 @@
 # PC-independent LinguaFusion continuation
 
-Updated 2026-09-08. Read this before the historical offline handover.
+Updated 2026-09-09. Start with CODEX_CURRENT_STATE.md; this file retains cloud operations details.
 
 ## Application and source
 
 Existing repository: https://github.com/Rakshc77/LinguaFusion (public).
-Continuation branch: `codex/cloud-handoff-microphone`.
+Continuation branch: `codex/studio-minimal-appearance`.
+Cloud baseline branch: `codex/cloud-handoff-microphone`.
 Production: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 Cloud Run service `linguafusion-cloud-pilot`, project `linguafusion-f24fe`,
 region `europe-west3`. Firebase sign-in and owner approval; Firestore-backed
@@ -36,14 +37,14 @@ cloud capture is bounded to 60 seconds. Local PC recording keeps its prior limit
 
 Browser recording fixes serialize Start, release late streams after cancellation,
 close failed contexts, bound PCM frames before WAV encoding, serialize uploads,
-and discard stale native callbacks after logout/navigation. Native dialog still
-requires actual S26 Ultra acceptance testing after installing the update.
+and discard stale native callbacks after logout/navigation. The owner confirmed the updated APK records and transcribes smoothly on the
+S26 Ultra in this conversation. This does not verify every language or device.
 APK is debug-signed; production release signing is NOT configured.
 
 ## Verified tests
 
 - 141 cloud Python tests passed; 8 invite-image tests skipped (optional image dependencies).
-- 42 Node tests passed, including six new recording lifecycle tests.
+- Current source: 45 Node tests pass, including recording lifecycle and appearance migration tests.
 - Android compilation and v2/v3 signature verification passed; expected native
   recording methods found inside the built APK.
 - Cloud Build `cd8832a2-a7dc-4630-bbf0-012ba0cde2fd` succeeded.
@@ -67,9 +68,9 @@ Do not install the desktop GPU requirements just to work on the cloud service.
 ## Continue from phone
 
 In Codex Cloud connect this existing GitHub repository, create/select its cloud
-environment, and explicitly select `codex/cloud-handoff-microphone`. Start by
-asking it to read this handover and run the above tests. This desktop task is
-local and cannot continue executing after this PC shuts down.
+environment, and explicitly select `codex/studio-minimal-appearance`. Start by
+asking it to read this handover and run the above tests. The current coding workspace can edit and test without the owner’s PC; its
+local commits still need publishing to GitHub before another environment can fetch them.
 
 GitHub login, push success, and Codex environment creation must each be verified;
 having the source locally or a Cloud Run deployment does not prove them.
@@ -100,7 +101,7 @@ committed/held (not a provider invoice), USD 26.54 remaining. Preserve it; do no
 reset or reopen the closed local combined-test ledger. Google billing alerts
 are NOT a hard infrastructure spending cap. Pricing review expires 2026-10-08.
 
-Remaining: actual APK hardware test, device/off-LAN acceptance, production
+Remaining: broader device/off-LAN acceptance, production
 signing, automatic deployment identity, provider-failure investigation,
 dependency/security review. Do not claim these are completed.
 
