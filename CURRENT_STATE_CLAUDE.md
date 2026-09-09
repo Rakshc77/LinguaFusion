@@ -1,6 +1,6 @@
 # LinguaFusion — current state
 
-**Written:** 2026-09-08 · **Updated:** 2026-09-09 · **Author:** Claude
+**Written:** 2026-09-08 · **Updated:** 2026-09-09 (twice) · **Author:** Claude
 **Scope:** the cloud service (`cloud_api/`) and the Android app, which now has
 an offline mode of its own. The Windows desktop app, PC backend and PC pairing
 flow are **unchanged** by this work.
@@ -31,7 +31,7 @@ than expecting someone to find the APK in a browser.
 | Thing | Value |
 |---|---|
 | Service | `linguafusion-cloud-pilot`, Cloud Run, europe-west3 |
-| Image | `…/linguafusion/cloud-pilot@sha256:8d30055f0622…` (revision `00028-xqk`) |
+| Image | `…/linguafusion/cloud-pilot@sha256:21781329c797…` (revision `00047-88c`) |
 | Scaling | min 0, max 1, concurrency 8, 60s timeout, 1 vCPU / 512Mi |
 | Firestore | `(default)`, europe-west3, Native, delete protection ON, PITR off |
 | Ledger | committed **$0.46** of **$27.00** ceiling |
@@ -39,10 +39,12 @@ than expecting someone to find the APK in a browser.
 | Per-user limits | 540 requests / **$5.40** per month |
 | Owner | the owner's Google account = UID `kLqjJka0cHXTCZX0TQxA2QMlzKi1` |
 | Alerts | Cloud Monitoring → the owner's address (verified) + a second address |
-| Android app | versionCode **8**, versionName **1.7**, 21.2 MiB, arm64-v8a only |
+| Interface | `2026.09.09.17` — bump `updates.mjs`, `app-version.json` and `sw.js` together |
+| Android app | versionCode **15**, versionName **1.14**, 21.4 MiB, arm64-v8a only |
+| Android flavours | `sideload` (self-updating) and `play` (no updater, no install permission) |
 | APK signer | `2cdb1969…514e` — unchanged since the first build, so it installs over |
 | Offline engines | whisper.cpp b4938 (speech) · ML Kit (translate, OCR) · ICU (romanise) |
-| Tests | 130 cloud Python (+8 skipped, +20 env) · 17 Android build guards · 29 Android JVM · 36 Node · 85 backend |
+| Tests | 188 cloud Python (+8 skipped, +20 env) · 28 Android build guards · 29 Android JVM · 54 Node · 85 backend |
 
 **Everything is deployed.** Nothing is waiting on a build.
 
@@ -195,6 +197,76 @@ it, and a mismatch deletes it.
 
 ---
 
+## 4c. What was built — session 3 (9 September, afternoon)
+
+Codex worked the hosted page in parallel and merged to `main` while my Android
+work sat unpushed. **The first job was reconciling the two**, which is recorded
+under "Two sessions collided" below.
+
+### The app can go to a store, if it ever should
+`Play` and `sideload` are now separate build flavours. Play forbids an app it
+distributes from replacing itself, so the downloader is **absent from that
+flavour**, not merely disabled: the Play APK contains no `AppUpdate` class and
+its manifest removes `REQUEST_INSTALL_PACKAGES`. A real 4096-bit release key
+lives outside the checkout; the sideload build keeps the debug key so copies
+already installed still upgrade in place.
+
+### A proverb engine
+45 idioms across the seven languages the two products translate between, each
+an idea rather than a phrase. Online it becomes a **note to the model** -- this
+is an idiom meaning X, conventionally said as Y -- and the model still writes
+the sentence. Nothing is substituted, so a wrong match costs a misleading note
+rather than a corrupted translation.
+
+Matching folds case, punctuation, spacing, and for Arabic the optional
+diacritics and interchangeable letter forms. Coverage is pinned per language;
+Odia has one entry and is deliberately unfloored.
+
+### The iPhone route
+iOS has no sideloading worth the name, so the hosted page is the answer: it was
+already a PWA and now has the PNG icon Safari needs (it ignores SVG) and the
+Apple meta tags. Recording in a Home Screen web app fails after the first
+launch -- a WebKit bug -- so that is named when it happens with the workaround.
+
+### The ledger became true
+See "The ledger was wrong by 55x" below. It now settles every capability
+against measured cost, and **Settings > Owner > Check provider spend** puts
+OpenRouter's actual bill beside the estimate. Groq and Vision publish no usable
+API, so both are shown as unavailable with project-scoped console links rather
+than quietly omitted.
+
+### Commercialisation was started, then dropped
+Release signing and the Play split were built. Then the arithmetic came in: see
+"What it actually costs" below. Ads and subscriptions were dropped, the Play
+submission shelved. The build work is not wasted -- the store is a submission
+away rather than a rewrite -- but nothing is being sold.
+
+---
+
+## 4d. What it actually costs
+
+Calibrated against the owner's real OpenRouter dashboard, not estimated:
+
+- Measured: **31 requests, 4,000 tokens, $0.06/M blended**. So a real request is
+  about **129 tokens**, and my first model was **8x high** (2.5x on price, 3.4x
+  on volume).
+- Three people cost **$0.22 a month, $2.60 a year**.
+- A genuinely heavy user -- 1,000 translations, 5 hours of speech, 400 pictures
+  -- costs **$0.81 a month**.
+- **Reading pictures is 52% of spend.** Translation, the headline feature, is
+  12%. One photo costs about as much as twenty translations.
+
+The binding cost is not usage at all. Apple's $99/year is **ten times one heavy
+user**, so break-even is about fixed costs and would need roughly **four
+subscribers at EUR 2.99**. Ads would need ~250 users to earn what four
+subscribers do, while costing the `data_collection: deny` posture.
+
+The 540-request monthly cap is not an economic control at these numbers. A
+subscriber would have to read **1,829 pictures** -- the most expensive thing
+the app does -- before costing more than a EUR 2.99 fee.
+
+---
+
 ## 5. Problems hit, and how they were solved
 
 These are the ones worth remembering. Most cost real time to find.
@@ -341,6 +413,64 @@ them. Nothing tunes that; it would need a different approach entirely.
 
 ---
 
+### The ledger was wrong by 55x
+A successful request never settled. The gateway placed a flat $0.01 hold,
+returned, and left it standing forever -- only failures reached `settle`. The
+hold is about **fifty-five times a real translation**, so the shared allowance
+drained at fifty times the rate of actual spending and the remaining balance
+meant nothing. 39 requests showed $0.39 held and $0.00 spent.
+
+Fixed in two passes. First, translation and romanisation settled against the
+token counts the providers were already reporting and we were discarding: 9x.
+Then speech and pictures, which report nothing but bill on things we already
+had -- Groq charges per hour of audio and the WAV was measured anyway to
+validate it, Vision charges per image and there is one per call: **1.1x**,
+which is the deliberate model-ceiling margin.
+
+The $27 ceiling went from about four months of honest accounting to nine years.
+
+### Two sessions collided
+Codex reworked the hosted page and merged to `main`; my Android work was
+committed locally and never pushed, so `main` knew the 22 MB APK only as an
+unexplained binary and Codex's handover said its source did not exist. Codex
+then deployed from `main`, which **reverted the published APK to the 33 KB
+wrapper** -- the offline app stopped being downloadable and nobody noticed.
+
+Resolved by ownership rather than recency: the hosted page is Codex's, whose
+appearance work is further along; the Android app is mine. The lesson is
+narrower than "merge more often" -- it is that **unpushed work is invisible
+work**, and a second agent will reason from what it can see.
+
+### An APK that would not download
+At 33.3 MiB every download failed with an HTTP 500 from Google's frontend:
+**Cloud Run refuses any response over 32 MiB**, and nothing reached the app's
+own logs. Dropping `armeabi-v7a` fixed it. Bundling ML Kit's OCR model would
+have crossed the line again, which is why the unbundled variant is used.
+
+Separately, Gradle's incremental packaging left a 16 MiB unreferenced copy of a
+native library inside the APK, so a 21 MiB build measured 38 MiB. **Always
+compare clean builds.**
+
+### A page that rendered perfectly with every button dead
+Moving the offline page onto the shared stylesheets made it an ES module, and
+module scripts need CORS. Loaded from `file:///android_asset` the origin is
+opaque, the import was refused, and the script never ran at all -- while the
+page rendered correctly, because stylesheets are not modules. `WebViewAssetLoader`
+now serves the same files over a real origin.
+
+### Guards that guarded nothing
+Four times today a test passed while the thing it checked was broken, always
+the same shape: **the guard matched something adjacent to the code rather than
+the code**. A comment containing the constant. A helper's definition instead of
+its call site. An overridden method's name instead of its body. A pricing
+function instead of the adapter that must call it.
+
+Every one was found by mutation -- breaking the code deliberately and seeing
+the test stay green. A guard that has never been seen to fail is not yet a
+guard.
+
+---
+
 ## 6. Unresolved problems
 
 ### DeepSeek V4 Flash fails 100% of the time
@@ -401,6 +531,15 @@ comparing the two offline and online will notice the gap.
 
 ## 7. Where this could go next
 
+**Settled today, so do not revisit without a new reason**
+- **Commercialisation is off.** Ads, subscriptions and the Play submission were
+  dropped after the arithmetic: three people cost $2.60 a year and the fixed
+  costs dwarf usage. The Play *build* work stands, so the store is a submission
+  away if that ever changes.
+- **iOS is the hosted page**, added to the Home Screen. Not a native app, not
+  TestFlight; those cost $99/year and a 90-day rebuild treadmill for something
+  the web app already does, minus offline.
+
 **Do this first**
 - **Install version 8 on the phone and actually use the offline mode.** Nothing
   in it has run on hardware. In order of likely trouble: Arabic transcription
@@ -437,8 +576,12 @@ comparing the two offline and online will notice the gap.
   blocked on anything but the effort.
 - **Live transcription while speaking**, which Codex sequenced after the
   record-then-transcribe flow that now exists.
-- **A manual "check for updates" button.** Dismissing the offer with "Not now"
-  means waiting for the next app launch to see it again.
+- **Arabic OCR offline**, via Tesseract through the NDK. The toolchain is
+  installed and whisper.cpp proves the native build works, so this is blocked
+  on effort alone. It matters more than it looks: pictures are 52% of spend
+  online, and Arabic is the language the owner most needs read.
+- **More Odia proverbs.** One entry, and the language with the least machine
+  translation to fall back on.
 - **Production signing.** Still unresolved and now more load-bearing: the app
   installs its own updates, and Android refuses to replace an app signed with a
   different key.
@@ -492,9 +635,25 @@ comparing the two offline and online will notice the gap.
 - **Bump `VERSION` in `sw.js` whenever a cached asset changes**, or installed
   copies keep the old app forever. A test enforces it via `SHELL_STAMP`.
 - **`ndkVersion` must stay pinned.** Left unset, AGP downloads and uses its own.
-- **A guard that a comment can satisfy guards nothing.** One source-level test
-  here passed because the constant it looked for appeared in the comment
-  explaining the code, not the code. Strip comments before matching.
+- **A guard that a comment can satisfy guards nothing.** Four tests here have
+  now passed while the code they guarded was broken -- matching a comment, a
+  definition rather than its call, a method name rather than its body, and a
+  helper rather than its caller. Slice to the call site, strip comments, and
+  break the code on purpose to see the test fail before trusting it.
+- **A source-level check cannot tell you a thing ran.** Every test on the
+  offline page read its source; none could detect a script that loaded and did
+  nothing. Where behaviour is what matters, drive the behaviour.
+- **`_post` reserves budget before dispatch.** Anything that is not a paid
+  request -- reading a bill, a health check -- must not go through it, or
+  looking at the meter charges the meter.
+- **Bump `updates.mjs`, `app-version.json` and `sw.js` together.** They carry
+  the same interface version and a test fails if they disagree.
+- **Run all three suites**, not one: `pytest cloud_api`, `node --test
+  cloud_api/web/*.test.mjs`, and the Android build guards. Five pushes broke CI
+  because only pytest was run.
+- **Re-sync the offline appearance** after touching `pilot.css`,
+  `linguafusion-themes.css` or `themes.mjs`: `scripts/sync_offline_appearance.py`.
+  A test enforces byte-identical copies.
 
 ---
 
