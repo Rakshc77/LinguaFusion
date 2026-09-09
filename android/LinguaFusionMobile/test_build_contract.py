@@ -23,10 +23,16 @@ def test_the_app_is_still_signed_with_the_original_debug_keystore():
     assert signing, 'the signing block moved; re-check this guard'
     assert "storeFile file('debug.keystore')" in signing.group(1)
     assert "keyAlias 'androiddebugkey'" in signing.group(1)
-    # Both build types must use it, or a release build silently gets a
-    # different key and stops installing over existing copies.
+    # Two keys now, deliberately. The debug type keeps the original key so
+    # sideloaded copies still upgrade in place; the release type carries the
+    # store identity. Crossing them either breaks every sideload upgrade or
+    # ships a store build signed with a debug key.
     types = re.search(r'buildTypes\s*\{(.*?)\n    \}', GRADLE, re.S)
-    assert types and types.group(1).count('signingConfig signingConfigs.debug') == 2
+    assert types, 'the build types moved; re-check this guard'
+    debug = re.search(r'debug \{(.*?)\}', types.group(1), re.S)
+    assert debug and 'signingConfigs.debug' in debug.group(1)
+    release = re.search(r'release \{(.*?)\}', types.group(1), re.S)
+    assert release and 'signingConfigs.release' in release.group(1)
 
 
 def test_the_signing_keystore_is_present_and_unchanged():
@@ -126,7 +132,8 @@ def test_the_build_still_stages_the_apk_where_publishing_expects_it():
     assert "'dist' / 'LinguaFusionMobile-debug.apk'" in source.replace('"', "'")
     task = re.search(r"tasks\.register\('stageApk'.*?\n\}", GRADLE, re.S)
     assert task, 'the staging task moved; publishing would break'
-    assert "dist" in task.group(0) and 'assembleDebug' in task.group(0)
+    assert "dist" in task.group(0) and 'assembleSideloadDebug' in task.group(0), \
+        'publishing must stage the sideload build, the one allowed to self-update'
 
 
 MAIN = (PROJECT / 'src' / 'com' / 'linguafusion' / 'mobile' / 'MainActivity.java').read_text(encoding='utf-8')
@@ -200,7 +207,10 @@ def test_the_offline_page_ships_in_the_apk():
         assert remote not in page, f'the offline page must not reference {remote}'
 
 
-UPDATER = (PROJECT / 'src' / 'com' / 'linguafusion' / 'mobile' / 'AppUpdate.java').read_text(encoding='utf-8')
+# The downloader now belongs to the sideload flavour: the Play build must not
+# carry one at all.
+UPDATER = (PROJECT / 'src-sideload' / 'com' / 'linguafusion' / 'mobile'
+           / 'AppUpdate.java').read_text(encoding='utf-8')
 
 
 def test_an_update_is_checksummed_before_it_reaches_the_installer():
@@ -276,24 +286,26 @@ def test_both_modes_share_one_appearance():
 def test_an_update_is_never_pushed_at_launch():
     # An update offer that appears unbidden every launch is a nag. It is
     # offered only when someone asks for it.
-    assert 'offerUpdateIfAny' not in MAIN, 'the launch-time update check is back'
+    updater = (SIDELOAD / 'AppUpdater.java').read_text(encoding='utf-8')
+    assert 'offerUpdateIfAny' not in MAIN + updater, 'the launch-time update check is back'
     onresume = re.search(r'protected void onResume\(\)\{(.*?)\n    \}', MAIN, re.S)
     if onresume:
         assert 'AppUpdate' not in onresume.group(1), 'onResume must not check for updates'
-    assert 'checkForUpdateNow' in MAIN, 'the explicit check must still exist'
+    assert 'checkForUpdate(' in MAIN, 'the explicit check must still exist'
 
 
 def test_the_app_tells_the_page_what_its_own_check_found():
+    global MAIN
     # One button asks about two things. The page can only see the interface, so
     # if the app stays silent the status line says "up to date" while meaning
     # only half of it -- which is what the owner saw.
-    check = MAIN[MAIN.index('private void checkForUpdateNow'):]
-    # Ends at the helper's own definition, not past it: a guard the
-    # definition satisfies would pass with the call site deleted.
-    check = check[:check.index('private void reportUpdateResultToPage')]
-    assert 'reportUpdateResultToPage(update)' in check, \
-        'the app must report its result, not only raise a dialog when there is one'
-    report = MAIN[MAIN.index('private void reportUpdateResultToPage'):]
+    # The check moved into the flavour; the reporting stayed with the page.
+    updater = (SIDELOAD / 'AppUpdater.java').read_text(encoding='utf-8')
+    check = updater[updater.index('static void check('):]
+    check = check[:check.index('\n    }')]
+    assert 'listener.onChecked(' in check, \
+        'the updater must answer the caller, not only raise a dialog'
+    report = MAIN[MAIN.index('private void checkForUpdate(String requestId)'):]
     report = report[:report.index('\n    }')]
     assert 'LFNativeUpdateResult' in report
     assert 'JSONObject.quote' in report, 'the payload must cross as data, not script'
@@ -322,3 +334,50 @@ def test_the_offline_page_is_served_from_an_origin_modules_can_load_from():
     # returning null leaves the name in the file and every asset unserved.
     assert 'assets.shouldInterceptRequest(' in MAIN, \
         'the loader has to actually serve, not merely be constructed'
+
+
+PLAY = PROJECT / 'src-play' / 'com' / 'linguafusion' / 'mobile'
+SIDELOAD = PROJECT / 'src-sideload' / 'com' / 'linguafusion' / 'mobile'
+
+
+def test_the_play_build_cannot_update_itself():
+    # Google Play's Device and Network Abuse policy forbids an app it
+    # distributes from replacing itself by any route but Play. Breaking this
+    # is not a bug report, it is a removal from the store, so the downloader
+    # is absent from the flavour rather than disabled inside it.
+    assert (SIDELOAD / 'AppUpdate.java').is_file(), 'the downloader belongs to sideload'
+    assert not (PLAY / 'AppUpdate.java').is_file(), 'the Play flavour must not carry a downloader'
+    for flavour in [PLAY, SIDELOAD]:
+        assert (flavour / 'AppUpdater.java').is_file(), f'{flavour.name} needs its own updater'
+    play = (PLAY / 'AppUpdater.java').read_text(encoding='utf-8')
+    assert 'return false;' in play, 'the Play updater must report itself unsupported'
+    for banned in ['PackageInstaller', 'downloadAndInstall', 'HttpURLConnection']:
+        assert banned not in play, f'the Play updater must not reference {banned}'
+
+    manifest = (PROJECT / 'src-play' / 'AndroidManifest.xml').read_text(encoding='utf-8')
+    assert 'REQUEST_INSTALL_PACKAGES' in manifest and 'tools:node="remove"' in manifest, \
+        'the install permission must be removed from the Play manifest'
+
+
+def test_a_release_build_cannot_fall_back_to_the_debug_key():
+    # Signing a store build with the debug key would produce something that
+    # looks shippable and is not, and the mistake only shows at upload.
+    release = re.search(r'release \{(.*?)\n        \}', GRADLE, re.S)
+    assert release, 'the release signing config moved; re-check this guard'
+    assert 'debug' not in release.group(1), 'release signing must not reference the debug key'
+    types = re.search(r'buildTypes \{(.*?)\n    \}', GRADLE, re.S)
+    assert 'signingConfig signingConfigs.release' in types.group(1), \
+        'the release build type must use the release key'
+
+
+def test_no_signing_material_is_in_the_repository():
+    # The release key is a store identity as well as an upgrade path. It lives
+    # outside the checkout, and this repository is public.
+    import subprocess
+    tracked = subprocess.run(['git', 'ls-files'], capture_output=True, text=True,
+                             cwd=str(PROJECT.parent.parent))
+    if tracked.returncode != 0:
+        return
+    bad = [line for line in tracked.stdout.splitlines()
+           if line.endswith(('.keystore', '.jks')) or 'signing.properties' in line]
+    assert not bad, f'signing material is tracked by git: {bad}'

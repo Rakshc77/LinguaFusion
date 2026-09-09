@@ -103,79 +103,23 @@ public final class MainActivity extends Activity {
         String server = preferences.getString("server", "");
         if (server.isEmpty()) showConnectionScreen(); else verifySavedConnection(server, preferences.getString("key", ""));
     }
-
-    /** An explicit check, which ignores the once-per-launch guard and says so
-     *  when there is nothing, because this one the person did ask for. */
-    private void checkForUpdateNow(){
-        Toast.makeText(this,"Checking for updates…",Toast.LENGTH_SHORT).show();
-        executor.execute(() -> {
-            AppUpdate updater=new AppUpdate(this,CLOUD_BASE);
-            AppUpdate.Available update=updater.check();
+    /** Asks whichever updater this build was compiled with. The Play flavour
+     *  answers "nothing" without carrying a downloader at all; the sideload
+     *  one really checks and offers.
+     *  @param requestId the offline page's request, or null for the cloud page */
+    private void checkForUpdate(String requestId){
+        AppUpdater.check(this,executor,CLOUD_BASE,(available,versionName,megabytes) -> {
+            String json;
+            try{
+                JSONObject answer=new JSONObject().put("available",available);
+                if(available)answer.put("versionName",versionName).put("megabytes",megabytes);
+                json=answer.toString();
+            }catch(Exception impossible){return;}
+            if(requestId!=null){new OfflineHost().resolve(requestId,json);return;}
             runOnUiThread(() -> {
-                reportUpdateResultToPage(update);
-                if(update!=null)showUpdateOffer(updater,update);
-            });
-        });
-    }
-
-    /** Hands the app's own result to the page, so the one status line there can
-     *  speak for both the interface and the installed app. The page owns the
-     *  wording; this only reports. Harmless if the page has no such hook. */
-    private void reportUpdateResultToPage(AppUpdate.Available update){
-        if(webView==null)return;
-        String json;
-        try{
-            JSONObject answer=new JSONObject().put("available",update!=null);
-            if(update!=null)answer.put("versionName",update.versionName).put("megabytes",update.megabytes());
-            json=answer.toString();
-        }catch(Exception impossible){return;}
-        webView.evaluateJavascript(
-            "window.LFNativeUpdateResult&&window.LFNativeUpdateResult("+JSONObject.quote(json)+")",null);
-    }
-
-    private void showUpdateOffer(AppUpdate updater,AppUpdate.Available update){
-        if(isFinishing()||isDestroyed())return;
-        new AlertDialog.Builder(this)
-            .setTitle("Update available")
-            .setMessage("Version "+update.versionName+" is ready ("+update.megabytes()+" MB)." + "\n\n"
-                + "It installs over this one, so nothing on the phone is lost. Android will "
-                + "ask you to confirm the install.")
-            .setPositiveButton("Update", (dialog,which) -> startUpdate(updater,update))
-            .setNegativeButton("Not now", null)
-            .show();
-    }
-
-    private void startUpdate(AppUpdate updater,AppUpdate.Available update){
-        if(!updater.canInstall()){
-            // Android 8 and later gate this per app. Send them straight to the
-            // switch rather than describing where it is.
-            new AlertDialog.Builder(this)
-                .setTitle("Allow updates first")
-                .setMessage("Android needs your permission for this app to install its own updates. "
-                    + "Turn on \"Allow from this source\", then press Update again.")
-                .setPositiveButton("Open settings", (dialog,which) -> {
-                    try{
-                        startActivity(new Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
-                            Uri.parse("package:"+getPackageName())));
-                    }catch(Exception missing){
-                        Toast.makeText(this,"Find it under Apps, Special access, Install unknown apps.",Toast.LENGTH_LONG).show();
-                    }
-                })
-                .setNegativeButton("Cancel", null)
-                .show();
-            return;
-        }
-        final ProgressBar spinner=new ProgressBar(this);
-        final AlertDialog progress=new AlertDialog.Builder(this)
-            .setTitle("Downloading update")
-            .setMessage("This can take a minute. Android will ask you to confirm the install.")
-            .setView(spinner).setCancelable(false).create();
-        progress.show();
-        executor.execute(() -> {
-            String failure=updater.downloadAndInstall(update,null);
-            runOnUiThread(() -> {
-                progress.dismiss();
-                if(failure!=null)Toast.makeText(this,failure,Toast.LENGTH_LONG).show();
+                if(webView==null)return;
+                webView.evaluateJavascript(
+                    "window.LFNativeUpdateResult&&window.LFNativeUpdateResult("+JSONObject.quote(json)+")",null);
             });
         });
     }
@@ -607,21 +551,7 @@ public final class MainActivity extends Activity {
             });
         }
         @Override public void checkForUpdate(String requestId){
-            executor.execute(() -> {
-                AppUpdate updater=new AppUpdate(MainActivity.this,CLOUD_BASE);
-                AppUpdate.Available update=updater.check();
-                String json;
-                try{
-                    JSONObject answer=new JSONObject().put("available",update!=null);
-                    if(update!=null)answer.put("versionName",update.versionName)
-                        .put("megabytes",update.megabytes());
-                    json=answer.toString();
-                }catch(Exception impossible){json="{}";}
-                resolve(requestId,json);
-                // An explicit check bypasses the once-per-launch guard, so
-                // saying "Not now" earlier does not silence this one.
-                if(update!=null)runOnUiThread(() -> showUpdateOffer(updater,update));
-            });
+            MainActivity.this.checkForUpdate(requestId);
         }
         @Override public void leaveOfflineMode(){
             runOnUiThread(() -> {
@@ -670,7 +600,7 @@ public final class MainActivity extends Activity {
                 if("linguafusion-update".equals(target.getScheme())){
                     if(request.isForMainFrame() && request.hasGesture()
                             && isCloudOrigin(Uri.parse(view.getUrl()==null?"":view.getUrl()))) {
-                        checkForUpdateNow();
+                        checkForUpdate(null);
                     }
                     return true;
                 }
@@ -689,7 +619,7 @@ public final class MainActivity extends Activity {
             }
             @Override public void onPageFinished(WebView view,String url){
                 if(view==webView && isCloudOrigin(Uri.parse(url)))
-                    view.evaluateJavascript("window.LFNativeCloudRecording=true;window.LFNativeOfflineMode=true;window.LFNativeAppVersion="+JSONObject.quote(appVersionName())+";",null);
+                    view.evaluateJavascript("window.LFNativeCloudRecording=true;window.LFNativeOfflineMode=true;window.LFNativeAppVersion="+JSONObject.quote(appVersionName())+";window.LFNativeSelfUpdate="+AppUpdater.supported()+";",null);
             }
             @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){
                 super.onReceivedError(view,request,error);

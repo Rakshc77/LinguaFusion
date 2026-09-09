@@ -51,6 +51,23 @@ android {
         }
     }
 
+    /* Two distributions, because Play and sideloading want opposite things
+       of the same app. Play keeps its copy current and forbids the app from
+       replacing itself; a sideloaded copy has nothing else to update it. The
+       difference is compiled in rather than checked at runtime, so the Play
+       build cannot contain the updater at all. */
+    flavorDimensions += 'distribution'
+    productFlavors {
+        sideload {
+            dimension 'distribution'
+            // Downloaded from the owner's own service; updates itself.
+        }
+        play {
+            dimension 'distribution'
+            // Google Play keeps this one current.
+        }
+    }
+
     signingConfigs {
         // The SAME debug keystore the old script created and signed with.
         // Signing with a different key makes Android refuse to install over an
@@ -63,6 +80,24 @@ android {
             keyAlias 'androiddebugkey'
             keyPassword 'android'
         }
+        /* The real key, held outside this checkout. Absent on a machine that
+           has not been given it, in which case a release build fails loudly
+           rather than quietly falling back to the debug key and producing
+           something that looks shippable and is not. */
+        release {
+            def secrets = new Properties()
+            // Not named `file`: that shadows Gradle's own file() method and
+            // the next line then calls a File object instead.
+            def secretsFile = file(System.getenv('LINGUAFUSION_SIGNING')
+                ?: 'W:/LinguaFusion-signing/release-signing.properties')
+            if (secretsFile.exists()) {
+                secretsFile.withInputStream { secrets.load(it) }
+                storeFile file(secrets.storeFile)
+                storePassword secrets.storePassword
+                keyAlias secrets.keyAlias
+                keyPassword secrets.keyPassword
+            }
+        }
     }
 
     buildTypes {
@@ -70,9 +105,7 @@ android {
             signingConfig signingConfigs.debug
         }
         release {
-            // Deliberately debug-signed for now: production signing is still
-            // an open decision, and switching keys later breaks upgrades.
-            signingConfig signingConfigs.debug
+            signingConfig signingConfigs.release
             minifyEnabled false
         }
     }
@@ -90,6 +123,13 @@ android {
             java.srcDirs = ['src']
             res.srcDirs = ['res']
             assets.srcDirs = ['assets']
+        }
+        // Flavour sources sit beside src/ rather than under it, because
+        // src/ is already the main source directory.
+        sideload { java.srcDirs = ['src-sideload'] }
+        play {
+            java.srcDirs = ['src-play']
+            manifest.srcFile 'src-play/AndroidManifest.xml'
         }
         // Plain JVM tests. The logic worth testing here -- PCM conversion,
         // language codes -- touches no Android API on purpose, so it can be
@@ -146,9 +186,12 @@ dependencies {
    dist/LinguaFusionMobile-debug.apk, where the old script put it. Keep that
    contract rather than making every downstream step learn Gradle's layout. */
 tasks.register('stageApk', Copy) {
-    dependsOn 'assembleDebug'
-    from(layout.buildDirectory.dir('outputs/apk/debug')) {
-        include 'LinguaFusionMobile-debug.apk'
+    // The sideload flavour: this is the build people download from the
+    // service, and the only one allowed to update itself.
+    dependsOn 'assembleSideloadDebug'
+    from(layout.buildDirectory.dir('outputs/apk/sideload/debug')) {
+        include '*.apk'
+        rename '.*', 'LinguaFusionMobile-debug.apk'
     }
     into layout.projectDirectory.dir('dist')
 }

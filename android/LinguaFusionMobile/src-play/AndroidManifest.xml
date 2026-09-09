@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+          xmlns:tools="http://schemas.android.com/tools">
+    <!-- Removed for Play. The permission is only needed to install an APK the
+         app downloaded itself, which Play's Device and Network Abuse policy
+         forbids. Declaring it here would invite a review rejection for a
+         capability this flavour does not even compile. -->
+    <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES"
+                     tools:node="remove" />
+</manifest>

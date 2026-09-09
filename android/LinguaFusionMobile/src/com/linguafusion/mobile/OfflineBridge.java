@@ -307,6 +307,13 @@ final class OfflineBridge {
         host.checkForUpdate(requestId);
     }
 
+    /** Whether this build may install its own updates at all. A Play build may
+     *  not, so the page offers nothing rather than a button that cannot work. */
+    @JavascriptInterface
+    public boolean canSelfUpdate() {
+        return Distribution.SELF_UPDATE;
+    }
+
     @JavascriptInterface
     public void leaveOfflineMode() {
         host.leaveOfflineMode();
