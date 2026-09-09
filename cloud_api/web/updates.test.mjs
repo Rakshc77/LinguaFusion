@@ -16,8 +16,11 @@ test('new release and intentional rollback both offer reload', async()=>{
     assert.equal((await checkForUpdate(async()=>({ok:true,json:async()=>({version})}))).available,true);
   }
 });
+// The injected-url case deliberately carries APP_VERSION rather than a literal:
+// pinned to a version, it silently changed meaning on the next release and
+// started asserting a rejection that never comes.
 test('failed, malformed and injected metadata cannot become an update', async()=>{
-  for(const data of [null,{}, {version:'<script>'},{version:'https://other.test/app'}, {version:'2026.09.09.2',url:'https://other.test'}]){
+  for(const data of [null,{}, {version:'<script>'},{version:'https://other.test/app'}, {version:APP_VERSION,url:'https://other.test'}]){
     if(data?.version===APP_VERSION){assert.deepEqual(await checkForUpdate(async()=>({ok:true,json:async()=>data})),{version:APP_VERSION,available:false});}
     else await assert.rejects(checkForUpdate(async()=>({ok:true,json:async()=>data})));
   }
