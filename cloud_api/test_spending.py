@@ -111,3 +111,115 @@ def test_the_recorded_cost_never_rounds_down_to_free():
     from cloud_api.pilot_providers import token_cost_micro
     assert token_cost_micro('mistralai/mistral-nemo',
                             {'prompt_tokens': 1, 'completion_tokens': 1}) >= 1
+
+
+def test_speech_and_pictures_settle_too_now():
+    # These two report no usage of their own, so their holds used to stand
+    # forever -- and they are the expensive half: one photo costs about as
+    # much as twenty translations. Both bill on something already known.
+    from cloud_api.pilot_capabilities import PILOT_HOLD_MICRO
+    from cloud_api.pilot_providers import (image_cost_micro, settled_micro,
+                                           transcription_cost_micro)
+
+    minute = transcription_cost_micro(60)
+    picture = image_cost_micro(1)
+    assert 0 < minute < PILOT_HOLD_MICRO, 'a minute of audio must cost less than the hold'
+    assert 0 < picture < PILOT_HOLD_MICRO, 'one image must cost less than the hold'
+    # Pricing is per unit, so twice the audio is twice the cost.
+    assert transcription_cost_micro(120) == 2 * minute
+    assert image_cost_micro(2) == 2 * picture
+
+
+def test_a_cost_computed_by_the_adapter_is_used_as_given():
+    # Speech and pictures hand over a figure rather than tokens. The gateway
+    # must settle either shape without knowing which happened.
+    from cloud_api.pilot_providers import settled_micro
+    assert settled_micro({'micro': 1500}) == 1500
+    assert settled_micro({'model': 'mistralai/mistral-nemo',
+                          'usage': {'prompt_tokens': 100, 'completion_tokens': 100}}) == 10
+
+
+def test_nonsense_durations_and_counts_are_refused_rather_than_charged():
+    # A zero or negative duration means the measurement failed. Charging zero
+    # would record a real call as free; the hold should stand instead.
+    from cloud_api.pilot_providers import image_cost_micro, transcription_cost_micro
+    for bad in [0, -5, None, 'thirty']:
+        assert transcription_cost_micro(bad) is None, bad
+    for bad in [0, -1, None, 1.5]:
+        assert image_cost_micro(bad) is None, bad
+
+
+def test_a_very_short_recording_still_costs_something():
+    from cloud_api.pilot_providers import transcription_cost_micro
+    assert transcription_cost_micro(0.5) >= 1, 'half a second must not round to free'
+
+
+def _silent_wav(seconds, rate=16000):
+    import io
+    import wave
+    buffer = io.BytesIO()
+    with wave.open(buffer, 'wb') as out:
+        out.setnchannels(1)
+        out.setsampwidth(2)
+        out.setframerate(rate)
+        out.writeframes(b'\x00\x00' * int(rate * seconds))
+    return buffer.getvalue()
+
+
+def test_the_adapters_actually_record_their_cost():
+    # Testing the pricing functions is not enough: an adapter that never calls
+    # them leaves the hold standing, which is the bug being fixed. Drive the
+    # real adapters with the network stubbed and check what they recorded.
+    import asyncio
+    from cloud_api import pilot_providers as pp
+
+    providers = pp.PilotProviders.__new__(pp.PilotProviders)
+
+    async def fake_post(self, provider, url, headers, **kwargs):
+        return {'text': 'hello'} if 'audio' in url else {
+            'responses': [{'fullTextAnnotation': {'text': 'hello'}}]}
+
+    original = pp.PilotProviders._post
+    pp.PilotProviders._post = fake_post
+    try:
+        # Read inside the same task that wrote it. asyncio.run() copies the
+        # context, so a value set in there is invisible out here -- a property
+        # of this harness, not of the gateway, which awaits the call directly
+        # in its own task.
+        async def record_speech():
+            await providers.transcribe('key', _silent_wav(30))
+            return pp.LAST_USAGE.get()
+
+        async def record_picture():
+            await providers.ocr('token', b'\x89PNG\r\n\x1a\n' + b'\x00' * 64)
+            return pp.LAST_USAGE.get()
+
+        recorded = asyncio.run(record_speech())
+        assert recorded and recorded.get('micro') == pp.transcription_cost_micro(30), recorded
+        recorded = asyncio.run(record_picture())
+        assert recorded and recorded.get('micro') == pp.image_cost_micro(1), recorded
+    finally:
+        pp.PilotProviders._post = original
+
+
+def test_a_longer_recording_records_a_larger_cost():
+    # Proves the duration is measured rather than a constant being stamped on.
+    import asyncio
+    from cloud_api import pilot_providers as pp
+
+    providers = pp.PilotProviders.__new__(pp.PilotProviders)
+
+    async def fake_post(self, provider, url, headers, **kwargs):
+        return {'text': 'hello'}
+
+    original = pp.PilotProviders._post
+    pp.PilotProviders._post = fake_post
+    try:
+        async def cost_of(seconds):
+            await providers.transcribe('key', _silent_wav(seconds))
+            return pp.LAST_USAGE.get()['micro']
+
+        costs = [asyncio.run(cost_of(seconds)) for seconds in (5, 40)]
+        assert costs[1] > costs[0], costs
+    finally:
+        pp.PilotProviders._post = original

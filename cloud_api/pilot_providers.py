@@ -133,6 +133,48 @@ except Exception:                       # a missing or broken set must not
 LAST_USAGE = contextvars.ContextVar('pilot_last_usage', default=None)
 
 
+# Published list prices for the two providers that report no usage of their
+# own. Both bill on something we already know -- seconds of audio we encoded
+# ourselves, and one image per call -- so their cost is computable without
+# asking them. Reviewed alongside the model ceilings on PRICE_REVIEWED_ON;
+# treat them as list prices to confirm, not as invoices.
+GROQ_TRANSCRIBE_USD_PER_HOUR = 0.04     # whisper-large-v3-turbo
+VISION_USD_PER_IMAGE = 0.0015           # DOCUMENT_TEXT_DETECTION, per request
+
+
+def _at_least_one_micro(dollars):
+    """Round up. A real call that rounds to zero would look free in the ledger."""
+    return max(1, math.ceil(dollars * 1_000_000))
+
+
+def transcription_cost_micro(seconds):
+    """Groq bills per hour of audio, and we measured the audio to validate it."""
+    if not isinstance(seconds, (int, float)) or seconds <= 0:
+        return None
+    return _at_least_one_micro(seconds / 3600 * GROQ_TRANSCRIBE_USD_PER_HOUR)
+
+
+def image_cost_micro(count=1):
+    """Vision charges per image, whatever its size."""
+    if not isinstance(count, int) or count <= 0:
+        return None
+    return _at_least_one_micro(count * VISION_USD_PER_IMAGE)
+
+
+def settled_micro(reported):
+    """What to settle a hold at, from whatever the adapter recorded.
+
+    Adapters that get token counts hand those over; the two that cannot
+    compute the cost themselves and hand over the figure. Either way the
+    gateway settles the same way and does not need to know which happened.
+    """
+    if not isinstance(reported, dict):
+        return None
+    if isinstance(reported.get('micro'), int):
+        return reported['micro']
+    return token_cost_micro(reported.get('model'), reported.get('usage'))
+
+
 def token_cost_micro(model, usage):
     """Micro-dollars for a completion, from the tokens the provider reported.
 
@@ -152,7 +194,7 @@ def token_cost_micro(model, usage):
     dollars = (prompt + completion) * ceiling / 1_000_000
     # Round up, never down: a fraction of a micro-dollar that rounds to zero
     # would make a real call look free.
-    return max(1, math.ceil(dollars * 1_000_000))
+    return _at_least_one_micro(dollars)
 
 
 class ProviderFailure(RuntimeError):
@@ -296,6 +338,8 @@ class PilotProviders:
                                 data={'model': 'whisper-large-v3-turbo', 'response_format': 'json', 'temperature': '0'})
         if not isinstance(data.get('text'), str):
             raise ProviderFailure('Transcription response invalid; reservation retained.')
+        # Groq reports no usage, but the audio was measured above to validate it.
+        LAST_USAGE.set({'micro': transcription_cost_micro(frames / rate)})
         return data['text']  # Silence may legitimately produce empty text; never correct it with an LLM.
 
     async def ocr(self, access_token, image):
@@ -313,6 +357,8 @@ class PilotProviders:
             annotation = result.get('fullTextAnnotation') or {}
             if not isinstance(annotation, dict) or not isinstance(annotation.get('text', ''), str):
                 raise ValueError()
+            # One image per call, whatever its size: that is how Vision bills.
+            LAST_USAGE.set({'micro': image_cost_micro(1)})
             # The whole annotation, not just its flattened text: the word
             # geometry is what makes forms and tables readable afterwards.
             return annotation

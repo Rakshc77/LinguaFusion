@@ -25,7 +25,7 @@ from datetime import datetime, timezone
 
 from fastapi import HTTPException
 
-from cloud_api.pilot_providers import LAST_USAGE, ProviderFailure, token_cost_micro
+from cloud_api.pilot_providers import LAST_USAGE, ProviderFailure, settled_micro
 
 # Flat conservative hold per request, matching what PilotProviders reserves from
 # the lifetime allowance. These adapters are not billed per token here, so a
@@ -167,7 +167,7 @@ class PilotGateway:
         # settling at a guess would say something we do not know.
         reported = LAST_USAGE.get()
         if reported:
-            actual = token_cost_micro(reported.get('model'), reported.get('usage'))
+            actual = settled_micro(reported)
             if actual is not None:
                 await asyncio.to_thread(self.policy.settle, reservation,
                                         min(actual, PILOT_HOLD_MICRO))
