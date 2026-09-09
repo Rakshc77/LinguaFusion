@@ -1031,6 +1031,24 @@ fillFormats($('pronounceFormat'), ['txt', 'md']);
 $('appVersion').textContent = APP_VERSION;
 let offeredUpdate = null;
 let updateBusy = false;
+// The app answers its own check here. Only it knows whether the installed
+// build is current, so the page waits to be told rather than claiming.
+let interfaceUpToDate = true;
+window.LFNativeUpdateResult = (json) => {
+  let answer;
+  try { answer = JSON.parse(json); } catch { return; }
+  if (answer.available) {
+    // The app raises its own dialog; this is for anyone who dismisses it.
+    $('updateStatus').textContent =
+      `A new app version is available: ${answer.versionName} (${answer.megabytes} MB). `
+      + 'Nothing installs until you confirm.';
+    return;
+  }
+  $('updateStatus').textContent = interfaceUpToDate
+    ? `You’re up to date. Interface ${APP_VERSION}, app ${window.LFNativeAppVersion || 'installed'}.`
+    : $('updateStatus').textContent;
+};
+
 $('checkUpdates').addEventListener('click', async () => {
   if (updateBusy) return;
   updateBusy = true;
@@ -1049,9 +1067,14 @@ $('checkUpdates').addEventListener('click', async () => {
     const result = await checkForUpdate();
     offeredUpdate = result.available ? result : null;
     $('updateOffer').hidden = !result.available;
+    // Scope it. This checked the interface; inside the app the installed app
+    // is checked separately and answers through LFNativeUpdateResult below.
+    interfaceUpToDate = !result.available;
     $('updateStatus').textContent = result.available
-      ? `Version ${result.version} is available.`
-      : `You’re up to date. Version ${APP_VERSION}.`;
+      ? `A new interface is available: version ${result.version}.`
+      : (window.LFNativeOfflineMode === true
+          ? `Interface ${APP_VERSION} is current. Checking the app…`
+          : `You’re up to date. Version ${APP_VERSION}.`);
   } catch {
     $('updateStatus').textContent = 'Could not check for updates. Check your internet connection and try again.';
   } finally { updateBusy = false; $('checkUpdates').disabled = false; }

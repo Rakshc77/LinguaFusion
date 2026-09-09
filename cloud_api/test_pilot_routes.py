@@ -620,6 +620,13 @@ def test_there_is_one_update_button_covering_both_things():
     assert "linguafusion-update://check" in handler,         'the one button must also ask the installed app'
     assert 'LFNativeOfflineMode === true' in handler,         'and only inside the app, where that scheme means something'
 
+    # And the page must not call itself up to date on the interface's word
+    # alone: inside the app, the app answers separately about itself.
+    assert 'window.LFNativeUpdateResult' in module,         'the app has no way to report its own result'
+    verdict = re.search(r"\$\('updateStatus'\)\.textContent = result\.available(.*?);", module, re.S)
+    assert verdict, 'the update verdict moved; re-check this guard'
+    assert 'LFNativeOfflineMode' in verdict.group(1),         'inside the app the interface result alone must not read as up to date'
+
 
 def test_hosted_app_restores_the_original_phone_only_offline_handoff():
     import pathlib

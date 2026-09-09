@@ -109,12 +109,25 @@ public final class MainActivity extends Activity {
             AppUpdate updater=new AppUpdate(this,CLOUD_BASE);
             AppUpdate.Available update=updater.check();
             runOnUiThread(() -> {
-                if(update!=null){showUpdateOffer(updater,update);return;}
-                // A failed check and being current look identical from here, so
-                // do not claim to be up to date.
-                Toast.makeText(this,"Nothing newer was offered.",Toast.LENGTH_LONG).show();
+                reportUpdateResultToPage(update);
+                if(update!=null)showUpdateOffer(updater,update);
             });
         });
+    }
+
+    /** Hands the app's own result to the page, so the one status line there can
+     *  speak for both the interface and the installed app. The page owns the
+     *  wording; this only reports. Harmless if the page has no such hook. */
+    private void reportUpdateResultToPage(AppUpdate.Available update){
+        if(webView==null)return;
+        String json;
+        try{
+            JSONObject answer=new JSONObject().put("available",update!=null);
+            if(update!=null)answer.put("versionName",update.versionName).put("megabytes",update.megabytes());
+            json=answer.toString();
+        }catch(Exception impossible){return;}
+        webView.evaluateJavascript(
+            "window.LFNativeUpdateResult&&window.LFNativeUpdateResult("+JSONObject.quote(json)+")",null);
     }
 
     private void showUpdateOffer(AppUpdate updater,AppUpdate.Available update){

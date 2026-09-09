@@ -277,3 +277,19 @@ def test_an_update_is_never_pushed_at_launch():
     if onresume:
         assert 'AppUpdate' not in onresume.group(1), 'onResume must not check for updates'
     assert 'checkForUpdateNow' in MAIN, 'the explicit check must still exist'
+
+
+def test_the_app_tells_the_page_what_its_own_check_found():
+    # One button asks about two things. The page can only see the interface, so
+    # if the app stays silent the status line says "up to date" while meaning
+    # only half of it -- which is what the owner saw.
+    check = MAIN[MAIN.index('private void checkForUpdateNow'):]
+    # Ends at the helper's own definition, not past it: a guard the
+    # definition satisfies would pass with the call site deleted.
+    check = check[:check.index('private void reportUpdateResultToPage')]
+    assert 'reportUpdateResultToPage(update)' in check, \
+        'the app must report its result, not only raise a dialog when there is one'
+    report = MAIN[MAIN.index('private void reportUpdateResultToPage'):]
+    report = report[:report.index('\n    }')]
+    assert 'LFNativeUpdateResult' in report
+    assert 'JSONObject.quote' in report, 'the payload must cross as data, not script'
