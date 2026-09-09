@@ -84,8 +84,9 @@ everything cloud. `.venv` is the main app environment and additionally has
 ### Web app (`cloud_api/web/`)
 Sign-up, email confirmation, access request, then a five-view app shell with a
 bottom bar: **Speak · Translate · Read · Say it · Model · Account**. Installable
-(manifest + service worker). Nine phone looks and six typefaces, shared with the
-existing mobile client. Client-side export (txt/md, csv for tables).
+(manifest + service worker). Two looks -- Studio and Minimal -- each with a day
+and a night mode, and six typefaces; look, mode and typeface are independent.
+Client-side export (txt/md, csv for tables).
 `wav.mjs` encodes microphone audio into the mono 16-bit PCM WAV the backend
 requires — `MediaRecorder` produces WebM, which the adapter rejects.
 

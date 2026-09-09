@@ -619,6 +619,63 @@ html[data-mode="light"] [data-theme="zen"] {
   --lf-chip-bg:#ffffff; --lf-chip-border:1px solid #e5e5e5;
 }
 
+/* ---------- CLOUD LOOKS ----------
+   The cloud app offers these two and nothing else. Both carry a day and a
+   night mode, so two looks cover what nine fixed-brightness ones did. The
+   looks above stay in the sheet because the PC and phone clients share this
+   file; the cloud picker simply does not list them (see themes.mjs).
+   ------------------------------------------------------------------ */
+
+/* Studio — parchment and terracotta by day. */
+[data-theme="studio"] {
+  --lf-app-bg:#f2e9dc; --lf-text:#2c241b; --lf-text-muted:#7a6a55;
+  --lf-accent:#b4522f; --lf-accent-2:#8a6a4f; --lf-on-accent:#fdf8f0; --lf-success:#5f7a45;
+  --lf-surface-bg:#fdf9f2; --lf-surface-border:1px solid #e3d6c0; --lf-surface-shadow:0 2px 10px rgba(90,60,30,.07); --lf-surface-radius:14px; --lf-backdrop:none;
+  --lf-panel-bg:#fdf9f2; --lf-panel-text:#2c241b;
+  --lf-xlate-bg:#f7efe2; --lf-xlate-border:1px solid #e3d6c0; --lf-xlate-text:#2c241b; --lf-xlate-label:#b4522f;
+  --lf-record-bg:#b4522f; --lf-record-radius:50%; --lf-record-shadow:0 12px 26px -6px rgba(180,82,47,.45); --lf-record-glyph:#fdf8f0;
+  --lf-chip-bg:#fdf9f2; --lf-chip-border:1px solid #e3d6c0; --lf-badge-bg:#f0e2cc; --lf-badge-text:#8c3f22;
+  --lf-wave-color:#b4522f;
+  --lf-font-display:serif; --lf-font-body:serif; --lf-font-mono:monospace;
+  --lf-heading-weight:600; --lf-label-font:serif; --lf-label-transform:uppercase; --lf-label-spacing:.18em;
+}
+/* Studio at night — sunset rose and plum. */
+[data-theme="studio"][data-mode="dark"], html[data-mode="dark"] [data-theme="studio"] {
+  --lf-app-bg:#191021; --lf-text:#f6ebf1; --lf-text-muted:#b199ac;
+  --lf-accent:#e8577f; --lf-accent-2:#7b4a86; --lf-on-accent:#1b0f18; --lf-success:#86d6b4;
+  --lf-surface-bg:#241830; --lf-surface-border:1px solid #3d2a4a; --lf-surface-shadow:0 2px 14px rgba(0,0,0,.35);
+  --lf-panel-bg:#241830; --lf-panel-text:#f6ebf1;
+  --lf-xlate-bg:#2d1c3a; --lf-xlate-border:1px solid #4a3358; --lf-xlate-text:#fbeef4; --lf-xlate-label:#f2879f;
+  --lf-record-bg:#e8577f; --lf-record-shadow:0 12px 26px -6px rgba(232,87,127,.45); --lf-record-glyph:#1b0f18;
+  --lf-chip-bg:#241830; --lf-chip-border:1px solid #3d2a4a; --lf-badge-bg:#3a2145; --lf-badge-text:#f2879f;
+  --lf-wave-color:#e8577f;
+}
+
+/* Minimal — monochrome, and monochrome again at night. */
+[data-theme="minimal"] {
+  --lf-app-bg:#ffffff; --lf-text:#131313; --lf-text-muted:#6b6b6b;
+  --lf-accent:#131313; --lf-accent-2:#4a4a4a; --lf-on-accent:#ffffff; --lf-success:#131313;
+  --lf-surface-bg:#ffffff; --lf-surface-border:1px solid #dcdcdc; --lf-surface-shadow:none; --lf-surface-radius:6px; --lf-backdrop:none;
+  --lf-panel-bg:#ffffff; --lf-panel-text:#131313;
+  --lf-xlate-bg:#f4f4f4; --lf-xlate-border:1px solid #dcdcdc; --lf-xlate-text:#131313; --lf-xlate-label:#6b6b6b;
+  --lf-record-bg:#131313; --lf-record-radius:50%; --lf-record-shadow:none; --lf-record-glyph:#ffffff;
+  --lf-chip-bg:#ffffff; --lf-chip-border:1px solid #dcdcdc; --lf-badge-bg:#f0f0f0; --lf-badge-text:#131313;
+  --lf-wave-color:#131313;
+  --lf-font-display:sans-serif; --lf-font-body:sans-serif; --lf-font-mono:monospace;
+  --lf-heading-weight:600; --lf-label-font:sans-serif; --lf-label-transform:uppercase; --lf-label-spacing:.12em;
+}
+/* With no colour to carry the accent, night inverts it: light block, dark label. */
+[data-theme="minimal"][data-mode="dark"], html[data-mode="dark"] [data-theme="minimal"] {
+  --lf-app-bg:#0e0e0e; --lf-text:#f2f2f2; --lf-text-muted:#969696;
+  --lf-accent:#f2f2f2; --lf-accent-2:#c4c4c4; --lf-on-accent:#0e0e0e; --lf-success:#f2f2f2;
+  --lf-surface-bg:#181818; --lf-surface-border:1px solid #303030; --lf-surface-shadow:none;
+  --lf-panel-bg:#181818; --lf-panel-text:#f2f2f2;
+  --lf-xlate-bg:#202020; --lf-xlate-border:1px solid #303030; --lf-xlate-text:#f2f2f2; --lf-xlate-label:#969696;
+  --lf-record-bg:#f2f2f2; --lf-record-shadow:none; --lf-record-glyph:#0e0e0e;
+  --lf-chip-bg:#181818; --lf-chip-border:1px solid #303030; --lf-badge-bg:#242424; --lf-badge-text:#f2f2f2;
+  --lf-wave-color:#f2f2f2;
+}
+
 /* ============================================================
    OPTIONAL HELPER LAYER
    Map tokens to reusable classes. Adopt these on your Speech

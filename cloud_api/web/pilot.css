@@ -1,6 +1,6 @@
-/* Map this app's tokens onto the shared LinguaFusion look tokens, so the seven
-   phone looks apply here too. Each falls back to the built-in palette when no
-   look is selected, which keeps the app readable if the theme sheet is missing. */
+/* Map this app's tokens onto the shared LinguaFusion look tokens, so the looks
+   this app offers apply here too. Each falls back to the built-in palette when
+   no look is selected, which keeps the app readable if the sheet is missing. */
 :root { color-scheme: light dark;
   --bg: var(--lf-app-bg, #f5f7fc); --panel: var(--lf-surface-bg, #fff);
   --text: var(--lf-text, #172338); --muted: var(--lf-text-muted, #526079);
@@ -30,7 +30,7 @@ input:not([type=checkbox]),select,textarea { width:100%; min-height:48px; paddin
 textarea { resize:vertical; }
 .check { display:flex; align-items:center; gap:10px; font-size:14px; font-weight:400; }
 input[type=checkbox] { width:20px; height:20px; accent-color:var(--accent); flex-shrink:0; }
-button { min-height:48px; padding:10px 18px; border:1px solid transparent; border-radius:9px; background:var(--accent); color:white; font:600 16px/1.4 system-ui,sans-serif; cursor:pointer; margin-top:16px; }
+button { min-height:48px; padding:10px 18px; border:1px solid transparent; border-radius:9px; background:var(--accent); color:var(--lf-on-accent, white); font:600 16px/1.4 system-ui,sans-serif; cursor:pointer; margin-top:16px; }
 button.secondary { color:var(--text); background:var(--panel); border-color:var(--line); }
 #signIn,#translate { width:100%; }
 button:disabled,fieldset:disabled { opacity:.65; cursor:default; }
@@ -137,3 +137,16 @@ p.warn { font-weight:600; }
 .nav-item { max-width:none; }
 @media (max-width:400px) { .nav-item { font-size:10px; } .nav-item span:first-child { font-size:17px; } }
 
+
+/* An explicit Day/Night choice must outrank the device preference. Only the
+   literals need restating: every other token already reads through var(--lf-*),
+   which the theme sheet itself swaps per mode. These selectors carry more
+   specificity than :root, so their position in the file cannot decide it. */
+html[data-mode="light"] { --line:#c8d2e3; --notice:#eaf1ff; --warn:#fff4e2; --warn-line:#b4650a; }
+html[data-mode="dark"]  { --line:#52617a; --notice:#1b2d49; --warn:#3a2c14; --warn-line:#e0a45c; }
+html[data-mode="dark"] button.danger { color:#f2b8b5; border-color:#f2b8b5; }
+
+/* Day/Night pill in the app header, reachable from every view. */
+.mode-toggle { display:inline-flex; align-items:center; gap:7px; margin:0; min-height:38px;
+  padding:6px 14px; border-radius:20px; font-size:13px; font-weight:600;
+  color:var(--text); background:var(--panel); border:1px solid var(--line); }

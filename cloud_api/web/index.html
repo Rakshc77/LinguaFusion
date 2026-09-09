@@ -91,6 +91,8 @@
     <div id="workspace" hidden>
       <header class="app-head">
         <span class="brand">LinguaFusion</span>
+        <button id="modeToggle" class="mode-toggle" type="button" aria-pressed="false">
+          <span aria-hidden="true">◐</span><span id="modeToggleLabel">Day</span></button>
         <span id="accountName" class="account-chip"></span>
       </header>
       <p id="status" role="status" aria-live="polite"></p>
@@ -217,9 +219,13 @@
 
         <section aria-labelledby="appearanceTitle">
           <h3 id="appearanceTitle">Appearance</h3>
-          <p class="hint">Look and typeface are independent, and each is remembered on this device.</p>
+          <p class="hint">Look, brightness and typeface are independent, and each is remembered on this device.</p>
           <label for="themeChoice">Look</label>
           <select id="themeChoice"></select>
+          <p id="themeBlurb" class="hint"></p>
+          <label for="modeChoice">Day or night</label>
+          <select id="modeChoice"></select>
+          <p class="hint">Starts out matching your device. The ◐ button at the top switches it from any screen.</p>
           <label for="fontChoice">Typeface</label>
           <select id="fontChoice"></select>
           <p class="hint">Typefaces use what is already on your device, so nothing is downloaded and this keeps working offline.</p>

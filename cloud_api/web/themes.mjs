@@ -1,36 +1,26 @@
 /* Appearance and typography for the cloud app.
 
-   The look and font lists are copied from backend/mobile_web so the cloud app
-   offers the SAME named looks as the phone client. Keep them in step if that
-   registry changes. Only the mobile looks are offered here: the nine PC looks
-   belong to the PySide desktop app.
+   Two looks, each with a day and a night mode. Look, mode and typeface are
+   three independent choices, each remembered separately on this device —
+   which is how the rest of LinguaFusion behaves, and it means picking a look
+   never silently changes someone's brightness or their font.
 
-   Look and font are deliberately independent, and each is remembered
-   separately, matching how the rest of LinguaFusion behaves.
+   The shared theme sheet still defines the older phone and PC looks, because
+   the PySide desktop app and the phone client read the same file. They are
+   deliberately not listed here: this client offers what it has designed and
+   checked, and nothing else.
 */
 
-export const LF_THEMES = [
-  // 9 Mobile / Phone looks
-  { id:"soft-ui", name:"Soft UI", group:"Light", platforms:["mobile"], dark:false },
-  { id:"sunset", name:"Sunset", group:"Playful", platforms:["mobile"], dark:false },
-  { id:"brutalist", name:"Neo-Brutalist", group:"Playful", platforms:["mobile"], dark:false },
-  { id:"warm-editorial", name:"Warm Editorial", group:"Editorial", platforms:["mobile"], dark:false },
-  { id:"glass-dark", name:"Glass Dark", group:"Dark", platforms:["mobile"], dark:true },
-  { id:"neon-arcade", name:"Neon Arcade", group:"Playful", platforms:["mobile"], dark:true },
-  { id:"warm-minimal", name:"Warm Minimal", group:"Editorial", platforms:["mobile"], dark:false },
-  { id:"bold-mono", name:"Bold Mono", group:"Playful", platforms:["mobile"], dark:false },
-  { id:"nature-calm", name:"Nature Calm", group:"Light", platforms:["mobile"], dark:false },
+export const CLOUD_THEMES = [
+  { id: 'studio', name: 'Studio',
+    blurb: 'Parchment and terracotta by day, sunset rose and plum at night.' },
+  { id: 'minimal', name: 'Minimal',
+    blurb: 'Monochrome, in both modes.' },
+];
 
-  // 9 PC looks
-  { id:"broadsheet", name:"Broadsheet", group:"Editorial", platforms:["pc"], dark:false },
-  { id:"editorial-split", name:"Editorial Split", group:"Editorial", platforms:["pc"], dark:false },
-  { id:"reading-room", name:"Reading Room", group:"Editorial", platforms:["pc"], dark:false },
-  { id:"gallery", name:"Gallery", group:"Editorial", platforms:["pc"], dark:true },
-  { id:"editorial-luxe", name:"Editorial Luxe", group:"Editorial", platforms:["pc"], dark:false },
-  { id:"glass-dark", name:"Glass Dark", group:"Dark", platforms:["pc"], dark:true },
-  { id:"aurora-glass", name:"Aurora Glass", group:"Dark", platforms:["pc"], dark:true },
-  { id:"blueprint", name:"Technical Blueprint", group:"Utility", platforms:["pc"], dark:true },
-  { id:"zen", name:"Zen Focus", group:"Dark", platforms:["pc"], dark:true },
+export const LF_MODES = [
+  { id: 'light', name: 'Day' },
+  { id: 'dark', name: 'Night' },
 ];
 
 export const LF_FONTS = [
@@ -42,11 +32,10 @@ export const LF_FONTS = [
   { id:"technical", name:"Technical Mono", group:"Monospace" },
 ];
 
-export const CLOUD_THEMES = LF_THEMES.filter(theme => theme.platforms.includes('mobile'));
-
 const THEME_KEY = 'lf-theme';
+const MODE_KEY = 'lf-mode';
 const FONT_KEY = 'lf-font';
-const DEFAULT_THEME = 'soft-ui';
+const DEFAULT_THEME = 'studio';
 const DEFAULT_FONT = 'modern';
 
 function stored(key) {
@@ -58,9 +47,21 @@ function persist(key, value) {
   try { localStorage.setItem(key, value); } catch { /* nothing to remember with */ }
 }
 
+/** What the device itself prefers, used until someone chooses for themselves. */
+function deviceMode() {
+  try {
+    return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+  } catch { return 'light'; }
+}
+
 export function getTheme() {
   const saved = stored(THEME_KEY);
   return CLOUD_THEMES.some(theme => theme.id === saved) ? saved : DEFAULT_THEME;
+}
+
+export function getMode() {
+  const saved = stored(MODE_KEY);
+  return LF_MODES.some(mode => mode.id === saved) ? saved : deviceMode();
 }
 
 export function getFont() {
@@ -69,11 +70,21 @@ export function getFont() {
 }
 
 export function applyTheme(id) {
-  const theme = CLOUD_THEMES.find(entry => entry.id === id) || CLOUD_THEMES.find(entry => entry.id === DEFAULT_THEME);
+  const theme = CLOUD_THEMES.find(entry => entry.id === id)
+    || CLOUD_THEMES.find(entry => entry.id === DEFAULT_THEME);
   document.documentElement.dataset.theme = theme.id;
-  document.documentElement.style.colorScheme = theme.dark ? 'dark' : 'light';
   persist(THEME_KEY, theme.id);
   return theme.id;
+}
+
+export function applyMode(id) {
+  const mode = LF_MODES.find(entry => entry.id === id) ? id : deviceMode();
+  document.documentElement.dataset.mode = mode;
+  // Tell the browser too, so its own form controls, scrollbars and any
+  // built-in UI match the mode the person picked rather than the device's.
+  document.documentElement.style.colorScheme = mode;
+  persist(MODE_KEY, mode);
+  return mode;
 }
 
 export function applyFont(id) {
@@ -85,5 +96,9 @@ export function applyFont(id) {
 
 /** Apply what was chosen last time, before first paint where possible. */
 export function initAppearance() {
-  return { theme: applyTheme(getTheme()), font: applyFont(getFont()) };
+  return {
+    theme: applyTheme(getTheme()),
+    mode: applyMode(getMode()),
+    font: applyFont(getFont()),
+  };
 }

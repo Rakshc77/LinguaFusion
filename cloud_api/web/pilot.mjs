@@ -2,7 +2,8 @@ import { createCloudAuth } from './cloud-auth.mjs';
 import { createCloudClient } from './cloud-client.mjs';
 import { PRONUNCIATION_LANGUAGES, pronunciationView, validateRequest } from './pronunciation.mjs';
 import { buildWav, MAX_SECONDS } from './wav.mjs';
-import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, getFont, getTheme, initAppearance } from './themes.mjs';
+import { CLOUD_THEMES, LF_FONTS, LF_MODES, applyFont, applyMode, applyTheme,
+         getFont, getMode, getTheme, initAppearance } from './themes.mjs';
 
 const $ = id => document.getElementById(id);
 const auth = createCloudAuth();
@@ -42,11 +43,34 @@ for (const [value, text] of PRONUNCIATION_LANGUAGES) $('pronounceLanguage').add(
 // Appearance first, so the chosen look is in place before anything is drawn.
 initAppearance();
 for (const theme of CLOUD_THEMES) $('themeChoice').add(new Option(theme.name, theme.id));
+for (const mode of LF_MODES) $('modeChoice').add(new Option(mode.name, mode.id));
 for (const font of LF_FONTS) $('fontChoice').add(new Option(font.name, font.id));
 $('themeChoice').value = getTheme();
 $('fontChoice').value = getFont();
-$('themeChoice').addEventListener('change', () => applyTheme($('themeChoice').value));
+
+/** Say what the chosen look actually looks like, so the name is not a riddle. */
+function describeTheme(id) {
+  const theme = CLOUD_THEMES.find(entry => entry.id === id);
+  $('themeBlurb').textContent = theme ? theme.blurb : '';
+}
+
+/* One function drives both mode controls, so the header button and the
+   Account list can never drift apart or fight over the stored value. */
+function setMode(id) {
+  const mode = applyMode(id);
+  const night = mode === 'dark';
+  $('modeChoice').value = mode;
+  $('modeToggle').setAttribute('aria-pressed', String(night));
+  $('modeToggle').setAttribute('aria-label', night ? 'Night mode, switch to day' : 'Day mode, switch to night');
+  $('modeToggleLabel').textContent = night ? 'Night' : 'Day';
+}
+
+$('themeChoice').addEventListener('change', () => describeTheme(applyTheme($('themeChoice').value)));
+$('modeChoice').addEventListener('change', () => setMode($('modeChoice').value));
+$('modeToggle').addEventListener('click', () => setMode(getMode() === 'dark' ? 'light' : 'dark'));
 $('fontChoice').addEventListener('change', () => applyFont($('fontChoice').value));
+describeTheme(getTheme());
+setMode(getMode());
 
 // Status goes wherever the person is actually looking.
 function status(message) {

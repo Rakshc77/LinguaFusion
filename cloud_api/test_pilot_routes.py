@@ -464,6 +464,31 @@ def test_the_service_worker_does_not_cache_the_android_build():
     assert '.apk' not in shell and 'android-app.json' not in shell
 
 
+def test_a_changed_shell_asset_forces_a_new_cache_version():
+    # The service worker serves the cached shell first. Shipping an edited
+    # asset without bumping VERSION leaves every already-installed copy --
+    # phone home screens and the Android app included -- running the old code
+    # indefinitely, with no error anywhere to suggest why.
+    import hashlib
+    import pathlib
+    import re
+    web = pathlib.Path(__file__).parent / 'web'
+    worker = (web / 'sw.js').read_text(encoding='utf-8')
+    names = re.findall(r"'/pilot/([^']*)'", worker.split('const SHELL = [')[1].split(']')[0])
+    assert names, 'the shell list moved; re-check this guard'
+
+    digest = hashlib.sha256()
+    for name in sorted(names):
+        digest.update(name.encode() + bytes([0]) + (web / (name or 'index.html')).read_bytes())
+    expected = digest.hexdigest()[:12]
+
+    recorded = re.search(r"const SHELL_STAMP = '([0-9a-f]+)';", worker)
+    assert recorded, 'sw.js must record a SHELL_STAMP'
+    assert recorded.group(1) == expected, (
+        'a cached shell asset changed. Bump VERSION in sw.js and set '
+        f"SHELL_STAMP to '{expected}', or installed copies keep the old app.")
+
+
 def test_the_appearance_assets_are_served():
     client, _, _ = build(ok_completion())
     with client:
@@ -474,17 +499,55 @@ def test_the_appearance_assets_are_served():
             assert response.headers['content-type'].startswith(media), asset
 
 
-def test_the_cloud_app_offers_the_phone_looks_and_every_font():
-    # The nine PC looks belong to the desktop app; offering them here would
-    # promise appearances this client does not implement.
+def test_the_picker_offers_exactly_the_two_designed_looks_and_every_font():
+    # The shared theme sheet still carries the older phone and PC looks, because
+    # the desktop and phone clients read the same file. The cloud picker must
+    # list only the two this client designed; offering the rest would promise
+    # appearances nobody checked here.
     import pathlib
     import re
-    module = (pathlib.Path(__file__).parent / 'web' / 'themes.mjs').read_text(encoding='utf-8')
-    mobile = re.findall(r'id:"([a-z-]+)"[^}]*platforms:\["mobile"\]', module)
-    assert len(mobile) >= 7, mobile
-    assert "platforms.includes('mobile')" in module, 'PC looks must be filtered out'
+    web = pathlib.Path(__file__).parent / 'web'
+    module = (web / 'themes.mjs').read_text(encoding='utf-8')
+    registry = module.split('export const CLOUD_THEMES')[1].split('];')[0]
+    offered = re.findall(r"\{ id: '([a-z-]+)', name:", registry)
+    assert offered == ['studio', 'minimal'], offered
     fonts = re.findall(r'id:"([a-z]+)", name:"[^"]+", group:"(?:Sans|Serif|Monospace)"', module)
     assert set(fonts) == {'modern', 'friendly', 'accessible', 'editorial', 'classic', 'technical'}
+
+    # And each offered look must actually exist in the sheet, in both modes.
+    themes = (web / 'linguafusion-themes.css').read_text(encoding='utf-8')
+    for look in offered:
+        assert f'[data-theme="{look}"] {{' in themes, f'{look} has no definition'
+        assert f'[data-theme="{look}"][data-mode="dark"]' in themes,             f'{look} would look identical by day and by night'
+
+
+def test_an_explicit_day_night_choice_beats_the_device_preference():
+    # Someone on a light phone who picks Night must get night. The literal
+    # colours that are not derived from --lf-* tokens live in a media query, so
+    # without a data-mode rule of higher specificity they would stay light and
+    # sit unreadably on the dark surfaces the theme sheet supplies.
+    import pathlib
+    import re
+    css = (pathlib.Path(__file__).parent / 'web' / 'pilot.css').read_text(encoding='utf-8')
+    media = re.search(r'@media\(prefers-color-scheme:dark\)\s*\{\s*:root\s*\{(.*?)\}\s*\}', css, re.S)
+    assert media, 'the dark fallback block moved; re-check this guard'
+    literals = [token for token, value in re.findall(r'(--[a-z-]+)\s*:\s*([^;]+);', media.group(1))
+                if 'var(--lf-' not in value]
+    assert literals, 'expected some non-token literals in the dark block'
+    for mode in ['light', 'dark']:
+        rule = re.search(rf'html\[data-mode="{mode}"\]\s*\{{(.*?)\}}', css, re.S)
+        assert rule, f'no explicit rule for {mode} mode'
+        for token in literals:
+            assert re.search(rf'{re.escape(token)}\s*:', rule.group(1)),                 f'{token} is not restated for {mode} mode and would follow the device instead'
+
+
+def test_the_look_and_the_mode_are_remembered_separately():
+    # Choosing a look must not reset someone's brightness, and vice versa.
+    import pathlib
+    module = (pathlib.Path(__file__).parent / 'web' / 'themes.mjs').read_text(encoding='utf-8')
+    assert "'lf-theme'" in module and "'lf-mode'" in module and "'lf-font'" in module
+    body = module.split('export function applyTheme')[1].split('export function applyMode')[0]
+    assert 'dataset.mode' not in body, 'picking a look must not also set the mode'
 
 
 def test_appearance_survives_storage_being_unavailable():
@@ -523,6 +586,31 @@ def test_the_dark_preference_never_overrides_a_chosen_look():
         assert assignment, f'{token} missing from the dark block'
         assert 'var(--lf-' in assignment.group(1), \
             f'{token} hardcodes a colour and would override the chosen look'
+
+
+def test_the_primary_button_label_contrasts_with_its_own_accent():
+    # A look is free to make the accent light -- Minimal's night mode uses a
+    # near-white block with a dark label. A hardcoded white label is invisible
+    # on it, so the colour has to come from the look's own on-accent token.
+    import pathlib
+    import re
+    web = pathlib.Path(__file__).parent / 'web'
+    css = (web / 'pilot.css').read_text(encoding='utf-8')
+    rule = re.search(r'\nbutton \{(.*?)\}', css, re.S)
+    assert rule, 'the button rule moved; re-check this guard'
+    colour = re.search(r'(?<!-)color\s*:\s*([^;]+);', rule.group(1))
+    assert colour and '--lf-on-accent' in colour.group(1),         f'the label must read through --lf-on-accent, got {colour and colour.group(1)}'
+
+    # And every offered look must actually define that token, or the fallback
+    # (white) silently comes back for it.
+    themes = (web / 'linguafusion-themes.css').read_text(encoding='utf-8')
+    module = (web / 'themes.mjs').read_text(encoding='utf-8')
+    registry = module.split('export const CLOUD_THEMES')[1].split('];')[0]
+    for look in re.findall(r"\{ id: '([a-z-]+)', name:", registry):
+        for selector in [f'[data-theme="{look}"] {{', f'[data-theme="{look}"][data-mode="dark"]']:
+            start = themes.index(selector)
+            block = themes[start:themes.index('}', start)]
+            assert '--lf-on-accent' in block, f'{look} {selector} leaves the label colour to chance'
 
 
 def test_the_fixed_navigation_bar_is_opaque_in_every_look():

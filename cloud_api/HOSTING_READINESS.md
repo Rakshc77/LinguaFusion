@@ -529,13 +529,18 @@ graph connected and the microphone went live, but onaudioprocess never fired,
 so a recording could complete having captured nothing. context.resume() is now
 awaited before recording starts.
 
-APPEARANCE. The nine phone looks and six typefaces from the existing client are
-now offered in Account, look and typeface independent and each remembered
-separately, matching the rest of LinguaFusion. cloud_api/web/themes.mjs carries
-the registry copied from backend/mobile_web -- keep the two in step -- and only
-the mobile looks are offered, because the nine PC looks belong to the desktop
-app. linguafusion-themes.css is reused as-is and this app's tokens map onto its
---lf-* contract, so the looks are the real ones rather than lookalikes.
+APPEARANCE. Two looks -- Studio (parchment and terracotta by day, sunset rose
+and plum at night) and Minimal (monochrome in both) -- each with a day and a
+night mode, plus six typefaces. Look, mode and typeface are three independent
+choices, each remembered separately, matching the rest of LinguaFusion. The
+mode has its own button in the app header so it can be switched from any view.
+cloud_api/web/themes.mjs lists what the picker offers; the shared
+linguafusion-themes.css still defines the older phone and PC looks because the
+desktop and phone clients read the same file, and the cloud picker simply does
+not list them. This app's tokens map onto the sheet's --lf-* contract, so the
+looks are the real ones rather than lookalikes. A look must not hardcode the
+primary button's label colour: Minimal's night accent is a near-white block
+with a dark label, so the label reads through --lf-on-accent.
 No webfont is fetched: typefaces use native stacks, and a test asserts no
 @import or Google Fonts reference, because the product is offline-first.
 
