@@ -1,0 +1,102 @@
+// Build for the LinguaFusion Android app.
+//
+// This replaces a hand-rolled aapt2 -> javac -> d8 script. That script could
+// not resolve Maven dependencies or build native code, which the offline work
+// needs for ML Kit and whisper.cpp respectively. See OFFLINE_PLAN.md.
+//
+// The existing src/ and res/ layout is kept rather than moved into
+// src/main/..., so this migration changes the build and nothing else.
+
+plugins {
+    id 'com.android.application' version '8.13.2'
+}
+
+android {
+    namespace 'com.linguafusion.mobile'
+    compileSdk 36
+
+    defaultConfig {
+        applicationId 'com.linguafusion.mobile'
+        minSdk 26
+        targetSdk 36
+        // Was 6 / 1.5 under the old script. Android refuses to install over a
+        // higher code, so this must only ever go up.
+        versionCode 7
+        versionName '1.6'
+
+        ndk {
+            // Real phones only. ML Kit ships native code for four ABIs and the
+            // x86 pair -- 35 MB of the 63 MB -- exists for emulators, which
+            // this app is never installed on. armeabi-v7a is kept so a 32-bit
+            // device is not silently excluded. whisper.cpp is built for the
+            // same two.
+            abiFilters 'arm64-v8a', 'armeabi-v7a'
+        }
+    }
+
+    signingConfigs {
+        // The SAME debug keystore the old script created and signed with.
+        // Signing with a different key makes Android refuse to install over an
+        // existing copy: everyone would have to uninstall first and lose their
+        // local data. The keystore is not in git, so it must not be lost --
+        // a test pins the certificate fingerprint it has to produce.
+        debug {
+            storeFile file('debug.keystore')
+            storePassword 'android'
+            keyAlias 'androiddebugkey'
+            keyPassword 'android'
+        }
+    }
+
+    buildTypes {
+        debug {
+            signingConfig signingConfigs.debug
+        }
+        release {
+            // Deliberately debug-signed for now: production signing is still
+            // an open decision, and switching keys later breaks upgrades.
+            signingConfig signingConfigs.debug
+            minifyEnabled false
+        }
+    }
+
+    sourceSets {
+        main {
+            manifest.srcFile 'AndroidManifest.xml'
+            java.srcDirs = ['src']
+            res.srcDirs = ['res']
+            assets.srcDirs = ['assets']
+        }
+    }
+
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+
+    packagingOptions {
+        jniLibs {
+            // whisper.cpp ships a real .so; keeping it uncompressed lets
+            // Android map it straight from the APK instead of unpacking it.
+            useLegacyPackaging = false
+        }
+    }
+}
+
+dependencies {
+    // On-device translation. The models are not bundled: they arrive through
+    // Google Play Services and are managed from the app, so the APK stays
+    // small and languages can be added and removed without a new build.
+    implementation 'com.google.mlkit:translate:17.0.3'
+}
+
+/* The publish script and the QR download flow both expect the APK at
+   dist/LinguaFusionMobile-debug.apk, where the old script put it. Keep that
+   contract rather than making every downstream step learn Gradle's layout. */
+tasks.register('stageApk', Copy) {
+    dependsOn 'assembleDebug'
+    from(layout.buildDirectory.dir('outputs/apk/debug')) {
+        include 'LinguaFusionMobile-debug.apk'
+    }
+    into layout.projectDirectory.dir('dist')
+}
