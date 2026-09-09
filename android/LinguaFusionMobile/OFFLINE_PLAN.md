@@ -112,10 +112,12 @@ Done:
 
 Not done, and why:
 
-- **Nothing has run on a phone.** No device is attached and no emulator image
-  is installed, and limiting the APK to arm ABIs means the usual x86 emulator
-  could not run it anyway. Everything below the interface is compiled and
-  unit-tested; on-device behaviour is unverified.
+- ~~Nothing has run on a phone.~~ **Confirmed working on the owner's phone on
+  9 September**, app 1.13: speech, translation, reading pictures and
+  romanisation, all with no network. Quality is below the online path, for the
+  reasons set out in CURRENT_STATE_CLAUDE.md. The build machine still cannot
+  test it -- no device, no usable emulator -- so this was the owner's
+  verification, not this workspace's.
 - **Arabic OCR is still online-only.** ML Kit's scripts are Latin, Chinese,
   Devanagari, Japanese and Korean, so a photo of Arabic still needs the cloud.
   Tesseract through the NDK would close that, at roughly 40 MB for
