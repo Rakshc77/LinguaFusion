@@ -1,44 +1,43 @@
 param([string]$Configuration = "debug")
 
+# Builds the APK and stages it where the publish script expects it.
+#
+# This used to drive aapt2, javac and d8 by hand. That could not resolve Maven
+# dependencies or compile native code, both of which the offline work needs, so
+# the build is now Gradle and this script is a thin wrapper over it. The
+# filename is kept because the publish script points people here.
+#
+# The Gradle wrapper downloads its own Gradle on first run. The Android SDK
+# location comes from local.properties, which is per-machine and not in git.
+
 $ErrorActionPreference = "Stop"
 $project = (Resolve-Path $PSScriptRoot).Path
-$sdk = "C:\Users\rajar\AppData\Local\Android\Sdk"
-$buildTools = Join-Path $sdk "build-tools\36.1.0"
-$platform = Join-Path $sdk "platforms\android-36.1\android.jar"
-$javaHome = "C:\Program Files\Android\Android Studio\jbr"
-$build = Join-Path $project "build"
-$dist = Join-Path $project "dist"
 
-if (-not (Test-Path -LiteralPath $platform)) { throw "Android platform 36.1 is not installed." }
-$expectedBuild = [IO.Path]::GetFullPath((Join-Path $project "build"))
-if ([IO.Path]::GetFullPath($build) -ne $expectedBuild -or (Split-Path $expectedBuild -Parent) -ne $project) { throw "Unsafe build directory." }
-if (Test-Path -LiteralPath $build) { Remove-Item -LiteralPath $build -Recurse -Force }
-New-Item -ItemType Directory -Force -Path $build,$dist,(Join-Path $build "gen"),(Join-Path $build "classes"),(Join-Path $build "dex") | Out-Null
-
-$aapt2 = Join-Path $buildTools "aapt2.exe"
-$compiled = Join-Path $build "resources.zip"
-$baseApk = Join-Path $build "base.apk"
-& $aapt2 compile --dir (Join-Path $project "res") -o $compiled
-& $aapt2 link -o $baseApk -I $platform --manifest (Join-Path $project "AndroidManifest.xml") --java (Join-Path $build "gen") --min-sdk-version 26 --target-sdk-version 36 --version-code 6 --version-name 1.5 $compiled
-if ($LASTEXITCODE -ne 0) { throw "Android resource linking failed." }
-
-$sources = @(Get-ChildItem (Join-Path $project "src") -Recurse -Filter *.java | Select-Object -ExpandProperty FullName)
-$sources += @(Get-ChildItem (Join-Path $build "gen") -Recurse -Filter *.java | Select-Object -ExpandProperty FullName)
-& (Join-Path $javaHome "bin\javac.exe") -encoding UTF-8 -source 17 -target 17 -classpath $platform -d (Join-Path $build "classes") $sources
-if ($LASTEXITCODE -ne 0) { throw "Android compilation failed." }
-
-$classFiles = @(Get-ChildItem (Join-Path $build "classes") -Recurse -Filter *.class | Select-Object -ExpandProperty FullName)
-$env:JAVA_HOME = $javaHome
-& (Join-Path $buildTools "d8.bat") --lib $platform --min-api 26 --output (Join-Path $build "dex") $classFiles
-& (Join-Path $javaHome "bin\jar.exe") uf $baseApk -C (Join-Path $build "dex") classes.dex
-
-$aligned = Join-Path $build "aligned.apk"
-& (Join-Path $buildTools "zipalign.exe") -f 4 $baseApk $aligned
-$keystore = Join-Path $project "debug.keystore"
-if (-not (Test-Path -LiteralPath $keystore)) {
-    & (Join-Path $javaHome "bin\keytool.exe") -genkeypair -v -keystore $keystore -storepass android -alias androiddebugkey -keypass android -dname "CN=LinguaFusion Debug,O=LinguaFusion,C=DE" -keyalg RSA -keysize 2048 -validity 10000
+if (-not $env:JAVA_HOME) {
+    $jbr = "C:\Program Files\Android\Android Studio\jbr"
+    if (-not (Test-Path -LiteralPath $jbr)) {
+        throw "Set JAVA_HOME to a JDK 17 or newer; Android Studio's JBR was not found either."
+    }
+    $env:JAVA_HOME = $jbr
 }
-$output = Join-Path $dist "LinguaFusionMobile-debug.apk"
-& (Join-Path $buildTools "apksigner.bat") sign --ks $keystore --ks-key-alias androiddebugkey --ks-pass pass:android --key-pass pass:android --out $output $aligned
-& (Join-Path $buildTools "apksigner.bat") verify --verbose $output
+
+$local = Join-Path $project "local.properties"
+if (-not (Test-Path -LiteralPath $local)) {
+    $sdk = Join-Path $env:LOCALAPPDATA "Android\Sdk"
+    if (-not (Test-Path -LiteralPath $sdk)) { throw "No Android SDK found; create local.properties with sdk.dir=..." }
+    # Forward slashes on purpose: a Java properties file reads \U as an escape.
+    "sdk.dir=" + ($sdk -replace '\\', '/') | Set-Content -LiteralPath $local -Encoding utf8
+    Write-Host "Wrote $local" -ForegroundColor Yellow
+}
+
+if ($Configuration -ne "debug") {
+    # Release is deliberately not offered yet: the release build type is still
+    # debug-signed, so a "release" APK would only look like one. Production
+    # signing is an open decision -- see OFFLINE_PLAN.md.
+    throw "Only -Configuration debug is supported until production signing is decided."
+}
+& (Join-Path $project "gradlew.bat") stageApk --project-dir $project
+if ($LASTEXITCODE -ne 0) { throw "Gradle build failed." }
+
+$output = Join-Path $project "dist\LinguaFusionMobile-debug.apk"
 Write-Host "Built $output" -ForegroundColor Green

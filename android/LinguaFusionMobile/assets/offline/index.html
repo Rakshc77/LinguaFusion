@@ -1,0 +1,207 @@
+<!doctype html>
+<html lang="en" data-mode="light">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>LinguaFusion — Offline</title>
+<!-- Everything is inline and local. This page ships inside the APK and must
+     render with no network of any kind, so there is nothing to fetch. -->
+<style>
+:root {
+  --bg:#f2e9dc; --surface:#fdf9f2; --line:#e3d6c0; --text:#2c241b;
+  --muted:#7a6a55; --accent:#b4522f; --on-accent:#fdf8f0; --warn-bg:#f7ecd9;
+  --radius:14px;
+}
+html[data-mode="dark"] {
+  --bg:#191021; --surface:#241830; --line:#3d2a4a; --text:#f6ebf1;
+  --muted:#b199ac; --accent:#e8577f; --on-accent:#1b0f18; --warn-bg:#2d1c3a;
+}
+* { box-sizing:border-box; -webkit-tap-highlight-color:transparent; }
+body { margin:0; background:var(--bg); color:var(--text); font:16px/1.6 system-ui,-apple-system,"Segoe UI",sans-serif; }
+main { padding:18px 18px 96px; max-width:640px; margin:auto; }
+header { display:flex; align-items:center; gap:10px; justify-content:space-between; margin-bottom:6px; }
+.brand { font-weight:750; font-size:20px; letter-spacing:-.4px; }
+.pill { border:1px solid var(--line); background:var(--surface); color:var(--text);
+        border-radius:20px; padding:6px 13px; font-size:13px; font-weight:600; }
+h2 { font-size:18px; margin:22px 0 10px; }
+p { margin:8px 0; }
+.hint { color:var(--muted); font-size:13px; }
+.card { background:var(--surface); border:1px solid var(--line); border-radius:var(--radius); padding:16px; margin:14px 0; }
+label { display:block; font-weight:600; font-size:13px; margin-top:14px; }
+select, textarea, button { font:inherit; }
+select, textarea { width:100%; min-height:46px; padding:10px; margin-top:6px; color:var(--text);
+                   background:var(--bg); border:1px solid var(--line); border-radius:9px; }
+textarea { resize:vertical; min-height:96px; }
+button { min-height:48px; padding:11px 18px; border:1px solid transparent; border-radius:10px;
+         background:var(--accent); color:var(--on-accent); font-weight:600; cursor:pointer; margin-top:14px; width:100%; }
+button.secondary { background:var(--surface); color:var(--text); border-color:var(--line); }
+button.slim { width:auto; min-height:40px; padding:8px 14px; font-size:14px; margin-top:0; }
+button:disabled { opacity:.55; }
+.row { display:flex; gap:10px; align-items:center; flex-wrap:wrap; }
+.row > * { margin-top:0; }
+.grid { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+.out { white-space:pre-wrap; overflow-wrap:anywhere; min-height:64px; padding:13px;
+       border:1px solid var(--line); border-radius:9px; background:var(--bg); margin-top:8px; }
+.warn { background:var(--warn-bg); border-left:3px solid var(--accent); padding:10px 13px;
+        border-radius:9px; font-size:14px; margin:12px 0; }
+.bar { height:7px; background:var(--line); border-radius:4px; overflow:hidden; margin-top:9px; }
+.bar > i { display:block; height:100%; width:0; background:var(--accent); transition:width .2s; }
+nav { position:fixed; left:0; right:0; bottom:0; display:flex; background:var(--bg);
+      border-top:1px solid var(--line); padding-bottom:env(safe-area-inset-bottom); }
+nav button { flex:1; margin:0; border-radius:0; background:transparent; color:var(--muted);
+             font-size:12px; font-weight:600; min-height:56px; border:none; }
+nav button[aria-current="true"] { color:var(--accent); }
+[hidden] { display:none !important; }
+.model { border:1px solid var(--line); border-radius:11px; padding:13px; margin:10px 0; }
+.model.chosen { border-color:var(--accent); border-width:2px; }
+.tag { font-size:12px; color:var(--muted); }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <span class="brand">LinguaFusion</span>
+    <span class="row">
+      <button class="pill slim" id="modeToggle" type="button">◐ Day</button>
+      <button class="pill slim secondary" id="leave" type="button">Exit</button>
+    </span>
+  </header>
+  <p class="hint" id="banner">Everything here runs on this phone. No network, no account, no cost.</p>
+
+  <!-- Speak -->
+  <section id="viewSpeak">
+    <h2>Speak</h2>
+    <div class="card">
+      <div class="grid">
+        <div>
+          <label for="fromLang">Spoken language</label>
+          <select id="fromLang"></select>
+        </div>
+        <div>
+          <label for="toLang">Translate into</label>
+          <select id="toLang"></select>
+        </div>
+      </div>
+      <label class="row" style="margin-top:16px;font-weight:400">
+        <input type="checkbox" id="alsoTranslate" checked style="width:20px;height:20px;margin:0">
+        <span>Translate what I say</span>
+      </label>
+      <button id="record" type="button">Start recording</button>
+      <p class="hint" id="speakStatus" role="status" aria-live="polite"></p>
+      <div id="pivotWarn" class="warn" hidden>
+        Neither language is English, so this is translated through English on the way.
+        Expect it to be rougher than a translation to or from English.
+      </div>
+      <h3 style="font-size:15px;margin:18px 0 0">Transcript</h3>
+      <div class="out" id="transcript"></div>
+      <div id="translationWrap" hidden>
+        <h3 style="font-size:15px;margin:18px 0 0">Translation</h3>
+        <div class="out" id="translation"></div>
+      </div>
+      <div class="row" style="margin-top:12px">
+        <button class="secondary slim" id="copyTranscript" type="button">Copy transcript</button>
+        <button class="secondary slim" id="copyTranslation" type="button">Copy translation</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Translate -->
+  <section id="viewTranslate" hidden>
+    <h2>Translate</h2>
+    <div class="card">
+      <div class="grid">
+        <div>
+          <label for="textFrom">From</label>
+          <select id="textFrom"></select>
+        </div>
+        <div>
+          <label for="textTo">Into</label>
+          <select id="textTo"></select>
+        </div>
+      </div>
+      <label for="sourceText">Text</label>
+      <textarea id="sourceText" placeholder="Type or paste text"></textarea>
+      <button id="translate" type="button">Translate</button>
+      <p class="hint" id="translateStatus" role="status" aria-live="polite"></p>
+      <div class="out" id="textResult"></div>
+      <button class="secondary slim" id="copyText" type="button" style="margin-top:12px">Copy</button>
+    </div>
+  </section>
+
+  <!-- Read -->
+  <section id="viewRead" hidden>
+    <h2>Read a picture</h2>
+    <div class="card">
+      <p class="hint">Reads text out of a photo or screenshot, on this phone.</p>
+      <div class="warn" id="readLimits">
+        Latin letters only offline, so English, German, Spanish and French.
+        Arabic script cannot be read without the cloud.
+      </div>
+      <button id="readPicture" type="button">Choose a picture</button>
+      <p class="hint" id="readStatus" role="status" aria-live="polite"></p>
+      <div class="out" id="readResult"></div>
+      <div class="row" style="margin-top:12px">
+        <button class="secondary slim" id="copyRead" type="button">Copy</button>
+        <button class="secondary slim" id="sendReadToTranslate" type="button">Translate this</button>
+      </div>
+    </div>
+  </section>
+
+  <!-- Say it -->
+  <section id="viewSay" hidden>
+    <h2>Say it</h2>
+    <div class="card">
+      <p class="hint">Shows roughly how Arabic, Hindi or Odia text looks in Latin
+        letters. A reading aid, not a translation, and it never replaces the original.</p>
+      <div class="warn" id="sayLimits" hidden>
+        This phone is too old to do that offline; it needs Android 10 or newer.
+      </div>
+      <label for="sayLang">Language of the text</label>
+      <select id="sayLang"></select>
+      <label for="sayText">Text in that language</label>
+      <textarea id="sayText" dir="auto" placeholder="Paste Arabic, Hindi or Odia text"></textarea>
+      <button id="romanize" type="button">Write it in Latin letters</button>
+      <p class="hint" id="sayStatus" role="status" aria-live="polite"></p>
+      <div class="out" id="sayResult" dir="ltr"></div>
+      <p class="hint">Offline this maps letter to letter, so it shows which letters
+        are there rather than how a speaker would say them. Short vowels missing
+        from written Arabic stay missing. The cloud's guide reads better.</p>
+      <button class="secondary slim" id="copySay" type="button" style="margin-top:6px">Copy</button>
+    </div>
+  </section>
+
+  <!-- Storage -->
+  <section id="viewStorage" hidden>
+    <h2>Storage</h2>
+    <p class="hint">Speech models and language packs live on this phone. Download them
+      once, over Wi-Fi, and they keep working with no signal at all.</p>
+
+    <h3 style="font-size:15px;margin-top:20px">Speech model</h3>
+    <p class="hint">One model covers every language below, so adding a language later
+      needs no new download.</p>
+    <div id="models"></div>
+
+    <h3 style="font-size:15px;margin-top:24px">Translation packs</h3>
+    <p class="hint">About 30 MB each. English is required by all the others and cannot be removed.</p>
+    <div id="packs"></div>
+    <p class="hint" id="storageStatus" role="status" aria-live="polite"></p>
+
+    <h3 style="font-size:15px;margin-top:24px">This app</h3>
+    <p class="hint">The app offers an update whenever it starts. This asks now.
+      Checking needs a connection; installing an update does too.</p>
+    <button class="secondary" id="checkUpdate" type="button">Check for updates</button>
+    <p class="hint" id="updateStatus" role="status" aria-live="polite"></p>
+  </section>
+</main>
+
+<nav>
+  <button type="button" data-view="viewSpeak" aria-current="true">Speak</button>
+  <button type="button" data-view="viewTranslate">Translate</button>
+  <button type="button" data-view="viewRead">Read</button>
+  <button type="button" data-view="viewSay">Say it</button>
+  <button type="button" data-view="viewStorage">Storage</button>
+</nav>
+
+<script src="app.js"></script>
+</body>
+</html>

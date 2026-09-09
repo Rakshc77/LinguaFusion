@@ -66,12 +66,24 @@ def main():
             if any(re.search(pattern, archive.read(name)) for pattern in SECRET_PATTERNS):
                 raise SystemExit('APK entry contains credential-shaped data; refusing to publish it.')
 
+    # The version the app compares against its own, so it can offer an update
+    # instead of expecting someone to notice one exists and reinstall by hand.
+    badging = subprocess.run([str(sorted((sdk / 'build-tools').glob('*/aapt2.exe'),
+                                         reverse=True)[0]), 'dump', 'badging', str(SOURCE)],
+                             capture_output=True, text=True)
+    version = re.search(r"versionCode='(\d+)' versionName='([^']*)'", badging.stdout)
+    if not version:
+        raise SystemExit('Could not read the version out of the APK; refusing to '
+                         'publish metadata the updater would misread.')
+
     digest = hashlib.sha256(payload).hexdigest()
     shutil.copy2(SOURCE, TARGET)
     DETAILS.write_text(json.dumps({
         'file': TARGET.name,
         'bytes': len(payload),
         'sha256': digest,
+        'versionCode': int(version.group(1)),
+        'versionName': version.group(2),
         'published_at': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
         'signing': 'debug keystore',
     }, indent=1) + '\n', encoding='utf-8')
