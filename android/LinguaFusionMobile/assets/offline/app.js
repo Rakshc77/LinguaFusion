@@ -343,6 +343,23 @@ function renderPacks() {
   }
 }
 
+/* ---------- updates ---------- */
+
+async function checkForUpdate() {
+  $('checkUpdate').disabled = true;
+  say('updateStatus', 'Checking…');
+  const result = await ask('checkForUpdate', null);
+  $('checkUpdate').disabled = false;
+  if (result.available) {
+    // The app puts its own dialog up; this line is for anyone who dismisses it.
+    say('updateStatus', `Version ${result.versionName} is available (${result.megabytes} MB).`);
+  } else {
+    // A failed check is indistinguishable from being current, so say the
+    // thing that is true either way rather than claiming to be up to date.
+    say('updateStatus', 'Nothing newer was offered. If you are offline, try again on a connection.');
+  }
+}
+
 /* ---------- wiring ---------- */
 
 async function refresh() {
@@ -418,6 +435,7 @@ function start() {
   $('copyRead').onclick = () => copy($('readResult').textContent, 'readStatus');
   $('romanize').onclick = romanize;
   $('copySay').onclick = () => copy($('sayResult').textContent, 'sayStatus');
+  $('checkUpdate').onclick = checkForUpdate;
 
   refresh();
 }

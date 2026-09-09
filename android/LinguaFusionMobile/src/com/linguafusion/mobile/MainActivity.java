@@ -572,6 +572,23 @@ public final class MainActivity extends Activity {
                 }
             });
         }
+        @Override public void checkForUpdate(String requestId){
+            executor.execute(() -> {
+                AppUpdate updater=new AppUpdate(MainActivity.this,CLOUD_BASE);
+                AppUpdate.Available update=updater.check();
+                String json;
+                try{
+                    JSONObject answer=new JSONObject().put("available",update!=null);
+                    if(update!=null)answer.put("versionName",update.versionName)
+                        .put("megabytes",update.megabytes());
+                    json=answer.toString();
+                }catch(Exception impossible){json="{}";}
+                resolve(requestId,json);
+                // An explicit check bypasses the once-per-launch guard, so
+                // saying "Not now" earlier does not silence this one.
+                if(update!=null)runOnUiThread(() -> showUpdateOffer(updater,update));
+            });
+        }
         @Override public void leaveOfflineMode(){
             runOnUiThread(() -> {
                 String before=preferences.getString("mode.before","");

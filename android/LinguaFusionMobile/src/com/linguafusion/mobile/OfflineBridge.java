@@ -46,6 +46,9 @@ final class OfflineBridge {
 
         /** Opens the picture chooser; the answer arrives on this request id. */
         void pickImageForText(String requestId);
+
+        /** Looks for a newer build now, rather than waiting for a relaunch. */
+        void checkForUpdate(String requestId);
     }
 
     private final Host host;
@@ -294,6 +297,14 @@ final class OfflineBridge {
                 host.resolve(requestId, "{}");
             }
         });
+    }
+
+    /** The app offers an update on each launch. This is for the person who
+     *  said "Not now" and changed their mind, who would otherwise have to
+     *  close and reopen the app to be asked again. */
+    @JavascriptInterface
+    public void checkForUpdate(String requestId) {
+        host.checkForUpdate(requestId);
     }
 
     @JavascriptInterface
