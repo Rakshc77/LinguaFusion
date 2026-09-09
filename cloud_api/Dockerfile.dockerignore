@@ -24,6 +24,8 @@
 !cloud_api/web/manifest.webmanifest
 !cloud_api/web/icon.svg
 !cloud_api/web/sw.js
+!cloud_api/web/updates.mjs
+!cloud_api/web/app-version.json
 !cloud_api/web/themes.mjs
 !cloud_api/web/linguafusion-themes.css
 !cloud_api/web/linguafusion-android.apk

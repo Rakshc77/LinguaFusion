@@ -6,7 +6,8 @@ Updated: September 9, 2026.
 
 The owner approved the Studio and Minimal preview designs and requested
 implementation and an up-to-date Codex handover. Source work is on
-`codex/studio-minimal-appearance`, based on cloud checkpoint `4947729`.
+`codex/studio-minimal-appearance`, based on cloud checkpoint `4947729`, now merged with Claude’s GitHub
+checkpoint `4afa66a` (owner monthly pricing reminder and provider diagnostics).
 First appearance commit: `172c426`; subsequent UI polish and this handover are
 recorded in the branch’s latest commit. Check `git log -3 --oneline`.
 
@@ -48,7 +49,9 @@ Day/Night and font selections are independent. Studio day is Warm Editorial
 parchment/brown/terracotta; Studio night is Sunset rose/plum; Minimal is neutral
 in both modes. See DESIGN.md for exact tokens.
 
-Added Day/Night selector in Account > Appearance and a header mode toggle, legacy preference migration,
+Settings > Appearance offers theme and typography. The redundant Day/Night
+selector has been removed; the header pill remains the single mode control.
+Added legacy preference migration,
 blocked-storage tolerance and theme-color metadata updates. Added “Match the
 look” typography: Studio has editorial headings/results, Minimal sans-serif.
 Existing chosen fonts are preserved. Replaced navigation emoji with inline line
@@ -56,11 +59,26 @@ icons, refined headings/result surfaces and spacing, retained all feature,
 authorization, consent, recording and export controls. Updated manifest colors
 and static cache version. The historical desktop/PC-paired themes were not changed.
 
+## Online update control
+
+Settings now contains App updates, showing Online interface version
+`2026.09.09.2`. Check for updates fetches public uncached metadata with a timeout.
+A different release offers an explicit Reload and update action; checking alone
+does not reload. Active recording or processing blocks reload, and the UI warns
+that unsaved text/results must be copied or downloaded first. Service-worker
+activation completes before reload where supported. Errors leave the page open.
+This updates the hosted interface, not the signed Android APK or offline models.
+For each interface release, bump `APP_VERSION` in `updates.mjs`,
+`app-version.json`, and the cache version in `sw.js` together.
+
+User-facing native Android Cloud labels now say Online in source. Native labels
+require a signed APK rebuild; the current APK was not rebuilt or replaced.
+
 ## Validation in this workspace
 
-- 141 Python cloud tests pass; 8 invite-image tests skip because optional qrcode
+- 146 Python cloud tests pass; 8 invite-image tests skip because optional qrcode
   and Pillow dependencies are absent.
-- 45 Node tests pass, including three appearance behavior tests and existing
+- 54 Node tests pass, including three appearance behavior tests and existing
   recording/auth/client tests.
 - Browser-rendered all four palettes at 412px width using the shipped HTML/CSS
   with synthetic transcript content; no horizontal overflow. This is visual
@@ -89,7 +107,7 @@ on the S26 Ultra; validate Arabic dialects, noise, latency, heat and battery.
 Start with record -> stop -> transcribe -> translate, not live streaming.
 
 Required work: maintainable Android dependency/NDK build, packaged offline UI
-that does not require cloud sign-in, explicit Cloud/Offline selection, resumable
+that does not require cloud sign-in, explicit Online/Offline selection, resumable
 verified model downloads/removal, storage display, local inference lifecycle
 and cancellation, and airplane-mode cold-start tests. Additional supported
 translation languages can use downloaded packs; Whisper-supported languages
@@ -105,7 +123,9 @@ No OpenRouter dashboard settings were changed by this session.
 Last known handoff snapshot (September 8, NOT a live balance): shared lifetime
 ceiling USD 27, committed/held USD 0.46, remaining USD 26.54. This is an application
 ledger, not a provider invoice. Do not reset it. Google hosting charges are separate.
-Provider price-review expiry recorded as October 8, 2026.
+Claude’s `4afa66a` removes the October 8 hard stop. The owner now gets a monthly
+pricing-review reminder and can acknowledge review; provider limits remain.
+Owner-only failure diagnostics are preserved.
 
 ## Next steps
 

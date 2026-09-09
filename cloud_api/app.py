@@ -425,7 +425,7 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
                          'cloud-client.mjs', 'pronunciation.mjs', 'wav.mjs',
                          'manifest.webmanifest', 'icon.svg', 'sw.js',
                          'linguafusion-android.apk', 'android-app.json',
-                         'themes.mjs', 'linguafusion-themes.css'}:
+                         'themes.mjs', 'linguafusion-themes.css', 'updates.mjs', 'app-version.json'}:
             raise HTTPException(404, 'Not found.')
         media = {'css': 'text/css', 'svg': 'image/svg+xml',
                  'webmanifest': 'application/manifest+json', 'json': 'application/json',

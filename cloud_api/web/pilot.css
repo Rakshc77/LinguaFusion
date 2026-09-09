@@ -197,3 +197,6 @@ input:not([type=checkbox]),select,textarea { border-radius:var(--radius); }
 
 .app-head .mode-toggle { margin:0 0 0 auto; min-height:44px; padding:8px 16px; border-radius:999px; font-size:13px; background:var(--lf-chip-bg); }
 .app-head .account-chip:not(:empty) { flex-basis:100%; font-size:12px; text-align:left; }
+
+.update-panel { margin-top:28px; padding-top:16px; border-top:1px solid var(--line); }
+#updateStatus { font-size:14px; color:var(--muted); overflow-wrap:anywhere; }

@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-  <title>LinguaFusion — Cloud</title>
+  <title>LinguaFusion — Online</title>
   <link rel="stylesheet" href="/pilot/linguafusion-themes.css">
   <link rel="stylesheet" href="/pilot/pilot.css">
   <link rel="manifest" href="/pilot/manifest.webmanifest">
@@ -16,7 +16,7 @@
     <!-- Everything anyone needs BEFORE they are approved. Hidden entirely once
          they are in, so the working app is not buried under setup text. -->
     <div id="onboarding">
-      <header><span class="brand">Lingua<span class="brand-accent">Fusion</span></span><span class="badge">Cloud</span></header>
+      <header><span class="brand">Lingua<span class="brand-accent">Fusion</span></span><span class="badge">Online</span></header>
       <h1>Your words. A little further.</h1>
       <p class="intro">Translation, pronunciation guides, speech to text, and reading text from pictures.</p>
       <aside><strong>Before you sign in</strong><p>Sign-in connects to Google Firebase. Translation, pronunciation, speech and picture reading send what you submit to an external AI provider. Your PC app and pairing settings are unchanged.</p></aside>
@@ -211,7 +211,7 @@
       </section>
 
       <section class="view" id="viewAccount" hidden aria-labelledby="accountTitle">
-        <h2 id="accountTitle">Account</h2>
+        <h2 id="accountTitle">Settings</h2>
         <p id="accountEmail" class="hint"></p>
         <p id="spending" role="status">Loading your usage…</p>
         <p class="hint">USD estimates from recorded API use — not the provider’s final invoice. Hosting, taxes and API use outside this app are excluded. Unresolved holds stay deducted from the budget.</p>
@@ -220,14 +220,23 @@
 
         <section aria-labelledby="appearanceTitle">
           <h3 id="appearanceTitle">Appearance</h3>
-          <p class="hint">Choose Studio or Minimal, then set your mode and typeface. Each choice is remembered on this device.</p>
+          <p class="hint">Choose Studio or Minimal and a typeface. Use the top pill to switch between day and night.</p>
           <label for="themeChoice">Look</label>
           <select id="themeChoice"></select>
-          <label for="modeChoice">Mode</label>
-          <select id="modeChoice"><option value="light">Day</option><option value="dark">Night</option></select>
           <label for="fontChoice">Typeface</label>
           <select id="fontChoice"></select>
           <p class="hint">Typefaces use what is already on your device, so nothing is downloaded and this keeps working offline.</p>
+        </section>
+
+        <section class="update-panel" aria-labelledby="updatesTitle">
+          <h3 id="updatesTitle">App updates</h3>
+          <p class="hint">Online mode · <span id="appVersion"></span></p>
+          <button id="checkUpdates" class="secondary" type="button">Check for updates</button>
+          <p id="updateStatus" role="status" aria-live="polite"></p>
+          <div id="updateOffer" hidden>
+            <p class="hint">Updating reloads the interface and clears unsaved text and results. Copy or download anything you want to keep first.</p>
+            <button id="applyUpdate" type="button">Reload and update</button>
+          </div>
         </section>
 
         <section id="ownerPanel" hidden aria-labelledby="ownerTitle">
@@ -258,7 +267,7 @@
             <label for="policyUid">Firebase user UID</label>
             <input id="policyUid" required maxlength="128" placeholder="e.g. kLqjJka0cHXTCZX0TQxA2QMlzKi1" autocomplete="off" spellcheck="false">
             <p class="hint">A Firebase UID, not an email address. You normally do not need this: approve people from Access requests above and the UID is filled in for you.</p>
-            <label class="check"><input id="policyEnabled" type="checkbox"> Permit cloud access</label>
+            <label class="check"><input id="policyEnabled" type="checkbox"> Permit online access</label>
             <label for="policyRequests">Monthly attempted-request limit</label>
             <input id="policyRequests" type="number" min="0" max="10000" step="1" value="540" required>
             <label for="policyBudget">Monthly API budget (USD)</label>
@@ -275,7 +284,7 @@
         <button id="navRead" type="button" class="nav-item" data-view="viewRead"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg><span>Read</span></button>
         <button id="navSay" type="button" class="nav-item" data-view="viewSay"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4m4-7v10m4-14v18m4-14v10m4-7v4"/></svg><span>Say it</span></button>
         <button id="navModels" type="button" class="nav-item" data-view="viewModels"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5m-18 5 9 5 9-5"/></svg><span>Model</span></button>
-        <button id="navAccount" type="button" class="nav-item" data-view="viewAccount"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3Z"/></svg><span>Account</span></button>
+        <button id="navAccount" type="button" class="nav-item" data-view="viewAccount"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3Z"/></svg><span>Settings</span></button>
       </nav>
     </div>
 

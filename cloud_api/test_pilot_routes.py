@@ -483,7 +483,9 @@ def test_the_cloud_app_offers_studio_minimal_and_every_font():
     assert re.findall(r'id:"([a-z-]+)"', registry) == ['studio', 'minimal']
     fonts = re.findall(r'id:"([a-z]+)", name:"[^\"]+", group:"(?:Sans|Serif|Monospace)"', module)
     assert set(fonts) == {'modern', 'friendly', 'accessible', 'editorial', 'classic', 'technical'}
-    assert 'id="modeChoice"' in (web / 'index.html').read_text()
+    html = (web / 'index.html').read_text()
+    assert 'id="modeChoice"' not in html
+    assert 'id="modeToggle"' in html
 
 
 def test_appearance_survives_storage_being_unavailable():
@@ -568,3 +570,16 @@ def test_the_microphone_is_released_and_retried_before_giving_up():
     assert handler.index('captureStarting ||') < handler.index('await openMicrophone()'), 'serialize starts'
     assert 'audio: true' in body, 'a plain request must be tried as a fallback'
     assert "'NotAllowedError'" in body, 'a refused permission must not be retried pointlessly'
+
+
+def test_online_update_assets_are_public_and_uncached():
+    client, _, _ = build(ok_completion())
+    with client:
+        metadata = client.get('/pilot/app-version.json')
+        assert metadata.status_code == 200
+        assert metadata.json()['version'] == '2026.09.09.2'
+        assert 'no-store' in metadata.headers['cache-control']
+        module = client.get('/pilot/updates.mjs')
+        assert module.status_code == 200
+        assert module.headers['content-type'].startswith('text/javascript')
+        assert client.get('/pilot/updates.test.mjs').status_code == 404

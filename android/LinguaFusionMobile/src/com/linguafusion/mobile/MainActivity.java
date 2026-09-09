@@ -233,8 +233,8 @@ public final class MainActivity extends Activity {
         TextView help=text("Scan a one-time invitation from the owner to connect over HTTPS from anywhere, or use the private-network backend address.",13,false); help.setTextColor(Color.rgb(102,112,133)); margin(help,18); root.addView(help);
 
         TextView cloudTitle=text("No PC to connect to?",15,true); margin(cloudTitle,26); root.addView(cloudTitle);
-        TextView cloudHelp=text("Use the owner's cloud service instead: translation, pronunciation guides, speech and reading text from pictures. You create an account and the owner approves it by hand. No pairing key needed.",13,false); cloudHelp.setTextColor(Color.rgb(102,112,133)); margin(cloudHelp,6); root.addView(cloudHelp);
-        Button cloudButton=new Button(this); cloudButton.setText("Use LinguaFusion Cloud"); cloudButton.setTextSize(15); cloudButton.setAllCaps(false); cloudButton.setTextColor(Color.rgb(11,87,208)); cloudButton.setBackground(background(Color.WHITE,Color.rgb(11,87,208),10)); margin(cloudButton,14); root.addView(cloudButton,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));
+        TextView cloudHelp=text("Use Online mode instead: translation, pronunciation guides, speech and reading text from pictures. You create an account and the owner approves it by hand. No pairing key needed.",13,false); cloudHelp.setTextColor(Color.rgb(102,112,133)); margin(cloudHelp,6); root.addView(cloudHelp);
+        Button cloudButton=new Button(this); cloudButton.setText("Use LinguaFusion Online"); cloudButton.setTextSize(15); cloudButton.setAllCaps(false); cloudButton.setTextColor(Color.rgb(11,87,208)); cloudButton.setBackground(background(Color.WHITE,Color.rgb(11,87,208),10)); margin(cloudButton,14); root.addView(cloudButton,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));
         cloudButton.setOnClickListener(view -> {
             // isTrustedOrigin() checks the microphone request against "server",
             // so the cloud origin is recorded there. The pairing key stays empty:
@@ -521,7 +521,7 @@ public final class MainActivity extends Activity {
         if(cloudRecorderDialog!=null || requestId==null || !requestId.matches("[a-zA-Z0-9-]{1,80}"))return;
         AlertDialog dialog=new AlertDialog.Builder(this)
             .setTitle("Record speech")
-            .setMessage("Up to 60 seconds. Stop and send uploads audio for paid cloud transcription. Cancel discards it.")
+            .setMessage("Up to 60 seconds. Stop and send uploads audio for paid online transcription. Cancel discards it.")
             .setPositiveButton("Start",null).setNegativeButton("Cancel",null).create();
         cloudRecorderDialog=dialog;
         final boolean[] delivered={false};
@@ -546,7 +546,7 @@ public final class MainActivity extends Activity {
             if("PERMISSION_REQUIRED".equals(result)){
                 dialog.setMessage("Allow microphone access, then tap Start again.");
             }else if(!"OK".equals(result)){
-                dialog.setMessage(result+" You can also use the cloud website in Chrome.");
+                dialog.setMessage(result+" You can also use the Online app in Chrome.");
             }else{
                 dialog.setMessage("Recording. Stop and send when ready; automatically stops at 60 seconds.");
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).setText("Stop and send");
@@ -568,7 +568,7 @@ public final class MainActivity extends Activity {
         applySystemBarTheme(false);
         ScrollView scroll=new ScrollView(this); scroll.setFillViewport(true); scroll.setBackgroundColor(Color.rgb(246,248,252));
         LinearLayout root=new LinearLayout(this); root.setOrientation(LinearLayout.VERTICAL); root.setPadding(dp(24),dp(54),dp(24),dp(32)); scroll.addView(root);
-        TextView title=text("LinguaFusion Cloud is unreachable",24,true); root.addView(title);
+        TextView title=text("LinguaFusion Online is unreachable",24,true); root.addView(title);
         TextView reason=text(detail,14,false); reason.setTextColor(Color.rgb(102,112,133)); margin(reason,12); root.addView(reason);
         TextView hint=text("Check this phone's internet connection. If it keeps failing, the owner may have stopped the service.",13,false); hint.setTextColor(Color.rgb(102,112,133)); margin(hint,10); root.addView(hint);
         Button retry=new Button(this); retry.setText("Try again"); retry.setAllCaps(false); retry.setTextSize(15); retry.setTextColor(Color.WHITE); retry.setBackground(background(Color.rgb(11,87,208),Color.TRANSPARENT,10)); margin(retry,22); root.addView(retry,new LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT,dp(50)));

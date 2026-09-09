@@ -1,8 +1,9 @@
+import { APP_VERSION, checkForUpdate, activateUpdate } from './updates.mjs';
 import { createCloudAuth } from './cloud-auth.mjs';
 import { createCloudClient } from './cloud-client.mjs';
 import { PRONUNCIATION_LANGUAGES, pronunciationView, validateRequest } from './pronunciation.mjs';
 import { buildWav, MAX_SECONDS } from './wav.mjs';
-import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, getFont, getTheme, getMode, applyMode, initAppearance } from './themes.mjs';
+import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, getFont, getTheme, applyMode, initAppearance } from './themes.mjs';
 
 const $ = id => document.getElementById(id);
 const auth = createCloudAuth();
@@ -45,15 +46,12 @@ for (const theme of CLOUD_THEMES) $('themeChoice').add(new Option(theme.name, th
 for (const font of LF_FONTS) $('fontChoice').add(new Option(font.name, font.id));
 $('themeChoice').value = getTheme();
 $('fontChoice').value = getFont();
-$('modeChoice').value = getMode();
 function syncModeControl() {
   const mode = document.documentElement.dataset.mode;
-  $('modeChoice').value = mode;
   $('modeToggle').textContent = mode === 'dark' ? 'Night' : 'Day';
   $('modeToggle').setAttribute('aria-label', mode === 'dark' ? 'Switch to day mode' : 'Switch to night mode');
 }
 syncModeControl();
-$('modeChoice').addEventListener('change', () => { applyMode($('modeChoice').value); syncModeControl(); });
 $('modeToggle').addEventListener('click', () => {
   applyMode(document.documentElement.dataset.mode === 'dark' ? 'light' : 'dark');
   syncModeControl();
@@ -995,6 +993,59 @@ fillFormats($('transcriptFormat'), ['txt', 'md']);
 fillFormats($('translationFormat'), ['txt', 'md']);
 fillFormats($('ocrFormat'), ['txt', 'md']);
 fillFormats($('pronounceFormat'), ['txt', 'md']);
+
+// Online-interface updates use public release metadata, never a paid API.
+$('appVersion').textContent = APP_VERSION;
+let offeredUpdate = null;
+let updateBusy = false;
+$('checkUpdates').addEventListener('click', async () => {
+  if (updateBusy) return;
+  updateBusy = true;
+  $('checkUpdates').disabled = true;
+  $('updateOffer').hidden = true;
+  offeredUpdate = null;
+  $('updateStatus').textContent = 'Checking for updates…';
+  try {
+    const result = await checkForUpdate();
+    offeredUpdate = result.available ? result : null;
+    $('updateOffer').hidden = !result.available;
+    $('updateStatus').textContent = result.available
+      ? `Version ${result.version} is available.`
+      : `You’re up to date. Version ${APP_VERSION}.`;
+  } catch {
+    $('updateStatus').textContent = 'Could not check for updates. Check your internet connection and try again.';
+  } finally { updateBusy = false; $('checkUpdates').disabled = false; }
+});
+function updateActivityInProgress() {
+  return capture || captureStarting || nativeRecording || transcribing || translating || pronouncing || submitting || $('runOcr').disabled;
+}
+$('applyUpdate').addEventListener('click', async () => {
+  if (updateBusy || !offeredUpdate) return;
+  if (updateActivityInProgress()) {
+    $('updateStatus').textContent = 'Finish the current recording or processing before updating.';
+    return;
+  }
+  updateBusy = true;
+  $('applyUpdate').disabled = true;
+  $('checkUpdates').disabled = true;
+  $('updateStatus').textContent = 'Preparing the update…';
+  try {
+    await activateUpdate();
+    if (updateActivityInProgress()) {
+      $('updateStatus').textContent = 'Finish the current recording or processing before updating.';
+      updateBusy = false;
+      $('applyUpdate').disabled = false;
+      $('checkUpdates').disabled = false;
+      return;
+    }
+    window.location.reload();
+  } catch {
+    $('updateStatus').textContent = 'The update could not be prepared. Your work is still here. Try again.';
+    updateBusy = false;
+    $('applyUpdate').disabled = false;
+    $('checkUpdates').disabled = false;
+  }
+});
 
 // --- Android offer and offline shell -----------------------------------------
 
