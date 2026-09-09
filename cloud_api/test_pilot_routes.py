@@ -686,6 +686,17 @@ def test_the_app_can_be_installed_on_an_iphone_with_its_own_icon():
     assert icon.is_file(), 'no PNG icon; iOS will not use icon.svg'
     assert icon.read_bytes()[:8] == b'\x89PNG\r\n\x1a\n', 'not actually a PNG'
 
+    # And it must actually be served: the app hands out a fixed allowlist, so a
+    # file can exist, be referenced, ship in the image, and still 404.
+    client, _, _ = build(ok_completion())
+    with client:
+        for name, kind in [('apple-touch-icon.png', 'image/png'),
+                           ('icon-192.png', 'image/png'),
+                           ('icon-512.png', 'image/png')]:
+            served = client.get('/pilot/' + name)
+            assert served.status_code == 200, f'{name} is not served'
+            assert served.headers['content-type'].startswith(kind), name
+
     html = (web / 'index.html').read_text(encoding='utf-8')
     assert 'rel="apple-touch-icon"' in html
     assert 'apple-mobile-web-app-capable' in html

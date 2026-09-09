@@ -425,9 +425,10 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
                          'cloud-client.mjs', 'pronunciation.mjs', 'wav.mjs',
                          'manifest.webmanifest', 'icon.svg', 'sw.js',
                          'linguafusion-android.apk', 'android-app.json',
-                         'themes.mjs', 'linguafusion-themes.css', 'updates.mjs', 'app-version.json'}:
+                         'themes.mjs', 'linguafusion-themes.css', 'updates.mjs', 'app-version.json',
+                         'apple-touch-icon.png', 'icon-192.png', 'icon-512.png'}:
             raise HTTPException(404, 'Not found.')
-        media = {'css': 'text/css', 'svg': 'image/svg+xml',
+        media = {'css': 'text/css', 'svg': 'image/svg+xml', 'png': 'image/png',
                  'webmanifest': 'application/manifest+json', 'json': 'application/json',
                  'apk': 'application/vnd.android.package-archive'}.get(
                      asset.rsplit('.', 1)[-1], 'text/javascript')
