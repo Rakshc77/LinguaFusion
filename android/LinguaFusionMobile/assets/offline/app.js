@@ -11,6 +11,12 @@
  */
 'use strict';
 
+// The same appearance module the online app uses, copied into the APK. Look,
+// day/night and typeface therefore behave identically in both modes and a
+// choice made in one is the choice the other starts from.
+import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, applyMode,
+         getFont, getMode, getTheme, initAppearance } from './themes.mjs';
+
 const native = window.LinguaFusionOffline;
 const $ = (id) => document.getElementById(id);
 
@@ -57,18 +63,11 @@ let busy = false;
 
 /* ---------- appearance ---------- */
 
-function applyMode(mode) {
-  document.documentElement.dataset.mode = mode;
-  $('modeToggle').textContent = mode === 'dark' ? '◐ Night' : '◐ Day';
-  try { localStorage.setItem('offline-mode', mode); } catch { /* private mode */ }
-}
-
-function storedMode() {
-  try {
-    const saved = localStorage.getItem('offline-mode');
-    if (saved === 'dark' || saved === 'light') return saved;
-  } catch { /* private mode */ }
-  return matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+function showMode(mode) {
+  const night = applyMode(mode) === 'dark';
+  $('modeToggle').textContent = night ? 'Night' : 'Day';
+  $('modeToggle').setAttribute('aria-label',
+    night ? 'Switch to day mode' : 'Switch to night mode');
 }
 
 /* ---------- helpers ---------- */
@@ -352,10 +351,11 @@ async function checkForUpdate() {
   $('checkUpdate').disabled = false;
   if (result.available) {
     // The app puts its own dialog up; this line is for anyone who dismisses it.
-    say('updateStatus', `Version ${result.versionName} is available (${result.megabytes} MB).`);
+    say('updateStatus', `Version ${result.versionName} is available (${result.megabytes} MB). `
+      + 'Nothing installs until you confirm.');
   } else {
-    // A failed check is indistinguishable from being current, so say the
-    // thing that is true either way rather than claiming to be up to date.
+    // A failed check and being current are indistinguishable from here, so do
+    // not claim to be up to date.
     say('updateStatus', 'Nothing newer was offered. If you are offline, try again on a connection.');
   }
 }
@@ -404,14 +404,22 @@ function show(view) {
     $(section).hidden = section !== view;
   }
   for (const button of document.querySelectorAll('nav button')) {
-    button.setAttribute('aria-current', String(button.dataset.view === view));
+    const here = button.dataset.view === view;
+    button.classList.toggle('active', here);
+    button.setAttribute('aria-current', String(here));
   }
 }
 
 function start() {
-  applyMode(storedMode());
-  $('modeToggle').onclick = () =>
-    applyMode(document.documentElement.dataset.mode === 'dark' ? 'light' : 'dark');
+  initAppearance();
+  showMode(getMode());
+  for (const theme of CLOUD_THEMES) $('themeChoice').add(new Option(theme.name, theme.id));
+  for (const font of LF_FONTS) $('fontChoice').add(new Option(font.name, font.id));
+  $('themeChoice').value = getTheme();
+  $('fontChoice').value = getFont();
+  $('themeChoice').onchange = () => applyTheme($('themeChoice').value);
+  $('fontChoice').onchange = () => applyFont($('fontChoice').value);
+  $('modeToggle').onclick = () => showMode(getMode() === 'dark' ? 'light' : 'dark');
   $('leave').onclick = () => native.leaveOfflineMode();
 
   for (const button of document.querySelectorAll('nav button')) {

@@ -65,7 +65,7 @@ $('fontChoice').addEventListener('change', () => applyFont($('fontChoice').value
 function revealOfflineModeWhenAvailable(attempt = 0) {
   if (window.LFNativeOfflineMode === true) {
     $('goOffline').hidden = false;
-    $('apkUpdateRow').hidden = false;
+    $('apkUpdateNote').hidden = false;
     // Only the app knows its own version, and only newer builds report it.
     // Older ones say nothing rather than showing a label that never resolves.
     const installed = window.LFNativeAppVersion;
@@ -91,10 +91,6 @@ $('goOffline').addEventListener('click', () => {
 
 // The installed app, as opposed to this page. The app intercepts the scheme,
 // compares its own versionCode against what is published, and shows its own
-// dialog; nothing about the APK is decided here.
-$('checkApkUpdate').addEventListener('click', () => {
-  window.location.assign('linguafusion-update://check');
-});
 
 // Status goes wherever the person is actually looking.
 function status(message) {
@@ -1042,6 +1038,13 @@ $('checkUpdates').addEventListener('click', async () => {
   $('updateOffer').hidden = true;
   offeredUpdate = null;
   $('updateStatus').textContent = 'Checking for updates…';
+  // Inside the app there are two things that can be out of date: this
+  // interface, and the installed app carrying the offline engines. One button
+  // asks about both. The app answers in its own dialog, and only when asked --
+  // it never interrupts on launch.
+  if (window.LFNativeOfflineMode === true) {
+    window.location.assign('linguafusion-update://check');
+  }
   try {
     const result = await checkForUpdate();
     offeredUpdate = result.available ? result : null;

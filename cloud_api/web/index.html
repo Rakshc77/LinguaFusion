@@ -243,11 +243,9 @@
             <p class="hint">Updating reloads the interface and clears unsaved text and results. Copy or download anything you want to keep first.</p>
             <button id="applyUpdate" type="button">Reload and update</button>
           </div>
-          <div id="apkUpdateRow" hidden>
-            <p class="hint"><span id="apkVersion"></span>This is the app itself, not the
-              interface above: it carries the offline speech and translation engines.</p>
-            <button id="checkApkUpdate" class="secondary" type="button">Check for an app update</button>
-          </div>
+          <p class="hint" id="apkUpdateNote" hidden><span id="apkVersion"></span>Checking
+            also asks whether the installed app itself has a newer version. Nothing
+            downloads or installs until you confirm.</p>
         </section>
 
         <section id="ownerPanel" hidden aria-labelledby="ownerTitle">

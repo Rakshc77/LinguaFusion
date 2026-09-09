@@ -604,6 +604,23 @@ def test_online_update_assets_are_public_and_uncached():
         assert client.get('/pilot/updates.test.mjs').status_code == 404
 
 
+def test_there_is_one_update_button_covering_both_things():
+    # There are two things that can be out of date -- this interface, and the
+    # installed app carrying the offline engines. Two buttons for that was
+    # confusing on the phone; one asks about both.
+    import pathlib
+    import re
+    web = pathlib.Path(__file__).parent / 'web'
+    html = (web / 'index.html').read_text(encoding='utf-8')
+    module = (web / 'pilot.mjs').read_text(encoding='utf-8')
+    buttons = re.findall(r'<button id="(check[A-Za-z]*[Uu]pdate[A-Za-z]*)"', html)
+    assert buttons == ['checkUpdates'], f'expected one update button, found {buttons}'
+    handler = module[module.index("$('checkUpdates').addEventListener"):]
+    handler = handler[:handler.index('\n});')]
+    assert "linguafusion-update://check" in handler,         'the one button must also ask the installed app'
+    assert 'LFNativeOfflineMode === true' in handler,         'and only inside the app, where that scheme means something'
+
+
 def test_hosted_app_restores_the_original_phone_only_offline_handoff():
     import pathlib
     root = pathlib.Path(__file__).parent / 'web'

@@ -89,7 +89,6 @@ public final class MainActivity extends Activity {
     private OfflineSpeech offlineSpeech;
     private OfflineTranslation offlineTranslation;
     private OfflineVision offlineVision;
-    private boolean updateOffered;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -100,24 +99,6 @@ public final class MainActivity extends Activity {
         if ("offline".equals(preferences.getString("mode", ""))) { showOfflineApp(); return; }
         String server = preferences.getString("server", "");
         if (server.isEmpty()) showConnectionScreen(); else verifySavedConnection(server, preferences.getString("key", ""));
-    }
-
-    @Override protected void onResume(){
-        super.onResume();
-        offerUpdateIfAny();
-    }
-
-    /** Looks for a newer build and offers it. Once per launch, quietly: a
-     *  failed check says nothing, because nobody asked. */
-    private void offerUpdateIfAny(){
-        if(updateOffered)return;
-        updateOffered=true;
-        executor.execute(() -> {
-            AppUpdate updater=new AppUpdate(this,CLOUD_BASE);
-            AppUpdate.Available update=updater.check();
-            if(update==null)return;
-            runOnUiThread(() -> showUpdateOffer(updater,update));
-        });
     }
 
     /** An explicit check, which ignores the once-per-launch guard and says so

@@ -245,3 +245,35 @@ def test_the_publisher_records_the_version_it_published():
     script = (PROJECT.parent.parent / 'scripts' / 'publish_android_apk.py').read_text(encoding='utf-8')
     assert "'versionCode'" in script and "'versionName'" in script
     assert 'dump' in script and 'badging' in script, 'the version must come from the APK itself'
+
+
+def test_both_modes_share_one_appearance():
+    # The offline page ships inside the APK so it cannot link the hosted
+    # stylesheets, and hand-maintained copies drifted: the owner saw the two
+    # modes wearing different faces on the phone. The copies must be identical
+    # to the originals, and made by scripts/sync_offline_appearance.py.
+    import filecmp
+    web = PROJECT.parent.parent / 'cloud_api' / 'web'
+    offline = PROJECT / 'assets' / 'offline'
+    for name in ['linguafusion-themes.css', 'pilot.css', 'themes.mjs']:
+        assert (offline / name).is_file(), f'{name} is not bundled in the APK'
+        assert filecmp.cmp(web / name, offline / name, shallow=False), (
+            f'{name} has drifted from the online app. '
+            f'Run scripts/sync_offline_appearance.py and rebuild.')
+
+    page = (offline / 'index.html').read_text(encoding='utf-8')
+    assert 'linguafusion-themes.css' in page and 'pilot.css' in page, \
+        'the offline page must use the shared stylesheets, not its own palette'
+    # A private palette is what caused the drift; catch its return.
+    assert '--lf-app-bg:#' not in page and '--accent:#' not in page, \
+        'the offline page redefines theme colours instead of inheriting them'
+
+
+def test_an_update_is_never_pushed_at_launch():
+    # An update offer that appears unbidden every launch is a nag. It is
+    # offered only when someone asks for it.
+    assert 'offerUpdateIfAny' not in MAIN, 'the launch-time update check is back'
+    onresume = re.search(r'protected void onResume\(\)\{(.*?)\n    \}', MAIN, re.S)
+    if onresume:
+        assert 'AppUpdate' not in onresume.group(1), 'onResume must not check for updates'
+    assert 'checkForUpdateNow' in MAIN, 'the explicit check must still exist'
