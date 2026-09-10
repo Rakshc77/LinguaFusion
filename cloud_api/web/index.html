@@ -51,6 +51,8 @@
           <label class="check"><input id="remember" type="checkbox"> Keep me signed in on this device</label>
           <button type="submit" id="signIn">Sign in</button>
         </fieldset>
+        <button id="forgotPassword" type="button" class="secondary">Forgot password?</button>
+        <p id="resetStatus" role="status" aria-live="polite"></p>
         <p class="hint">Signing in does not grant access by itself. The owner approves each account.</p>
         <button id="showSignUp" type="button" class="secondary">I need to create an account</button>
       </form>
@@ -118,6 +120,11 @@
           <p class="hint">Record up to 60 seconds. The audio is converted on this device and sent for transcription. Silence may correctly produce nothing.</p>
           <label class="check"><input id="speechConsent" type="checkbox"> I agree to paid API use for this transcription, charged to the owner.</label>
           <button id="recordToggle" type="button">Start recording</button>
+          <div id="recordingFeedback" hidden>
+            <label for="microphoneLevel">Microphone level</label>
+            <meter id="microphoneLevel" min="0" max="1" value="0">0</meter>
+            <button id="cancelRecording" class="secondary" type="button">Cancel recording</button>
+          </div>
           <p id="speechStatus" role="status" aria-live="polite"></p>
           <h3 id="transcriptHeading">Transcript</h3>
           <div id="transcript" role="region" aria-labelledby="transcriptHeading" dir="auto"></div>
@@ -143,6 +150,7 @@
                 <div><label for="target">To</label><select id="target"></select></div>
               </div>
               <p class="hint" id="translateModelNote"></p>
+              <button id="swapLanguages" class="secondary" type="button">Swap languages ⇄</button>
               <label for="text">Source text</label>
               <textarea id="text" maxlength="4000" rows="4" placeholder="Type or paste text" required></textarea>
               <p class="hint" id="textCount">Text leaves your device when you select Translate.</p>
