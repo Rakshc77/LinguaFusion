@@ -24,6 +24,25 @@ function fixture() {
   return { calls, auth, user, sdk, client: createCloudAuth(async () => sdk) };
 }
 
+test('password recovery trims email and never changes the signed-in identity', async () => {
+  const f = fixture();
+  f.sdk.sendPasswordResetEmail = async (auth, email) => {
+    assert.equal(auth, f.auth);
+    assert.equal(email, 'test@example.invalid');
+  };
+  await f.client.resetPassword(' test@example.invalid ');
+  assert.equal(f.auth.currentUser, null);
+});
+
+test('password recovery hides account existence but reports delivery failures', async () => {
+  const f = fixture();
+  await assert.rejects(f.client.resetPassword('bad address'), /valid email/);
+  f.sdk.sendPasswordResetEmail = async () => { throw {code: 'auth/user-not-found'}; };
+  await f.client.resetPassword('missing@example.invalid');
+  f.sdk.sendPasswordResetEmail = async () => { throw {code: 'auth/network-request-failed'}; };
+  await assert.rejects(f.client.resetPassword('test@example.invalid'), /Could not send/);
+});
+
 test('configuration identifies the registered project and app', () => {
   assert.equal(firebaseConfig.projectId, 'linguafusion-f24fe');
   assert.equal(firebaseConfig.appId, '1:936319167298:web:bf4d9d2af28a85a9cd76db');
