@@ -38,6 +38,28 @@ const languages = [['en', 'English'], ['de', 'German'], ['es', 'Spanish'],
                    ['hi', 'Hindi'], ['ar', 'Arabic'], ['or', 'Odia']];
 for (const [value, text] of languages) { $('source').add(new Option(text, value)); $('target').add(new Option(text, value)); }
 $('target').value = 'de';
+try {
+  const pair = JSON.parse(localStorage.getItem('lf-language-pair'));
+  if (pair && ['auto', ...languages.map(([code]) => code)].includes(pair.source)
+      && languages.some(([code]) => code === pair.target)) {
+    $('source').value = pair.source; $('target').value = pair.target;
+  }
+} catch { /* Device storage is optional. */ }
+function rememberLanguages() {
+  try { localStorage.setItem('lf-language-pair', JSON.stringify({source: $('source').value, target: $('target').value})); }
+  catch { /* Device storage is optional. */ }
+}
+$('source').addEventListener('change', rememberLanguages);
+$('target').addEventListener('change', rememberLanguages);
+$('swapLanguages').addEventListener('click', () => {
+  if (translating) return;
+  if ($('source').value === 'auto') { status('Choose a source language before swapping.'); return; }
+  const source = $('source').value;
+  $('source').value = $('target').value;
+  $('target').value = source;
+  rememberLanguages();
+  status('Languages swapped. Your source text is unchanged.');
+});
 for (const [value, text] of PRONUNCIATION_LANGUAGES) $('pronounceLanguage').add(new Option(text, value));
 
 // Appearance first, so the chosen look is in place before anything is drawn.
@@ -144,6 +166,8 @@ async function copyText(value, label, target) {
 }
 
 function stopCapture() {
+  $('recordingFeedback').hidden = true;
+  $('microphoneLevel').value = 0;
   captureGeneration++;
   nativeRecording = null;
   if (!capture) return;
@@ -633,6 +657,18 @@ async function setup() {
 }
 $('retryLoad').addEventListener('click', setup);
 
+let resetPending = false;
+$('forgotPassword').addEventListener('click', async () => {
+  if (resetPending) return;
+  resetPending = true;
+  $('forgotPassword').disabled = true;
+  $('resetStatus').textContent = 'Sending reset instructions…';
+  try {
+    await auth.resetPassword($('email').value);
+    $('resetStatus').textContent = 'If this email has an account, reset instructions have been sent. Check your inbox and spam folder.';
+  } catch (error) { $('resetStatus').textContent = error.message; }
+  finally { resetPending = false; $('forgotPassword').disabled = false; }
+});
 $('loginForm').addEventListener('submit', async event => {
   event.preventDefault();
   if (submitting) return;
@@ -819,6 +855,11 @@ async function openMicrophone() {
   throw failure;
 }
 
+$('cancelRecording').addEventListener('click', () => {
+  if (!capture) return;
+  stopCapture();
+  $('speechStatus').textContent = 'Recording cancelled. No audio was sent.';
+});
 $('recordToggle').addEventListener('click', async () => {
   if (captureStarting || transcribing || nativeRecording) return;
   if (capture) { await finishRecording(); return; }
@@ -878,6 +919,8 @@ $('recordToggle').addEventListener('click', async () => {
       const chunk = Float32Array.from(input.subarray(0, remaining));
       chunks.push(chunk);
       frames += chunk.length;
+      const energy = chunk.reduce((sum, sample) => sum + sample * sample, 0);
+      $('microphoneLevel').value = Math.min(1, 4 * Math.sqrt(energy / Math.max(1, chunk.length)));
       const seconds = frames / context.sampleRate;
       $('speechStatus').textContent = `Recording… ${seconds.toFixed(0)}s of ${MAX_SECONDS}s`;
       if (seconds >= MAX_SECONDS) void finishRecording();
@@ -890,6 +933,7 @@ $('recordToggle').addEventListener('click', async () => {
     processor.connect(silent);
     silent.connect(context.destination);
     capture = { stream, context, source, processor, chunks };
+    $('recordingFeedback').hidden = false;
     $('recordToggle').textContent = 'Stop and transcribe';
     $('speechStatus').textContent = 'Recording…';
   } catch (error) {
