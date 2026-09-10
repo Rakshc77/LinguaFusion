@@ -55,6 +55,19 @@ test('permission resolving after cancellation releases the late microphone', asy
   h.pending.shift()(); await first;
   assert.equal(h.streams[0].stopped, true); assert.equal(h.contexts.length, 0);
 });
+test('Cancel recording clears microphone feedback and never uploads audio', async () => {
+  const h = harness(); const first = h.click(); h.pending.shift()(); await first;
+  assert.equal(h.$('recordingFeedback').hidden, false);
+  h.contexts[0].processor.onaudioprocess({ inputBuffer: { getChannelData: () => new Float32Array(4096).fill(0.1) } });
+  assert.ok(h.$('microphoneLevel').value > 0);
+  h.$('cancelRecording').click();
+  assert.equal(h.streams[0].stopped, true);
+  assert.equal(h.contexts[0].closed, true);
+  assert.equal(h.$('recordingFeedback').hidden, true);
+  assert.equal(h.$('microphoneLevel').value, 0);
+  assert.equal(h.requests.length, 0);
+  assert.match(h.$('speechStatus').textContent, /No audio was sent/);
+});
 for (const rate of [44100, 48000]) test(`automatic cutoff produces exactly 60 seconds at ${rate}Hz`, async () => {
   const h = harness(rate); const first = h.click(); h.pending.shift()(); await first;
   for (let count = 0; count < Math.ceil(rate * 60 / 4096); count++) {

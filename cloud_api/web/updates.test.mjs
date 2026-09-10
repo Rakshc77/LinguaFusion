@@ -12,7 +12,9 @@ test('checks uncached public metadata without credentials and recognizes current
   });assert.equal(result.available,false);
 });
 test('new release and intentional rollback both offer reload', async()=>{
-  for(const version of ['2026.09.10.1','2026.09.08.1']){
+  const parts = APP_VERSION.split('.');
+  const newer = [...parts.slice(0, 3), String(Number(parts[3]) + 1)].join('.');
+  for(const version of [newer,'2000.01.01.1']){
     assert.equal((await checkForUpdate(async()=>({ok:true,json:async()=>({version})}))).available,true);
   }
 });

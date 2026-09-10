@@ -34,6 +34,18 @@ export function createCloudAuth(loadSdk = loadFirebase, initializationTimeoutMs 
   }
 
   return Object.freeze({
+    async resetPassword(email) {
+      if (typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim())) {
+        throw new Error('Enter a valid email address above first.');
+      }
+      const { sdk, auth } = await ready();
+      try {
+        await sdk.sendPasswordResetEmail(auth, email.trim());
+      } catch (error) {
+        if (error?.code === 'auth/user-not-found') return;
+        throw new Error('Could not send the reset email. Wait a moment, check your connection and try again.');
+      }
+    },
     async observe(listener) {
       const { sdk, auth } = await ready();
       return sdk.onAuthStateChanged(auth, user => listener(

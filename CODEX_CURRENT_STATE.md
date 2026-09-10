@@ -1,5 +1,47 @@
 # LinguaFusion — current Codex handover
 
+## Current update — September 10, 2026 (supersedes history below)
+
+Work branch `codex/usability-update` starts from `origin/main` commit `879fcaa`.
+Read `CURRENT_STATE_CLAUDE.md` for the current product baseline. Android source
+is now committed in `android/LinguaFusionMobile`; old missing-source notes below
+are historical. Keep existing phone-only offline functionality, Studio/Minimal
+and Day/Night pill. Offline must never require a PC backend.
+
+Implemented: Firebase Forgot password with email validation, duplicate submission
+protection and neutral account-existence response; Online language swap with
+validated device-local pair persistence; browser recording microphone level and
+Cancel that releases capture without uploading. Existing Transcript-to-Translate,
+OCR-to-Translate and result-to-Say-it flows are retained. Native recording's
+existing Stop/Cancel dialog is unchanged. No paid requests are made by swapping.
+
+Online interface version: `2026.09.10.1` in updater, metadata and service worker.
+No CSS, native code, APK, signing identity or offline assets changed. After Cloud
+Run deployment, installed apps can receive this Online interface through Settings
+> Check for updates. No new APK is needed. Future native/offline changes require
+a compatible signed APK and release metadata.
+
+Validation: JavaScript 59 passed; cloud Python 183 passed, 8 skipped (optional
+QR/Pillow dependencies); Android contract 24 passed, one failed because the
+existing debug.keystore is absent locally. Never generate a replacement key or
+weaken that gate. Physical-device UI and real reset-email delivery remain untested.
+No paid provider requests were made for validation.
+
+Source changes are not deployed. Publication is authorized; verify remote commit
+before claiming publication. Previous terminal pushes lacked authentication; the
+owner also has a working PC Git-bundle import/push workflow. Use the existing
+Cloud Shell `scripts/deploy_cloud_update.py --build`, then `--status BUILD_ID`,
+then `--promote BUILD_ID` only after SUCCESS, preserving secrets and limits.
+Do not scan for cloud credentials. This workspace is Linux, not the owner's PC.
+
+Claude's reported baseline (not reverified live here): Android 1.14/versionCode15,
+22,433,279 bytes; Cloud Run revision `00047-88c`. Firebase owner approval and
+provider caps/consent remain unchanged. Offline transcription/translation runs
+on the phone for English, German, Arabic, Spanish and French. Shared appearance
+sync script is unnecessary for this Online-only change.
+
+## Historical handover (superseded where inconsistent above)
+
 Updated: September 9, 2026.
 
 ## Read this first
