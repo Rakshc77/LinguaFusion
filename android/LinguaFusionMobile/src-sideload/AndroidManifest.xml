@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <application>
+        <!-- PackageInstaller reports through this explicit, private receiver.
+             Keeping it non-exported prevents another app from supplying a
+             fabricated nested Intent for LinguaFusion to launch. -->
+        <receiver
+            android:name=".UpdateInstallReceiver"
+            android:exported="false" />
+    </application>
+</manifest>

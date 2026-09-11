@@ -34,7 +34,6 @@ final class AppUpdater {
         return true;
     }
 
-
     /** An explicit check, which ignores the once-per-launch guard and says so
      *  when there is nothing, because this one the person did ask for. */
     static void check(Activity activity,ExecutorService executor,String baseUrl,Listener listener){
