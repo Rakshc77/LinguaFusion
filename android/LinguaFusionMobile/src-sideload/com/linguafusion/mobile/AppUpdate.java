@@ -197,6 +197,12 @@ final class AppUpdate {
             final PackageInstaller installer = context.getPackageManager().getPackageInstaller();
             final PackageInstaller.SessionParams params = new PackageInstaller.SessionParams(
                     PackageInstaller.SessionParams.MODE_FULL_INSTALL);
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                // This is intentionally a user-confirmed sideload. Being
+                // explicit makes the STATUS_PENDING_USER_ACTION handshake
+                // deterministic on modern Android releases.
+                params.setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED);
+            }
             final int sessionId = installer.createSession(params);
             session = installer.openSession(sessionId);
             try (InputStream input = new FileInputStream(apk);
@@ -208,10 +214,12 @@ final class AppUpdate {
                 }
                 session.fsync(output);
             }
-            final Intent callback = new Intent(context, MainActivity.class);
-            final int flags = Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
-                    ? android.app.PendingIntent.FLAG_MUTABLE : 0;
-            session.commit(android.app.PendingIntent.getActivity(
+            final Intent callback = new Intent(context, UpdateInstallReceiver.class);
+            callback.setAction(context.getPackageName() + ".INSTALL_STATUS");
+            final int flags = android.app.PendingIntent.FLAG_UPDATE_CURRENT
+                    | (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S
+                    ? android.app.PendingIntent.FLAG_MUTABLE : 0);
+            session.commit(android.app.PendingIntent.getBroadcast(
                     context, sessionId, callback, flags).getIntentSender());
             return null;
         } catch (Exception failure) {

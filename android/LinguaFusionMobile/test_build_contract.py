@@ -245,6 +245,30 @@ def test_the_installer_permission_is_declared():
         'without it the update flow silently does nothing'
 
 
+def test_package_installer_confirmation_is_actually_opened():
+    # PackageInstaller does not open its confirmation UI just because a
+    # session was committed. It returns STATUS_PENDING_USER_ACTION and nests
+    # the confirmation Intent in EXTRA_INTENT. Ignoring that callback was the
+    # reason 1.14 downloaded successfully and then appeared to do nothing.
+    receiver = (SIDELOAD / 'UpdateInstallReceiver.java').read_text(encoding='utf-8')
+    assert 'PackageInstaller.STATUS_PENDING_USER_ACTION' in receiver
+    assert 'Intent.EXTRA_INTENT' in receiver
+    assert 'context.startActivity(confirmation)' in receiver
+    assert 'PackageInstaller.EXTRA_STATUS_MESSAGE' in receiver, \
+        'installer failures must be visible instead of silently repeating the offer'
+
+    install = UPDATER[UPDATER.index('private String install('):]
+    assert 'setRequireUserAction(PackageInstaller.SessionParams.USER_ACTION_REQUIRED)' in install
+    assert 'PendingIntent.FLAG_UPDATE_CURRENT' in install
+    assert 'PendingIntent.FLAG_MUTABLE' in install
+    assert 'PendingIntent.getBroadcast' in install
+
+    manifest = (PROJECT / 'src-sideload' / 'AndroidManifest.xml').read_text(encoding='utf-8')
+    assert '.UpdateInstallReceiver' in manifest
+    assert 'android:exported="false"' in manifest, \
+        'the installer callback must not accept fabricated intents from other apps'
+
+
 def test_a_failed_update_check_stays_quiet():
     # The check runs unprompted on launch. A network failure there is not the
     # person's problem and must not produce an error they did not ask for.
