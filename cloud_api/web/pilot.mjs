@@ -190,7 +190,7 @@ function clearPrivateText() {
   $('ocrFile').value = '';
   $('reqName').value = ''; $('reqOrg').value = ''; $('accessStatus').textContent = '';
   $('ownerUsers').replaceChildren(); $('requestList').replaceChildren();
-  $('ownerTotal').textContent = ''; $('policyUid').value = ''; $('spending').textContent = '';
+  $('ownerTotal').textContent = ''; $('policyUid').value = ''; $('policyStatus').textContent = ''; $('spending').textContent = '';
   $('failureList').replaceChildren(); $('reviewDue').hidden = true; $('reviewNext').textContent = '';
   showAdvanced(false);
   stopCapture();
@@ -223,7 +223,11 @@ function showAdvanced(open) {
   $('ownerPolicyForm').hidden = !open;
   $('toggleAdvanced').setAttribute('aria-expanded', String(Boolean(open)));
 }
-$('toggleAdvanced').addEventListener('click', () => showAdvanced($('ownerPolicyForm').hidden));
+$('toggleAdvanced').addEventListener('click', () => {
+  const opening = $('ownerPolicyForm').hidden;
+  if (opening) $('policyStatus').textContent = '';
+  showAdvanced(opening);
+});
 
 function line(parent, text, className) {
   const item = document.createElement('p');
@@ -257,6 +261,7 @@ async function loadOwner() {
       const edit = document.createElement('button');
       edit.type = 'button'; edit.className = 'secondary'; edit.textContent = 'Edit limits';
       edit.addEventListener('click', () => {
+        $('policyStatus').textContent = '';
         showAdvanced(true);
         $('policyUid').value = user.uid;
         $('policyEnabled').checked = Boolean(user.enabled);
@@ -468,8 +473,15 @@ $('ownerPolicyForm').addEventListener('submit', async event => {
   event.preventDefault();
   const current = epoch;
   const uid = $('policyUid').value.trim();
-  if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid)) { status('Enter a valid Firebase UID.'); return; }
+  if (!/^[A-Za-z0-9_-]{1,128}$/.test(uid)) {
+    $('policyStatus').textContent = 'Enter a valid Firebase UID.';
+    status('Enter a valid Firebase UID.');
+    return;
+  }
   $('savePolicy').disabled = true;
+  $('savePolicy').textContent = 'Saving…';
+  $('ownerPolicyForm').setAttribute('aria-busy', 'true');
+  $('policyStatus').textContent = 'Saving policy…';
   const body = new FormData();
   body.set('enabled', String($('policyEnabled').checked));
   body.set('monthly_limit', $('policyRequests').value);
@@ -477,12 +489,31 @@ $('ownerPolicyForm').addEventListener('submit', async event => {
   try {
     await api.request('/owner/users/' + uid, body);
     if (current !== epoch) return;
-    status('Saved.');
+    // The editor is at the bottom of a long owner page. A message in the
+    // page-wide status at the top was invisible here and leaving this open
+    // made a successful request look like a dead button.
+    showAdvanced(false);
+    $('policyStatus').textContent = 'Policy saved. Access, request limit and budget are updated.';
+    status('Policy saved.');
     await loadOwner();
-    const spending = await api.request('/usage');
-    if (current === epoch) showSpending(spending);
-  } catch (error) { if (current === epoch) status(error.message); }
-  finally { $('savePolicy').disabled = false; }
+    try {
+      const spending = await api.request('/usage');
+      if (current === epoch) showSpending(spending);
+    } catch {
+      // The policy is already committed. A secondary totals refresh failing
+      // must not turn that success into an apparent failed save.
+      if (current === epoch) status('Policy saved. Usage totals will refresh next time.');
+    }
+  } catch (error) {
+    if (current === epoch) {
+      $('policyStatus').textContent = error.message;
+      status(error.message);
+    }
+  } finally {
+    $('ownerPolicyForm').removeAttribute('aria-busy');
+    $('savePolicy').disabled = false;
+    $('savePolicy').textContent = 'Save user policy';
+  }
 });
 
 // --- access ------------------------------------------------------------------
