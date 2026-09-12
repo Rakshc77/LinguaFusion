@@ -7,6 +7,8 @@ result over an app they already have, and by then the damage is done.
 """
 import pathlib
 import re
+import json
+import xml.etree.ElementTree as ET
 
 PROJECT = pathlib.Path(__file__).parent
 GRADLE = (PROJECT / 'build.gradle').read_text(encoding='utf-8')
@@ -71,11 +73,45 @@ def test_the_signing_key_is_not_committed():
     assert not committed, f'a signing key is tracked by git: {committed}'
 
 
-def test_the_version_code_only_ever_goes_up():
-    # Android refuses to install a lower version code over a higher one, and
-    # the last hand-built APK shipped 6.
+def test_the_version_code_is_not_older_than_the_published_apk():
+    # Android refuses to install an older version over the copy on the phone.
+    # Equality is valid after publish_android_apk.py records a finished build.
     code = int(re.search(r'versionCode\s+(\d+)', GRADLE).group(1))
-    assert code > 6, f'versionCode {code} would not install over the shipped 6'
+    details = json.loads((PROJECT.parent.parent / 'cloud_api' / 'web'
+                          / 'android-app.json').read_text(encoding='utf-8'))
+    assert code >= details['versionCode'], (
+        f'versionCode {code} is older than published {details["versionCode"]}')
+
+
+def test_selected_and_shared_text_have_one_deliberate_entry_point():
+    manifest = ET.parse(PROJECT / 'AndroidManifest.xml').getroot()
+    android = '{http://schemas.android.com/apk/res/android}'
+    activities = {activity.get(android + 'name'): activity
+                  for activity in manifest.find('application').findall('activity')}
+    activity = activities.get('.ProcessTextActivity')
+    assert activity is not None
+    assert activity.get(android + 'exported') == 'true'
+    filters = activity.findall('intent-filter')
+    actions = {action.get(android + 'name') for entry in filters
+               for action in entry.findall('action')}
+    assert 'android.intent.action.PROCESS_TEXT' in actions
+    assert 'android.intent.action.SEND' in actions
+    for entry in filters:
+        if entry.find('action') is not None:
+            assert any(data.get(android + 'mimeType') == 'text/plain'
+                       for data in entry.findall('data'))
+
+
+def test_text_replacement_is_limited_to_editable_process_text_requests():
+    source = (PROJECT / 'src' / 'com' / 'linguafusion' / 'mobile'
+              / 'ProcessTextActivity.java').read_text(encoding='utf-8')
+    assert 'EXTRA_PROCESS_TEXT_READONLY' in source
+    assert 'replaceAllowed = processing' in source
+    replacement = source[source.index('private void replaceSelection()'):
+                         source.index('private void copyTranslation()')]
+    assert 'if (!replaceAllowed' in replacement
+    assert 'putExtra(Intent.EXTRA_PROCESS_TEXT, translatedText)' in replacement
+    assert 'setResult(RESULT_OK, answer)' in replacement
 
 
 def test_the_apk_carries_only_64_bit_phone_native_code():

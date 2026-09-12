@@ -8,11 +8,10 @@ remains a separate client.
 
 Read **[CODEX_CURRENT_STATE.md](CODEX_CURRENT_STATE.md)** first, then
 [CLOUD_HANDOFF.md](CLOUD_HANDOFF.md) for deployment and signing constraints.
-Current source branch: `codex/studio-minimal-appearance`.
-Do not start from `main`: it lacks the newer cloud implementation.
+`main` is the current integrated baseline. Check the handover and Git history
+for any active feature branch before changing it.
 
 Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
-The latest appearance work is source-only; it has not been deployed by this session.
 
 ## Current appearance
 
@@ -34,6 +33,9 @@ node --test cloud_api/web/*.test.mjs
 
 GitHub Actions runs tests only; pushing does not deploy the app.
 
+The Android source also has its own compile/JVM workflow. A release APK still
+has to be built with the existing private signing material on the owner PC.
+
 ## Documentation
 
 - [Current Codex state and next steps](CODEX_CURRENT_STATE.md)
@@ -43,5 +45,6 @@ GitHub Actions runs tests only; pushing does not deploy the app.
 - [Historical offline Windows README](README_OFFLINE_DESKTOP.md)
 - [Historical Windows handoff](HANDOFF_README.md)
 
-Offline Android translation and transcription are planned, not implemented.
-The first planned languages are English, German, Arabic, Spanish and French.
+Android provides phone-only Offline translation and transcription for English,
+German, Arabic, Spanish and French. Version 1.16 adds a native selected-text
+translation surface for WhatsApp and other Android apps; see the Android README.
