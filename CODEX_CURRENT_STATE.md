@@ -1,5 +1,49 @@
 # LinguaFusion — current Codex handover
 
+## Current Android integration — September 12, 2026
+
+Branch `codex/android-process-text` starts from `origin/main` `8399044`, which
+already contains merged PRs #3–#5. This section supersedes older source/version
+notes below. The source release is Android 1.16 / versionCode 17; the currently
+published APK remains 1.15 / versionCode 16 until the owner-PC build is signed
+and published.
+
+Implemented a compact native **Translate with LinguaFusion** activity for
+Android `ACTION_PROCESS_TEXT` and text-only `ACTION_SEND`. In an editable field,
+the person can select a passage, preview an on-device translation and return it
+to the caller with **Replace selected text**. Read-only or shared WhatsApp text
+offers **Copy and return**. Language choices and swap are included and the pair
+is remembered; only the selected text is processed and text content is never
+persisted.
+
+The translation reuses the existing Offline ML Kit engine and downloaded packs
+for English, German, Arabic, Spanish and French. It requests no Accessibility,
+screen-capture, overlay or background clipboard permission. This keeps the
+feature phone-only and avoids reading unrelated messages. A full-screen overlay
+is deliberately deferred; it requires much broader access and the current
+on-device OCR cannot read Arabic script.
+
+The activity uses Studio day colors and Sunset night colors based on Android's
+day/night configuration, first-strong text direction for Arabic, an explicit
+on-device/private label, progress and actionable missing-pack feedback. It
+returns a replacement only when Android marks the original selection editable.
+
+Validation in this workspace: 27 applicable Android build contracts pass; the
+private-keystore check is intentionally deselected because the key is absent
+here. Manifest and style XML parse and `git diff --check` passes. Gradle compile
+could not run locally because this environment cannot reach the Gradle download
+host. `.github/workflows/android-tests.yml` now compiles Android Java and runs
+JVM/contracts on GitHub; treat that run as the source compile gate. Physical
+WhatsApp testing on the owner's Samsung remains the final behavior gate.
+
+Build with `gradlew.bat clean stageApk` on the owner PC using the existing debug
+keystore. Then run `scripts/publish_android_apk.py`, commit the generated APK and
+`android-app.json`, and deploy the existing Cloud Run service. After deployment,
+the installed sideload app's **Check for updates** flow can install 1.16. Do not
+generate a new key: it would not install over existing copies.
+
+## Previous Codex handover
+
 ## Current update — September 10, 2026 (supersedes history below)
 
 Work branch `codex/usability-update` starts from `origin/main` commit `879fcaa`.

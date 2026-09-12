@@ -31,5 +31,28 @@
                 <data android:scheme="linguafusion" android:host="pair" />
             </intent-filter>
         </activity>
+        <activity
+            android:name=".ProcessTextActivity"
+            android:excludeFromRecents="true"
+            android:exported="true"
+            android:label="Translate with LinguaFusion"
+            android:noHistory="true"
+            android:theme="@style/ProcessTextTheme">
+            <!-- Android adds this activity to the contextual menu when a
+                 person selects text. Editable callers can accept the returned
+                 translation as a replacement; read-only callers can copy it. -->
+            <intent-filter>
+                <action android:name="android.intent.action.PROCESS_TEXT" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+            <!-- Some chat bubbles expose Share rather than Android's standard
+                 selection menu. The same private preview handles that path. -->
+            <intent-filter>
+                <action android:name="android.intent.action.SEND" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <data android:mimeType="text/plain" />
+            </intent-filter>
+        </activity>
     </application>
 </manifest>
