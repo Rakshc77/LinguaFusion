@@ -2,11 +2,10 @@
 
 ## Current Android integration — September 12, 2026
 
-Branch `codex/android-process-text` starts from `origin/main` `8399044`, which
-already contains merged PRs #3–#5. This section supersedes older source/version
-notes below. The source release is Android 1.16 / versionCode 17; the currently
-published APK remains 1.15 / versionCode 16 until the owner-PC build is signed
-and published.
+PR #6 was squash-merged into `main` as `01370a6`. This section
+supersedes older source/version notes below. The source release is Android 1.16 /
+versionCode 17; the currently published APK remains 1.15 / versionCode 16 until
+the owner-PC build is signed and published.
 
 Implemented a compact native **Translate with LinguaFusion** activity for
 Android `ACTION_PROCESS_TEXT` and text-only `ACTION_SEND`. In an editable field,
@@ -28,12 +27,10 @@ day/night configuration, first-strong text direction for Arabic, an explicit
 on-device/private label, progress and actionable missing-pack feedback. It
 returns a replacement only when Android marks the original selection editable.
 
-Validation in this workspace: 27 applicable Android build contracts pass; the
-private-keystore check is intentionally deselected because the key is absent
-here. Manifest and style XML parse and `git diff --check` passes. Gradle compile
-could not run locally because this environment cannot reach the Gradle download
-host. `.github/workflows/android-tests.yml` now compiles Android Java and runs
-JVM/contracts on GitHub; treat that run as the source compile gate. Physical
+Validation: GitHub's Android source check passed on PR #6 at `d87925e`,
+including all applicable build contracts, native Java compilation and JVM tests.
+The cloud pilot suite also passed. The private-keystore check remains limited to
+the owner PC because the signing key is intentionally absent here. Physical
 WhatsApp testing on the owner's Samsung remains the final behavior gate.
 
 Build with `gradlew.bat clean stageApk` on the owner PC using the existing debug
