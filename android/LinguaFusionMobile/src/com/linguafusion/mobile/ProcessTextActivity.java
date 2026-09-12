@@ -422,6 +422,10 @@ public final class ProcessTextActivity extends Activity {
         return text;
     }
 
+    private TextView text(String value, float size, int color, int style) {
+        return text(value, size, color, Typeface.create("sans", style));
+    }
+
     private LinearLayout column() {
         final LinearLayout layout = new LinearLayout(this);
         layout.setOrientation(LinearLayout.VERTICAL);
