@@ -125,6 +125,15 @@
             <meter id="microphoneLevel" min="0" max="1" value="0">0</meter>
             <button id="cancelRecording" class="secondary" type="button">Cancel recording</button>
           </div>
+          <div id="recordingRecovery" class="recording-recovery" hidden>
+            <p class="hint">If iPhone stops the microphone, retry it here or choose a Voice Memo saved to Files. Saved audio is converted on this device before transcription.</p>
+            <div class="actions">
+              <button id="retryRecording" class="secondary" type="button">Retry microphone</button>
+              <button id="chooseRecording" class="secondary" type="button">Choose saved recording</button>
+              <a id="openRecordingInSafari" class="button-link secondary" href="/pilot/" target="_blank" rel="noopener" hidden>Open in Safari</a>
+            </div>
+            <input id="speechAudioFile" type="file" accept="audio/*,.m4a,.mp3,.aac,.caf,.wav" hidden>
+          </div>
           <p id="speechStatus" role="status" aria-live="polite"></p>
           <h3 id="transcriptHeading">Transcript</h3>
           <div id="transcript" role="region" aria-labelledby="transcriptHeading" dir="auto"></div>
