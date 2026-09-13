@@ -13,8 +13,9 @@ export function createCloudClient(auth, fetcher = fetch, timeoutMs = 55000) {
       if (!['/capabilities', '/translate', '/models', '/usage', '/owner/users', '/api/pronounce',
            '/access/request', '/owner/requests', '/owner/requests?status=pending',
            '/api/translate', '/api/transcribe', '/api/ocr',
-           '/owner/price-review', '/owner/diagnostics'].includes(path)
-          && !/^\/owner\/(users|requests)\/[A-Za-z0-9_-]{1,128}$/.test(path)) throw new Error('Unsupported cloud request.');
+           '/owner/price-review', '/owner/diagnostics', '/owner/invites'].includes(path)
+          && !/^\/owner\/(users|requests)\/[A-Za-z0-9_-]{1,128}$/.test(path)
+          && !/^\/owner\/invites\/[0-9a-f]{64}$/.test(path)) throw new Error('Unsupported cloud request.');
       const current = generation;
       const controller = new AbortController();
       pending.add(controller);
@@ -32,6 +33,7 @@ export function createCloudClient(auth, fetcher = fetch, timeoutMs = 55000) {
             const messages = {
               401: 'Your session is no longer valid. Sign out and sign in again.',
               403: 'Your account has not been approved for cloud access.',
+              410: 'This invitation is no longer available.',
               413: 'The request is too large. Use a shorter passage.',
               422: 'Check your text and language choices.',
               429: 'A request limit or budget was reached. Check your spending and owner allowance before retrying.',

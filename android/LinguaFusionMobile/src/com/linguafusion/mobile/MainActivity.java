@@ -3,6 +3,10 @@ package com.linguafusion.mobile;
 import android.Manifest;
 import android.app.Activity;
 import android.app.AlertDialog;
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
 import android.os.Handler;
 import android.os.Looper;
 import android.content.Context;
@@ -62,6 +66,10 @@ public final class MainActivity extends Activity {
     private static final int FILE_REQUEST = 41;
     private static final int AUDIO_PERMISSION = 42;
     private static final int OCR_IMAGE_REQUEST = 43;
+    private static final int NOTIFICATION_PERMISSION = 44;
+    private static final int ACCESS_REQUEST_NOTIFICATION = 901;
+    private static final String ACCESS_REQUEST_CHANNEL = "access_requests";
+    private static final String OPEN_OWNER_REQUESTS = "com.linguafusion.mobile.OPEN_OWNER_REQUESTS";
     private String pendingReadRequestId;
     private final ExecutorService executor = Executors.newSingleThreadExecutor();
     private SharedPreferences preferences;
@@ -73,6 +81,9 @@ public final class MainActivity extends Activity {
     private AlertDialog cloudRecorderDialog;
     private final Handler recordingHandler = new Handler(Looper.getMainLooper());
     private Runnable cloudRecordingTimeout;
+    private boolean pendingOwnerRequestOpen;
+    private boolean notificationSettingsPending;
+    private long lastAccessNotificationAt;
     private final Object nativeAudioLock = new Object();
     private volatile boolean nativeAudioRecording;
     private AudioRecord nativeAudioRecord;
@@ -97,6 +108,13 @@ public final class MainActivity extends Activity {
         super.onCreate(state);
         applySystemBarTheme(false);
         preferences = getSharedPreferences("linguafusion", MODE_PRIVATE);
+        ensureAccessRequestChannel();
+        if (opensOwnerRequests(getIntent())) {
+            pendingOwnerRequestOpen=true;
+            preferences.edit().putString("mode","cloud").apply();
+            showCloudApp();
+            return;
+        }
         if (handlePairingIntent(getIntent())) return;
         if ("cloud".equals(preferences.getString("mode", ""))) { showCloudApp(); return; }
         if ("offline".equals(preferences.getString("mode", ""))) { showOfflineApp(); return; }
@@ -127,7 +145,25 @@ public final class MainActivity extends Activity {
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         setIntent(intent);
+        if(opensOwnerRequests(intent)){
+            openOwnerRequests();
+            return;
+        }
         handlePairingIntent(intent);
+    }
+
+    private static boolean opensOwnerRequests(Intent intent){
+        return intent!=null && OPEN_OWNER_REQUESTS.equals(intent.getAction());
+    }
+
+    private void openOwnerRequests(){
+        pendingOwnerRequestOpen=true;
+        preferences.edit().putString("mode","cloud").apply();
+        String current=webView==null?null:webView.getUrl();
+        if(current!=null && isCloudOrigin(Uri.parse(current))){
+            pendingOwnerRequestOpen=false;
+            webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('lf-native-owner-requests'));",null);
+        }else showCloudApp();
     }
 
     private boolean handlePairingIntent(Intent intent) {
@@ -590,6 +626,15 @@ public final class MainActivity extends Activity {
                     }
                     return true;
                 }
+                if("linguafusion-notify".equals(target.getScheme())){
+                    boolean trusted=request.isForMainFrame()
+                        && isCloudOrigin(Uri.parse(view.getUrl()==null?"":view.getUrl()));
+                    if(trusted && "permission".equals(target.getHost()) && request.hasGesture())
+                        requestAccessNotificationPermission();
+                    else if(trusted && "show".equals(target.getHost()))
+                        showAccessRequestNotification();
+                    return true;
+                }
                 // Switching to offline mode, requested by the cloud page. It
                 // goes through a scheme rather than a JavaScript interface for
                 // the same reason recording does: the page is served remotely
@@ -618,8 +663,14 @@ public final class MainActivity extends Activity {
                 return true;
             }
             @Override public void onPageFinished(WebView view,String url){
-                if(view==webView && isCloudOrigin(Uri.parse(url)))
-                    view.evaluateJavascript("window.LFNativeCloudRecording=true;window.LFNativeOfflineMode=true;window.LFNativeAppVersion="+JSONObject.quote(appVersionName())+";window.LFNativeSelfUpdate="+AppUpdater.supported()+";",null);
+                if(view==webView && isCloudOrigin(Uri.parse(url))){
+                    String script="window.LFNativeCloudRecording=true;window.LFNativeOfflineMode=true;window.LFNativeNotifications=true;window.LFNativeNotificationsEnabled="+notificationsEnabled()+";window.LFNativeAppVersion="+JSONObject.quote(appVersionName())+";window.LFNativeSelfUpdate="+AppUpdater.supported()+";";
+                    if(pendingOwnerRequestOpen){
+                        pendingOwnerRequestOpen=false;
+                        script+="window.dispatchEvent(new CustomEvent('lf-native-owner-requests'));";
+                    }
+                    view.evaluateJavascript(script,null);
+                }
             }
             @Override public void onReceivedError(WebView view,WebResourceRequest request,WebResourceError error){
                 super.onReceivedError(view,request,error);
@@ -635,6 +686,75 @@ public final class MainActivity extends Activity {
         // all and the person is left thinking the app is broken.
         webView.setDownloadListener((url, agent, disposition, mime, size) -> saveDataUrl(url, disposition));
         webView.loadUrl(CLOUD_BASE+"/pilot/"); setInsetContentView(webView);
+    }
+
+    private void ensureAccessRequestChannel(){
+        NotificationManager manager=getSystemService(NotificationManager.class);
+        if(manager==null)return;
+        NotificationChannel channel=new NotificationChannel(ACCESS_REQUEST_CHANNEL,
+            "Access requests",NotificationManager.IMPORTANCE_DEFAULT);
+        channel.setDescription("New LinguaFusion access requests awaiting the owner");
+        manager.createNotificationChannel(channel);
+    }
+
+    private boolean notificationsEnabled(){
+        if(Build.VERSION.SDK_INT>=33
+                && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED)
+            return false;
+        NotificationManager manager=getSystemService(NotificationManager.class);
+        if(manager==null || !manager.areNotificationsEnabled())return false;
+        NotificationChannel channel=manager.getNotificationChannel(ACCESS_REQUEST_CHANNEL);
+        return channel==null || channel.getImportance()!=NotificationManager.IMPORTANCE_NONE;
+    }
+
+    private void requestAccessNotificationPermission(){
+        runOnUiThread(() -> {
+            ensureAccessRequestChannel();
+            if(notificationsEnabled()){
+                sendNotificationPermissionResult(true);
+                return;
+            }
+            if(Build.VERSION.SDK_INT>=33
+                    && checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS)!=PackageManager.PERMISSION_GRANTED){
+                requestPermissions(new String[]{Manifest.permission.POST_NOTIFICATIONS},NOTIFICATION_PERMISSION);
+                return;
+            }
+            notificationSettingsPending=true;
+            Intent settings=new Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS)
+                .putExtra(Settings.EXTRA_APP_PACKAGE,getPackageName());
+            try{startActivity(settings);}
+            catch(Exception missing){notificationSettingsPending=false;sendNotificationPermissionResult(false);}
+        });
+    }
+
+    private void sendNotificationPermissionResult(boolean granted){
+        if(webView==null)return;
+        String script="window.LFNativeNotificationPermissionResult&&window.LFNativeNotificationPermissionResult("+(granted?"true":"false")+");";
+        webView.post(() -> {if(webView!=null)webView.evaluateJavascript(script,null);});
+    }
+
+    private void showAccessRequestNotification(){
+        runOnUiThread(() -> {
+            if(!notificationsEnabled())return;
+            long now=System.currentTimeMillis();
+            if(now-lastAccessNotificationAt<60_000)return;
+            lastAccessNotificationAt=now;
+            Intent open=new Intent(this,MainActivity.class)
+                .setAction(OPEN_OWNER_REQUESTS)
+                .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP|Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent content=PendingIntent.getActivity(this,ACCESS_REQUEST_NOTIFICATION,open,
+                PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);
+            Notification notification=new Notification.Builder(this,ACCESS_REQUEST_CHANNEL)
+                .setSmallIcon(com.linguafusion.mobile.R.drawable.ic_launcher)
+                .setContentTitle("LinguaFusion access request")
+                .setContentText("Someone is waiting for your approval.")
+                .setCategory(Notification.CATEGORY_MESSAGE)
+                .setAutoCancel(true)
+                .setContentIntent(content)
+                .build();
+            NotificationManager manager=getSystemService(NotificationManager.class);
+            if(manager!=null)manager.notify(ACCESS_REQUEST_NOTIFICATION,notification);
+        });
     }
 
     /** Write a data: URL into the public Downloads folder. */
@@ -940,6 +1060,10 @@ public final class MainActivity extends Activity {
     }
     @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] grantResults){
         super.onRequestPermissionsResult(requestCode,permissions,grantResults);
+        if(requestCode==NOTIFICATION_PERMISSION){
+            sendNotificationPermissionResult(notificationsEnabled());
+            return;
+        }
         if(requestCode!=AUDIO_PERMISSION)return;
         boolean granted=grantResults.length>0&&grantResults[0]==PackageManager.PERMISSION_GRANTED;
         if(pendingAudioRequest!=null){
@@ -950,6 +1074,13 @@ public final class MainActivity extends Activity {
         }else if(webView!=null){
             String callback="if(window.LFNativeAudioPermissionResult){window.LFNativeAudioPermissionResult("+(granted?"true":"false")+");}";
             webView.post(() -> {if(webView!=null)webView.evaluateJavascript(callback,null);});
+        }
+    }
+    @Override protected void onResume(){
+        super.onResume();
+        if(notificationSettingsPending){
+            notificationSettingsPending=false;
+            sendNotificationPermissionResult(notificationsEnabled());
         }
     }
     @Override public void onBackPressed(){if(webView!=null&&webView.canGoBack())webView.goBack();else super.onBackPressed();}

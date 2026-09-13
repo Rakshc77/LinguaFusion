@@ -13,6 +13,26 @@ test('only same-origin fixed endpoints can receive identity', async () => {
   assert.equal(calls, 0);
   assert.equal((await client.request('/capabilities')).mode, 'cloud-pilot');
 });
+test('owner invitation routes are fixed and malformed identifiers stay blocked', async () => {
+  const calls = [];
+  const client = createCloudClient(auth, async (url, options) => {
+    calls.push([url, options.method]);
+    return new Response('{"ok":true,"invites":[]}', { status:200 });
+  });
+  await client.request('/owner/invites');
+  await client.request('/owner/invites', new FormData());
+  await client.request('/owner/invites/' + 'a'.repeat(64), null, { method:'DELETE' });
+  await assert.rejects(client.request('/owner/invites/not-a-digest'), /Unsupported/);
+  await assert.rejects(client.request('/owner/invites/' + 'a'.repeat(64) + '?leak=1'), /Unsupported/);
+  assert.deepEqual(calls, [
+    ['/owner/invites', 'GET'], ['/owner/invites', 'POST'],
+    ['/owner/invites/' + 'a'.repeat(64), 'DELETE'],
+  ]);
+});
+test('a spent or expired invitation has a useful message', async () => {
+  const client = createCloudClient(auth, async () => new Response('', { status:410 }));
+  await assert.rejects(client.request('/access/request', new FormData()), /no longer available/);
+});
 test('server error text is never displayed', async () => {
   const client = createCloudClient(auth, async () => new Response('private details', { status:403 }));
   await assert.rejects(client.request('/capabilities'), /not been approved/);

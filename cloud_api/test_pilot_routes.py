@@ -822,3 +822,7 @@ def test_owner_gets_a_request_badge_and_opt_in_phone_alerts_without_claiming_bac
     assert "addEventListener('notificationclick'" in worker
     assert "openWindow('/pilot/#owner-requests')" in worker
     assert "type:'open-owner-requests'" in worker
+    assert 'LFNativeNotifications' in module
+    assert "linguafusion-notify://permission" in module
+    assert "linguafusion-notify://show" in module
+    assert "addEventListener('lf-native-owner-requests'" in module

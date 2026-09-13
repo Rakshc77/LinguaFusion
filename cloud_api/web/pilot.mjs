@@ -164,16 +164,20 @@ function showOwnerRequests() {
   showView('viewAccount');
   $('requestsHeading').scrollIntoView({ block:'start' });
 }
+function targetOwnerRequests() {
+  ownerNotificationTarget = true;
+  if (ownerActive) {
+    ownerNotificationTarget = false;
+    showOwnerRequests();
+  }
+}
 if (navigator.serviceWorker) {
   navigator.serviceWorker.addEventListener('message', event => {
     if (event.data?.type !== 'open-owner-requests') return;
-    ownerNotificationTarget = true;
-    if (ownerActive) {
-      ownerNotificationTarget = false;
-      showOwnerRequests();
-    }
+    targetOwnerRequests();
   });
 }
+window.addEventListener('lf-native-owner-requests', targetOwnerRequests);
 
 // --- shared helpers ----------------------------------------------------------
 
@@ -411,18 +415,21 @@ function updateRequestBadge(count) {
 }
 
 async function notifyNewRequests(requests) {
-  if (!requests.length || !('Notification' in window) || Notification.permission !== 'granted') return;
+  if (!requests.length) return;
   const newest = requests.map(item => String(item.requested_at || '')).sort().at(-1) || '';
   if (!newest || newest <= lastRequestNotice) return;
   try {
-    if (navigator.serviceWorker) {
+    if (window.LFNativeNotifications === true) {
+      if (window.LFNativeNotificationsEnabled !== true) return;
+      window.location.assign('linguafusion-notify://show');
+    } else if ('Notification' in window && Notification.permission === 'granted' && navigator.serviceWorker) {
       const registration = await navigator.serviceWorker.ready;
       await registration.showNotification('LinguaFusion access request', {
         body:'Someone is waiting for your approval.', tag:'linguafusion-access-request',
       });
-    } else {
+    } else if ('Notification' in window && Notification.permission === 'granted') {
       new Notification('LinguaFusion access request', { body:'Someone is waiting for your approval.' });
-    }
+    } else return;
     lastRequestNotice = newest;
     try { localStorage.setItem('lf-last-request-notice', newest); } catch { /* optional */ }
   } catch { /* The badge and verified owner email remain available. */ }
@@ -431,6 +438,11 @@ async function notifyNewRequests(requests) {
 try { lastRequestNotice = localStorage.getItem('lf-last-request-notice') || ''; } catch { /* optional */ }
 
 $('enableRequestNotifications').addEventListener('click', async () => {
+  if (window.LFNativeNotifications === true) {
+    $('requestNotificationStatus').textContent = 'Opening Android notification permission…';
+    window.location.assign('linguafusion-notify://permission');
+    return;
+  }
   if (!('Notification' in window)) {
     $('requestNotificationStatus').textContent = 'Phone alerts are unavailable here. Owner email alerts remain active.';
     return;
@@ -443,6 +455,14 @@ $('enableRequestNotifications').addEventListener('click', async () => {
     if (permission === 'granted') await loadRequests(true);
   } catch { $('requestNotificationStatus').textContent = 'Phone alerts could not be enabled. Owner email alerts remain active.'; }
 });
+
+window.LFNativeNotificationPermissionResult = granted => {
+  window.LFNativeNotificationsEnabled = granted === true;
+  $('requestNotificationStatus').textContent = granted
+    ? 'Phone alerts enabled while LinguaFusion is open. Email alerts continue when it is closed.'
+    : 'Phone alerts are disabled in Android settings. Owner email alerts remain active.';
+  if (granted) void loadRequests(true);
+};
 
 function startRequestPolling() {
   if (requestPollTimer) clearInterval(requestPollTimer);
