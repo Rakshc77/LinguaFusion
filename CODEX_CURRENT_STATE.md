@@ -1,5 +1,34 @@
 # LinguaFusion — current Codex handover
 
+## Owner invite phone-test repair — September 13, 2026
+
+PR #9 was squash-merged into `main` as `2b30718`, superseding the
+deployment notes immediately below. The first phone test exposed two separate
+issues: the secure browser client had not allowlisted the newly added invite
+routes, producing **Unsupported cloud request**, and Android WebView does not
+implement the browser Notification API.
+
+Online interface `2026.09.13.3` now permits only the exact
+`/owner/invites` collection path and a revoke path ending in a 64-character
+lowercase hex digest. Malformed or query-appended variants remain blocked.
+HTTP 410 now explains that an invitation is expired, revoked or already used.
+
+Android source is now 1.17 / versionCode 18. The installed app implements its
+own notification channel and Android 13+ permission request. The hosted page
+still receives no JavaScript interface: notification permission/show actions
+use fixed custom schemes, require the genuine cloud origin, require a real tap
+for permission, use fixed native text and are rate-limited. Tapping an alert
+opens Online mode at Owner access requests. The shared stylesheet was synced
+into Offline because this source change now requires an APK rebuild.
+
+Validation: 66 browser tests and 200 cloud tests passed locally; 29 Android
+contracts passed with only the intentionally owner-PC-only private-keystore
+check unavailable. GitHub Cloud pilot and Android source/Gradle checks both
+passed on PR #9. Deploy current `main` to make invite creation work. Then build,
+publish and deploy the signed Android 1.17 APK on the owner PC, preserving the
+existing private signing key, to make native alerts work inside the installed
+Android app. Do not generate a new keystore.
+
 ## Current owner invitations and access alerts — September 13, 2026
 
 PR #8 was squash-merged into `main` as `485d282`. Online interface version
