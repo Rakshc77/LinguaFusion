@@ -1,5 +1,111 @@
 # LinguaFusion — current Codex handover
 
+## End-of-night handover — September 13, 2026
+
+This section supersedes any older deployment, APK-version or next-step wording
+below. The work is concluded for tonight with no active build or promotion.
+
+### Verified live baseline
+
+- GitHub `main` contained Android publication commit `40e20d3` before
+  tonight's documentation-only commits.
+- Live Online interface: `2026.09.13.3`.
+- Live Android metadata: `1.17` / versionCode `18`, 22,450,547 bytes,
+  SHA-256
+  `65d1373ab0178a4f0554817d1aef23af589fb6674cefeec4f6f4282f94e2d71c`.
+- Cloud build `b40174e4-105b-42ec-a263-10ceda001439` succeeded and its
+  different image digest was promoted.
+- Owner one-use invitation links/QR codes and the repaired secure route
+  allowlist are live. Android 1.17 contains the native access-request
+  notification channel and permission flow.
+- No source, APK, provider configuration, secrets, spend limits or signing
+  material were changed in tonight's final documentation pass.
+
+### Next feature: Read Aloud (planned, not implemented)
+
+Build Read Aloud as a device-synthesized output action for Translation,
+Transcription and OCR results. It must not make an OpenRouter, Groq or other AI
+request; LinguaFusion must not upload or retain synthesized audio.
+
+Behavior contract:
+
+1. A Translation result speaks its target language; a Transcript or OCR result
+   speaks its selected/detected source language.
+2. Each card exposes **Read aloud** and **Stop**, plus 0.75× / 1× / 1.25× speed.
+   Only one utterance may be active app-wide.
+3. Stop speech when another result starts, the result is removed, the account
+   changes or the user logs out. Do not add background playback in the first
+   release.
+4. Keep **Say it** as the separate pronunciation-guide feature.
+5. Guarantee English, German, Arabic, Spanish and French only when a matching
+   device voice is installed. Missing voices need an honest, actionable message.
+6. Store voice/rate preferences locally only. Never log spoken text.
+7. Voice packs remain OS-managed instead of being bundled, keeping APK growth
+   small. A separate OS voice download may still be needed.
+
+Platform implementation:
+
+- Browser and iPhone PWA: use `speechSynthesis` and
+  `SpeechSynthesisUtterance` after a real user tap; refresh the voice list on
+  `voiceschanged`; fall back cleanly when speech synthesis or a matching voice
+  is unavailable. Because the current iPhone product is a PWA, do not describe
+  native `AVSpeechSynthesizer` support unless a native iOS wrapper is later
+  built.
+- Android installed app: use native `android.speech.tts.TextToSpeech`. In
+  Offline mode, select only a voice whose
+  `isNetworkConnectionRequired()` is false. Split long content below
+  `TextToSpeech.getMaxSpeechInputLength()`, track completion/errors with
+  `UtteranceProgressListener`, and call `stop()`/`shutdown()` during
+  lifecycle cleanup.
+- Hosted Online page to Android: use
+  `WebViewCompat.addWebMessageListener` restricted to the exact trusted cloud
+  origin. Do not add a broad `addJavascriptInterface`. Validate message type,
+  locale allowlist, text length and rate natively; expose no unrelated native
+  capability.
+- Offline bundled page: extend its already trusted Offline bridge with the same
+  narrow play/stop/state contract.
+
+Recommended delivery order:
+
+1. Result-action state machine, language routing, limits and browser tests.
+2. Shared Online UI plus browser/iPhone PWA speech.
+3. Android native speech bridge plus Offline UI synchronization.
+4. Android 1.18/versionCode 19 owner-PC signed build, physical five-language
+   Android testing, iPhone Safari/Home Screen testing, then Cloud Run promotion.
+
+Do not bump versions or start a paid/provider test until implementation begins.
+Preserve the existing Android signing key.
+
+### Prioritized product backlog
+
+1. Read Aloud.
+2. Two-person Conversation mode with large alternating controls and explicit
+   confirmation before paid Online processing.
+3. Opt-in, searchable, device-local history and favorites/phrasebook with
+   export and complete deletion.
+4. Offline download manager for speech model, translation packs and voice packs,
+   including sizes, Wi-Fi-only behavior and safe removal.
+5. Camera reading improvements: crop, rotate, select a sentence, then translate
+   or read that selection.
+6. Accessibility: larger text, high contrast, reduced motion, haptics and
+   one-handed result actions.
+7. Privacy-safe owner metrics: request/user counts and spend thresholds without
+   translation or transcription content.
+
+Continue to defer a full-screen translation overlay: it requires broad
+Accessibility or screen-capture access and is inconsistent with the current
+least-privilege design.
+
+### Tomorrow's clean starting point
+
+Start from the latest remote `main`, read this section and
+`CLOUD_HANDOFF.md`, then create a dedicated Read Aloud branch. First implement
+and test the engine-independent result-action contract; do not begin with native
+bridge code. Re-fetch `main` before branching because the owner's local
+worktree may still be behind or contain unrelated changes.
+
+---
+
 ## Owner invite phone-test repair — September 13, 2026
 
 PR #9 was squash-merged into `main` as `2b30718`, superseding the
