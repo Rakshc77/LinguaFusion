@@ -5,3 +5,4 @@ python-multipart==0.0.32
 firebase-admin==7.5.0
 starlette==1.6.0
 pydantic==2.13.5
+qrcode==8.2

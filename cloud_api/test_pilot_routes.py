@@ -711,12 +711,13 @@ def test_the_app_can_be_installed_on_an_iphone_with_its_own_icon():
         assert (web / entry['src']).is_file(), f"manifest names {entry['src']}, which is absent"
 
 
-def test_the_iphone_microphone_quirk_is_explained_rather_than_left_mysterious():
-    # Recording in a Home Screen web app on iOS fails after the first launch, a
-    # WebKit bug nothing here can fix. Saying so, and naming the way round it,
-    # is the difference between a known limitation and an app that looks broken.
+def test_the_iphone_microphone_quirk_has_recovery_routes():
+    # WebKit can strand Home Screen capture between launches. Keep live retry,
+    # Safari and locally converted saved audio reachable from the shipped page.
     import pathlib
-    module = (pathlib.Path(__file__).parent / 'web' / 'pilot.mjs').read_text(encoding='utf-8')
+    web = pathlib.Path(__file__).parent / 'web'
+    module = (web / 'pilot.mjs').read_text(encoding='utf-8')
+    html = (web / 'index.html').read_text(encoding='utf-8')
     assert 'isIosStandalone' in module
     guard = module[module.index('function isIosStandalone'):]
     guard = guard[:guard.index('\n}')]
@@ -726,6 +727,11 @@ def test_the_iphone_microphone_quirk_is_explained_rather_than_left_mysterious():
     problem = problem[:problem.index('\n}')]
     assert 'isIosStandalone()' in problem, 'the advice must reach the person who sees the failure'
     assert 'Safari' in problem, 'it must say what to do instead'
+    for control in ['recordingRecovery', 'retryRecording', 'chooseRecording',
+                    'openRecordingInSafari', 'speechAudioFile']:
+        assert f'id="{control}"' in html, f'missing iPhone recovery control: {control}'
+    assert 'prepareSavedRecording' in module and 'decodeAudioData' in module
+    assert 'buildWav(channels, decoded.sampleRate)' in module
 
 
 def test_reading_the_bill_does_not_reserve_budget():
@@ -773,3 +779,46 @@ def test_every_provider_carries_a_console_link_scoped_to_this_project():
     # And the raw identifiers are not what an owner should be reading.
     for name in ["'OpenRouter'", "'Groq'", "'Google Vision'"]:
         assert name in route, f'{name} missing; the owner would see a raw key'
+
+
+def test_owner_invites_are_one_use_shareable_and_manageable_from_a_phone():
+    import pathlib
+    web = pathlib.Path(__file__).parent / 'web'
+    html = (web / 'index.html').read_text(encoding='utf-8')
+    module = (web / 'pilot.mjs').read_text(encoding='utf-8')
+
+    for control in ['inviteHours', 'createInvite', 'inviteQr', 'inviteLink',
+                    'copyInvite', 'shareInvite', 'inviteList']:
+        assert f'id="{control}"' in html, f'missing owner invite control: {control}'
+    for route in ["'/owner/invites'", "'/owner/invites/'"]:
+        assert route in module
+    assert 'navigator.share' in module, 'the owner phone needs its native share sheet'
+    assert 'Revoke' in module, 'unused links need a kill switch'
+
+
+def test_invitation_fragment_is_preserved_for_joining_but_removed_from_the_address_bar():
+    import pathlib
+    module = (pathlib.Path(__file__).parent / 'web' / 'pilot.mjs').read_text(encoding='utf-8')
+    capture = module[module.index('function captureInvite()'):module.index('function clearInvite()')]
+    assert "#invite=" in capture
+    assert 'sessionStorage.setItem' in capture, 'sign-up must not lose the invitation'
+    assert 'history.replaceState' in capture, 'the bearer token must disappear from the visible URL'
+    assert "body.set('invite_token', pendingInviteToken)" in module
+
+
+def test_owner_gets_a_request_badge_and_opt_in_phone_alerts_without_claiming_background_push():
+    import pathlib
+    web = pathlib.Path(__file__).parent / 'web'
+    html = (web / 'index.html').read_text(encoding='utf-8')
+    module = (web / 'pilot.mjs').read_text(encoding='utf-8')
+    assert 'id="requestBadge"' in html
+    assert 'id="enableRequestNotifications"' in html
+    assert 'Notification.requestPermission()' in module
+    assert 'registration.showNotification' in module
+    assert '60_000' in module and '!document.hidden' in module
+    assert 'while this app is open' in html
+    assert 'email alerts continue when the app is closed' in html.lower()
+    worker = (web / 'sw.js').read_text(encoding='utf-8')
+    assert "addEventListener('notificationclick'" in worker
+    assert "openWindow('/pilot/#owner-requests')" in worker
+    assert "type:'open-owner-requests'" in worker

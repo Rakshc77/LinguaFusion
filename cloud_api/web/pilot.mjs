@@ -26,6 +26,33 @@ let translationModels = [];
 let translationLimit = 6000;
 let pronunciationLimit = 2000;
 let chosenModel = '';
+let ownerActive = false;
+let requestPollTimer = null;
+let lastRequestNotice = '';
+let ownerNotificationTarget = window.location.hash === '#owner-requests';
+if (ownerNotificationTarget) {
+  history.replaceState(null, '', window.location.pathname + window.location.search);
+}
+
+const INVITE_SESSION_KEY = 'lf-one-time-invite';
+function captureInvite() {
+  let token = '';
+  const match = window.location.hash.match(/^#invite=([A-Za-z0-9_-]{20,256})$/);
+  try {
+    if (match) sessionStorage.setItem(INVITE_SESSION_KEY, match[1]);
+    token = match?.[1] || sessionStorage.getItem(INVITE_SESSION_KEY) || '';
+  } catch { token = match?.[1] || ''; }
+  if (match) history.replaceState(null, '', window.location.pathname + window.location.search);
+  return token;
+}
+let pendingInviteToken = captureInvite();
+$('inviteJoinNotice').hidden = !pendingInviteToken;
+
+function clearInvite() {
+  pendingInviteToken = '';
+  $('inviteJoinNotice').hidden = true;
+  try { sessionStorage.removeItem(INVITE_SESSION_KEY); } catch { /* optional device storage */ }
+}
 
 function rememberedModel() {
   try { return localStorage.getItem('lf-translate-model') || ''; } catch { return ''; }
@@ -133,6 +160,20 @@ function showView(id) {
 for (const item of document.querySelectorAll('.nav-item')) {
   item.addEventListener('click', () => showView(item.dataset.view));
 }
+function showOwnerRequests() {
+  showView('viewAccount');
+  $('requestsHeading').scrollIntoView({ block:'start' });
+}
+if (navigator.serviceWorker) {
+  navigator.serviceWorker.addEventListener('message', event => {
+    if (event.data?.type !== 'open-owner-requests') return;
+    ownerNotificationTarget = true;
+    if (ownerActive) {
+      ownerNotificationTarget = false;
+      showOwnerRequests();
+    }
+  });
+}
 
 // --- shared helpers ----------------------------------------------------------
 
@@ -191,9 +232,14 @@ function clearPrivateText() {
   $('ocrFile').value = '';
   $('reqName').value = ''; $('reqOrg').value = ''; $('accessStatus').textContent = '';
   $('ownerUsers').replaceChildren(); $('requestList').replaceChildren();
+  $('inviteList').replaceChildren(); $('inviteResult').hidden = true; $('inviteStatus').textContent = '';
+  $('requestBadge').hidden = true; $('requestNotificationStatus').textContent = '';
   $('ownerTotal').textContent = ''; $('policyUid').value = ''; $('policyStatus').textContent = ''; $('spending').textContent = '';
   $('failureList').replaceChildren(); $('reviewDue').hidden = true; $('reviewNext').textContent = '';
   showAdvanced(false);
+  ownerActive = false;
+  if (requestPollTimer) clearInterval(requestPollTimer);
+  requestPollTimer = null;
   stopCapture();
 }
 
@@ -285,6 +331,126 @@ async function loadOwner() {
   } catch (error) { if (current === epoch) status(error.message); }
 }
 
+function inviteTime(value) {
+  const date = new Date(value);
+  return Number.isNaN(date.valueOf()) ? 'unknown time' : date.toLocaleString();
+}
+
+async function loadInvites() {
+  const current = epoch;
+  try {
+    const data = await api.request('/owner/invites');
+    if (current !== epoch) return;
+    $('inviteList').replaceChildren();
+    if (!data.invites.length) { line($('inviteList'), 'No invitation links created yet.', 'hint'); return; }
+    for (const invite of data.invites.slice(0, 20)) {
+      const row = document.createElement('div');
+      row.className = 'person';
+      line(row, invite.status === 'active' ? 'Unused one-time invite' : `Invitation ${invite.status}`, 'person-name');
+      line(row, `Created ${inviteTime(invite.created_at)} · expires ${inviteTime(invite.expires_at)}`, 'hint');
+      if (invite.used_at) line(row, `Used ${inviteTime(invite.used_at)}`, 'hint');
+      if (invite.status === 'active') {
+        const revoke = document.createElement('button');
+        revoke.type = 'button'; revoke.className = 'danger'; revoke.textContent = 'Revoke';
+        revoke.addEventListener('click', () => confirmInPage(row,
+          'Revoke this invitation? Its link and QR code will stop working.', 'Revoke',
+          () => revokeInvite(invite.id)));
+        row.append(revoke);
+      }
+      $('inviteList').append(row);
+    }
+  } catch (error) { if (current === epoch) $('inviteStatus').textContent = error.message; }
+}
+
+async function revokeInvite(identifier) {
+  const current = epoch;
+  try {
+    await api.request('/owner/invites/' + identifier, null, { method:'DELETE' });
+    if (current !== epoch) return;
+    $('inviteStatus').textContent = 'Invitation revoked.';
+    await loadInvites();
+  } catch (error) { if (current === epoch) $('inviteStatus').textContent = error.message; }
+}
+
+$('createInvite').addEventListener('click', async () => {
+  const current = epoch;
+  const body = new FormData();
+  body.set('expires_hours', $('inviteHours').value);
+  $('createInvite').disabled = true;
+  $('inviteStatus').textContent = 'Creating a one-time invitation…';
+  try {
+    const data = await api.request('/owner/invites', body);
+    if (current !== epoch) return;
+    $('inviteLink').value = data.invite.url;
+    $('inviteQr').src = data.invite.qr;
+    $('inviteResult').hidden = false;
+    $('inviteStatus').textContent = `Ready until ${inviteTime(data.invite.expires_at)}.`;
+    await loadInvites();
+  } catch (error) { if (current === epoch) $('inviteStatus').textContent = error.message; }
+  finally { if (current === epoch) $('createInvite').disabled = false; }
+});
+
+$('copyInvite').addEventListener('click', () => void copyText($('inviteLink').value, 'Invitation link', $('inviteStatus')));
+$('shareInvite').addEventListener('click', async () => {
+  const url = $('inviteLink').value;
+  if (!url) return;
+  if (navigator.share) {
+    try {
+      await navigator.share({ title:'Join LinguaFusion', text:'Use this one-time invitation to join LinguaFusion.', url });
+      $('inviteStatus').textContent = 'Invitation shared.';
+      return;
+    } catch (error) { if (error?.name === 'AbortError') return; }
+  }
+  await copyText(url, 'Invitation link', $('inviteStatus'));
+});
+
+function updateRequestBadge(count) {
+  $('requestBadge').hidden = count === 0;
+  $('requestBadge').textContent = count > 99 ? '99+' : String(count);
+  $('requestBadge').setAttribute('aria-label', `${count} pending access request${count === 1 ? '' : 's'}`);
+}
+
+async function notifyNewRequests(requests) {
+  if (!requests.length || !('Notification' in window) || Notification.permission !== 'granted') return;
+  const newest = requests.map(item => String(item.requested_at || '')).sort().at(-1) || '';
+  if (!newest || newest <= lastRequestNotice) return;
+  try {
+    if (navigator.serviceWorker) {
+      const registration = await navigator.serviceWorker.ready;
+      await registration.showNotification('LinguaFusion access request', {
+        body:'Someone is waiting for your approval.', tag:'linguafusion-access-request',
+      });
+    } else {
+      new Notification('LinguaFusion access request', { body:'Someone is waiting for your approval.' });
+    }
+    lastRequestNotice = newest;
+    try { localStorage.setItem('lf-last-request-notice', newest); } catch { /* optional */ }
+  } catch { /* The badge and verified owner email remain available. */ }
+}
+
+try { lastRequestNotice = localStorage.getItem('lf-last-request-notice') || ''; } catch { /* optional */ }
+
+$('enableRequestNotifications').addEventListener('click', async () => {
+  if (!('Notification' in window)) {
+    $('requestNotificationStatus').textContent = 'Phone alerts are unavailable here. Owner email alerts remain active.';
+    return;
+  }
+  try {
+    const permission = await Notification.requestPermission();
+    $('requestNotificationStatus').textContent = permission === 'granted'
+      ? 'Phone alerts enabled while LinguaFusion is open. Email alerts continue when it is closed.'
+      : 'Phone alerts were not enabled. Owner email alerts remain active.';
+    if (permission === 'granted') await loadRequests(true);
+  } catch { $('requestNotificationStatus').textContent = 'Phone alerts could not be enabled. Owner email alerts remain active.'; }
+});
+
+function startRequestPolling() {
+  if (requestPollTimer) clearInterval(requestPollTimer);
+  requestPollTimer = setInterval(() => {
+    if (ownerActive && !document.hidden) void loadRequests(true);
+  }, 60_000);
+}
+
 async function removeUser(uid) {
   const current = epoch;
   try {
@@ -296,11 +462,13 @@ async function removeUser(uid) {
   } catch (error) { if (current === epoch) status(error.message); }
 }
 
-async function loadRequests() {
+async function loadRequests(notify = false) {
   const current = epoch;
   try {
     const data = await api.request('/owner/requests?status=pending');
     if (current !== epoch) return;
+    updateRequestBadge(data.requests.length);
+    if (notify) void notifyNewRequests(data.requests);
     $('requestList').replaceChildren();
     if (!data.requests.length) { line($('requestList'), 'No requests waiting.', 'hint'); return; }
     for (const item of data.requests) {
@@ -549,6 +717,7 @@ async function checkAccess() {
     $('workspace').hidden = false;
     $('pageFooter').hidden = true;
     $('ownerPanel').hidden = !caps.is_owner;
+    ownerActive = Boolean(caps.is_owner);
     // Fetched only when asked: it calls out to a provider.
     applyReadiness();
 
@@ -557,9 +726,19 @@ async function checkAccess() {
     showSpending(spending);
     status('Ready.');
     showReview(caps.price_review);
-    if (caps.is_owner) { await loadOwner(); await loadRequests(); await loadFailures(); }
+    if (caps.is_owner) {
+      await loadOwner(); await loadInvites(); await loadRequests(true); await loadFailures();
+      startRequestPolling();
+      if (ownerNotificationTarget) {
+        ownerNotificationTarget = false;
+        showOwnerRequests();
+      }
+    }
   } catch (error) {
     if (current !== epoch) return;
+    ownerActive = false;
+    if (requestPollTimer) clearInterval(requestPollTimer);
+    requestPollTimer = null;
     if (error.status === 403) {
       // Signed in but not approved: the one error with a next step.
       $('workspace').hidden = true;
@@ -618,8 +797,13 @@ async function loadOwnRequest() {
   try {
     const mine = await api.request('/access/request');
     if (mine.status === 'pending') {
-      $('accessStatus').textContent = 'Your request is waiting for the owner to decide.';
-      $('accessFields').disabled = true;
+      if (pendingInviteToken) {
+        $('accessStatus').textContent = 'Your one-time invitation is ready. Submit your details again to finish joining.';
+        $('accessFields').disabled = false;
+      } else {
+        $('accessStatus').textContent = 'Your request is waiting for the owner to decide.';
+        $('accessFields').disabled = true;
+      }
     } else if (mine.status === 'denied') {
       $('accessStatus').textContent = 'The owner declined this request. Contact them before resending.';
     }
@@ -634,14 +818,23 @@ $('accessForm').addEventListener('submit', async event => {
   if (!name || !organisation) { $('accessStatus').textContent = 'Enter your name and organisation.'; return; }
   const body = new FormData();
   body.set('name', name); body.set('organisation', organisation);
+  if (pendingInviteToken) body.set('invite_token', pendingInviteToken);
   $('accessFields').disabled = true;
   $('accessStatus').textContent = 'Sending your request…';
   try {
     const result = await api.request('/access/request', body);
     if (current !== epoch) return;
     $('accessStatus').textContent = result.message || 'Your request was sent.';
+    if (result.status === 'approved' && pendingInviteToken) {
+      clearInvite();
+      await checkAccess();
+    }
   } catch (error) {
-    if (current === epoch) { $('accessStatus').textContent = error.message; $('accessFields').disabled = false; }
+    if (current === epoch) {
+      if (error.status === 410) clearInvite();
+      $('accessStatus').textContent = error.message;
+      $('accessFields').disabled = false;
+    }
   }
 });
 
@@ -1070,6 +1263,7 @@ window.addEventListener('pagehide', stopCapture);
 document.addEventListener('visibilitychange', () => {
   // Native permission/dialog lifecycle is managed by Android itself.
   if (document.hidden && !nativeRecording) stopCapture();
+  if (!document.hidden && ownerActive) void loadRequests(true);
 });
 
 async function finishRecording() {

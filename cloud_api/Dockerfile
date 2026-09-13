@@ -10,6 +10,7 @@ COPY cloud_api/models.py /app/cloud_api/models.py
 COPY cloud_api/pilot_capabilities.py /app/cloud_api/pilot_capabilities.py
 COPY cloud_api/ocr_layout.py /app/cloud_api/ocr_layout.py
 COPY cloud_api/access_requests.py /app/cloud_api/access_requests.py
+COPY cloud_api/invites.py /app/cloud_api/invites.py
 COPY cloud_api/pilot_providers.py /app/cloud_api/pilot_providers.py
 # The idiom set. proverbs.py imports the JSON beside it, so the data must
 # travel with the code or the feature silently disables itself in production.

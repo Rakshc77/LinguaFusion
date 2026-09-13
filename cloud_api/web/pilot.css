@@ -130,6 +130,13 @@ button.danger { background:transparent; color:#b3261e; border:1px solid #b3261e;
 .recording-recovery { margin-top:12px; padding:12px 14px; border:1px solid var(--line); border-radius:var(--radius); background:var(--notice); }
 .recording-recovery .hint { margin:0; }
 .button-link { min-height:42px; padding:10px 16px; border:1px solid var(--line); border-radius:var(--radius); color:var(--text); background:var(--panel); font:600 15px/1.4 var(--lf-font-body); text-decoration:none; display:inline-flex; align-items:center; }
+.owner-invites { margin:24px 0; padding:16px; border:1px solid var(--line); border-radius:var(--radius); background:var(--panel); }
+.owner-invites > h3 { margin-top:0; }
+.invite-result { margin-top:16px; }
+.invite-result img { display:block; width:min(260px,100%); aspect-ratio:1; margin:0 auto 16px; border-radius:12px; background:white; }
+.invite-result input { font-size:13px; }
+.request-badge { position:absolute; top:5px; right:8px; min-width:20px; height:20px; padding:0 5px; border-radius:10px; background:var(--warn-line); color:white; font:700 11px/20px system-ui,sans-serif; }
+.nav-item { position:relative; }
 /* OCR keeps tabs and alignment, so the result must not reflow like prose. */
 #ocrResult { white-space:pre-wrap; tab-size:8; font-variant-numeric:tabular-nums; }
 p.warn { font-weight:600; }

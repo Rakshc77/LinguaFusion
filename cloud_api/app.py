@@ -217,7 +217,7 @@ async def translate_remote(settings, text, source, target, transport=None, recor
 
 
 def create_app(settings=None, verifier=None, transport=None, policy=None, vision_token=None,
-               access_store=None):
+               access_store=None, invite_store=None):
     settings = settings or Settings.environment()
     if os.getenv('K_SERVICE'):
         if settings.policy_backend != 'firestore' or settings.policy_path or not settings.project or not settings.owner_uid:
@@ -257,6 +257,9 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
     if access_store is None and settings.policy_backend == 'firestore' and settings.project:
         from cloud_api.access_requests import AccessRequests
         access_store = AccessRequests(settings.project, settings.firestore_database)
+    if invite_store is None and settings.policy_backend == 'firestore' and settings.project:
+        from cloud_api.invites import Invites
+        invite_store = Invites(settings.project, settings.firestore_database)
     app = FastAPI(title='LinguaFusion cloud pilot', docs_url=None, redoc_url=None, openapi_url=None)
     # Audio and images legitimately exceed the 64 KB text default; every other
     # path keeps the small cap. The read timeout covers a slow phone upload.
@@ -653,15 +656,53 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
             raise HTTPException(503, 'Access requests are not configured.')
         return access_store
 
+    def require_invite_store():
+        if invite_store is None:
+            raise HTTPException(503, 'One-time invitations are not configured.')
+        return invite_store
+
+    @app.post('/owner/invites')
+    async def owner_create_invite(expires_hours: int = Form(24), uid=Depends(owner)):
+        invitation = await asyncio.to_thread(require_invite_store().create, uid, expires_hours)
+        log.info(json.dumps({'event': 'invite_created', 'invite_prefix': invitation['id'][:8]}))
+        return {'ok': True, 'invite': invitation}
+
+    @app.get('/owner/invites')
+    async def owner_list_invites(uid=Depends(owner)):
+        return {'invites': await asyncio.to_thread(require_invite_store().list)}
+
+    @app.delete('/owner/invites/{identifier}')
+    async def owner_revoke_invite(identifier: str, uid=Depends(owner)):
+        invitation = await asyncio.to_thread(require_invite_store().revoke, identifier)
+        log.info(json.dumps({'event': 'invite_revoked', 'invite_prefix': identifier[:8]}))
+        return {'ok': True, 'invite': invitation}
+
     @app.post('/access/request')
     async def submit_access_request(name: str = Form(..., max_length=120),
                                     organisation: str = Form(..., max_length=120),
+                                    invite_token: str = Form(None, max_length=256),
                                     claims=Depends(verified_claims)):
         store = require_access_store()
         # The address is taken from the verified token, never from the body, so
         # nobody can submit a request under someone else's email.
         if not claims.get('email_verified') or not claims.get('email'):
             raise HTTPException(403, 'Confirm your email address before requesting access.')
+        if invite_token:
+            # The owner already made the access decision when creating this
+            # one-use link. Redemption binds it to the first verified account.
+            await asyncio.to_thread(require_invite_store().redeem, invite_token, claims['uid'])
+            record = await asyncio.to_thread(store.submit, claims['uid'], claims['email'], name, organisation)
+            if policy is None:
+                raise HTTPException(503, 'Persistent access controls are not configured.')
+            await asyncio.to_thread(policy.update, settings.owner_uid, claims['uid'], True,
+                                    APPROVED_MONTHLY_LIMIT, APPROVED_MONTHLY_BUDGET_MICRO)
+            if record.get('status') != 'approved':
+                record = await asyncio.to_thread(store.decide, claims['uid'], 'approved', settings.owner_uid)
+            log.warning(json.dumps({'event': 'invite_redeemed',
+                                    'uid_prefix': claims['uid'][:8], 'status': record['status']}))
+            return {'ok': True, 'status': record['status'],
+                    'message': 'Invitation accepted. Your LinguaFusion access is ready.'}
+
         record = await asyncio.to_thread(store.submit, claims['uid'], claims['email'], name, organisation)
         # Notification signal for the owner's alert. Carries NO personal data:
         # the owner opens the console to see who it was.
