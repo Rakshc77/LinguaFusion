@@ -173,10 +173,11 @@ TOKENS = {
     'owner': {'uid': OWNER, 'email': 'owner@example.com', 'email_verified': True},
     'stranger': {'uid': STRANGER, 'email': 'ada@example.com', 'email_verified': True},
     'unverified': {'uid': 'unverified-uid', 'email': 'x@example.com', 'email_verified': False},
+    'other': {'uid': 'other-uid', 'email': 'other@example.com', 'email_verified': True},
 }
 
 
-def build(policy=None, store=None):
+def build(policy=None, store=None, invite_store=None):
     policy = policy or RecordingPolicy([OWNER])
     store = store or make_store()
 
@@ -187,7 +188,7 @@ def build(policy=None, store=None):
 
     settings = Settings(project='p', owner_uid=OWNER, enabled=False)
     client = TestClient(create_app(settings, verify, httpx.MockTransport(lambda r: httpx.Response(500)),
-                                   policy=policy, access_store=store))
+                                   policy=policy, access_store=store, invite_store=invite_store))
     return client, policy, store
 
 

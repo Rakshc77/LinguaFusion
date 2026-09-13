@@ -82,6 +82,7 @@
       <section id="accessRequest" hidden aria-labelledby="accessTitle">
         <h2 id="accessTitle">Request access</h2>
         <p class="hint">You are signed in, but not approved yet. Send a request and the owner will decide.</p>
+        <p class="hint invite-notice" id="inviteJoinNotice" hidden>A one-time owner invitation is ready. Confirm your email, then enter your details to join immediately.</p>
         <form id="accessForm">
           <fieldset id="accessFields">
             <label for="reqName">Your name</label>
@@ -293,7 +294,34 @@
 
           <p id="ownerTotal"></p>
 
+          <section class="owner-invites" aria-labelledby="invitesHeading">
+            <h3 id="invitesHeading">Invite someone</h3>
+            <p class="hint">Create a private link or QR code for one verified account. The link grants the standard allowance once, then expires permanently.</p>
+            <label for="inviteHours">Link lifetime</label>
+            <select id="inviteHours">
+              <option value="1">1 hour</option>
+              <option value="24" selected>24 hours</option>
+              <option value="168">7 days</option>
+            </select>
+            <button id="createInvite" type="button">Create one-time invite</button>
+            <p id="inviteStatus" role="status" aria-live="polite"></p>
+            <div id="inviteResult" class="invite-result" hidden>
+              <img id="inviteQr" alt="One-time LinguaFusion invitation QR code">
+              <label for="inviteLink">One-time link</label>
+              <input id="inviteLink" readonly autocomplete="off" spellcheck="false">
+              <p class="hint">This link is shown only now. Share it with one person.</p>
+              <div class="actions">
+                <button id="copyInvite" type="button" class="secondary">Copy link</button>
+                <button id="shareInvite" type="button" class="secondary">Share</button>
+              </div>
+            </div>
+            <div id="inviteList"></div>
+          </section>
+
           <h3 id="requestsHeading">Access requests</h3>
+          <p class="hint">Verified owner email alerts continue when the app is closed. Enable phone alerts below for new requests detected while this app is open.</p>
+          <button id="enableRequestNotifications" type="button" class="secondary">Enable phone alerts</button>
+          <p id="requestNotificationStatus" class="hint" role="status" aria-live="polite"></p>
           <button id="refreshRequests" type="button" class="secondary">Refresh requests</button>
           <div id="requestList"></div>
 
@@ -328,7 +356,7 @@
         <button id="navRead" type="button" class="nav-item" data-view="viewRead"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg><span>Read</span></button>
         <button id="navSay" type="button" class="nav-item" data-view="viewSay"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4m4-7v10m4-14v18m4-14v10m4-7v4"/></svg><span>Say it</span></button>
         <button id="navModels" type="button" class="nav-item" data-view="viewModels"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5m-18 5 9 5 9-5"/></svg><span>Model</span></button>
-        <button id="navAccount" type="button" class="nav-item" data-view="viewAccount"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3Z"/></svg><span>Settings</span></button>
+        <button id="navAccount" type="button" class="nav-item" data-view="viewAccount"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3Z"/></svg><span>Settings</span><span id="requestBadge" class="request-badge" hidden aria-label="Pending access requests"></span></button>
       </nav>
     </div>
 
