@@ -1,11 +1,25 @@
 # LinguaFusion — current Codex handover
 
+## Current iPhone recording recovery — September 13, 2026
+
+PR #7 was squash-merged into `main` as `b2fce57`. Online interface version
+`2026.09.13.1` adds recovery for iPhone Home Screen microphone failures: an
+explicit retry, an **Open in Safari** route, and **Choose saved recording** for
+a Voice Memo saved to Files. Saved audio is decoded locally, mixed/resampled to
+the existing mono PCM WAV contract and only then sent after paid-use consent.
+
+The recorder now watches audio tracks for an ended or persistently muted state,
+fully releases the failed stream and audio context, and never uploads the partial
+capture. This is an online/PWA change only; Android APK 1.16 and offline assets do
+not need rebuilding. Validation passed locally (64 browser tests; 183 cloud tests,
+8 optional skips) and GitHub's Cloud pilot tests passed on PR #7. Cloud Run must
+be rebuilt and promoted from current `main` before this version is live.
+
 ## Current Android integration — September 12, 2026
 
 PR #6 was squash-merged into `main` as `01370a6`. This section
-supersedes older source/version notes below. The source release is Android 1.16 /
-versionCode 17; the currently published APK remains 1.15 / versionCode 16 until
-the owner-PC build is signed and published.
+supersedes older source/version notes below. The source and published APK are Android 1.16 / versionCode 17. The owner-PC
+signed build was committed to `main` as `a5a0741` on September 13.
 
 Implemented a compact native **Translate with LinguaFusion** activity for
 Android `ACTION_PROCESS_TEXT` and text-only `ACTION_SEND`. In an editable field,
@@ -33,11 +47,9 @@ The cloud pilot suite also passed. The private-keystore check remains limited to
 the owner PC because the signing key is intentionally absent here. Physical
 WhatsApp testing on the owner's Samsung remains the final behavior gate.
 
-Build with `gradlew.bat clean stageApk` on the owner PC using the existing debug
-keystore. Then run `scripts/publish_android_apk.py`, commit the generated APK and
-`android-app.json`, and deploy the existing Cloud Run service. After deployment,
-the installed sideload app's **Check for updates** flow can install 1.16. Do not
-generate a new key: it would not install over existing copies.
+The existing signed APK 1.16 must keep its current signing key. Do not generate
+a replacement key: it would not install over existing copies. PR #7 changes only
+the hosted Online interface, so deploy Cloud Run without rebuilding the APK.
 
 ## Previous Codex handover
 
