@@ -171,6 +171,7 @@ function stopCapture() {
   captureGeneration++;
   nativeRecording = null;
   if (!capture) return;
+  if (capture.muteTimer) clearTimeout(capture.muteTimer);
   try { capture.processor.disconnect(); capture.source.disconnect(); } catch { /* already torn down */ }
   for (const track of capture.stream.getTracks()) track.stop();
   void capture.context.close().catch(() => {});
@@ -822,10 +823,9 @@ $('copyTranscript').addEventListener('click', () => void copyText($('transcript'
 /** Say which microphone problem actually happened.
  *  One catch-all "Microphone unavailable" told someone who had already granted
  *  permission to go and grant permission, which is worse than saying nothing. */
-/* Added to the Home Screen on iPhone, Safari has a long-standing bug where the
-   microphone works on the first launch and then fails when the app is reopened.
-   Nothing in the page can fix it, so when the conditions match, the failure is
-   named and a way round it offered rather than left looking like a broken app. */
+/* Home Screen web apps on iPhone can lose the capture service or its permission
+   across launches. The failure is below this page, so offer an explicit retry,
+   Safari and saved-audio routes instead of leaving the app looking broken. */
 function isIosStandalone() {
   const ios = /iPad|iPhone|iPod/.test(navigator.userAgent)
     || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
@@ -836,8 +836,8 @@ function microphoneProblem(error) {
   if (isIosStandalone()) {
     return 'On iPhone, recording often stops working once this app has been reopened '
       + 'from the Home Screen — a long-standing Safari bug, not a fault here. '
-      + 'Open the same address in Safari itself to record, or close the app fully '
-      + 'and open it again. Translating, reading pictures and Say it are unaffected.';
+      + 'Retry below, open the same address in Safari, or choose a Voice Memo saved to Files. '
+      + 'Translating, reading pictures and Say it are unaffected.';
   }
   switch (error?.name) {
     case 'NotAllowedError':
@@ -886,6 +886,63 @@ async function openMicrophone() {
   throw failure;
 }
 
+const MAX_SAVED_AUDIO_BYTES = 25_000_000;
+
+function showRecordingRecovery(message) {
+  $('recordingRecovery').hidden = false;
+  $('openRecordingInSafari').hidden = !isIosStandalone();
+  if (message) $('speechStatus').textContent = message;
+}
+
+/** Decode a browser-supported recording and rebuild it as the strict WAV the API accepts. */
+async function prepareSavedRecording(file) {
+  if (!file || file.size <= 0) throw new Error('Choose a recording first.');
+  if (file.size > MAX_SAVED_AUDIO_BYTES) throw new Error('That recording is too large to prepare. Choose a file under 25 MB.');
+  const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+  if (!AudioContextClass) throw new Error('This browser cannot prepare saved audio. Open LinguaFusion in Safari.');
+  const context = new AudioContextClass();
+  try {
+    const encoded = await file.arrayBuffer();
+    const decoded = await context.decodeAudioData(encoded.slice(0));
+    if (!Number.isFinite(decoded.duration) || decoded.duration <= 0) throw new Error('There is no audio in that file.');
+    if (decoded.duration > MAX_SECONDS + 0.05) throw new Error(`Saved recordings are limited to ${MAX_SECONDS} seconds.`);
+    const channels = Array.from({ length: decoded.numberOfChannels }, (_, index) => decoded.getChannelData(index));
+    return buildWav(channels, decoded.sampleRate);
+  } catch (error) {
+    if (error?.message?.includes('recording') || error?.message?.includes('audio')) throw error;
+    throw new Error('That audio format could not be read on this iPhone. Try a Voice Memo saved as M4A or WAV.');
+  } finally {
+    await context.close().catch(() => {});
+  }
+}
+
+if (isIosStandalone()) showRecordingRecovery();
+
+$('retryRecording').addEventListener('click', () => {
+  $('recordingRecovery').hidden = true;
+  $('recordToggle').click();
+});
+
+$('chooseRecording').addEventListener('click', () => $('speechAudioFile').click());
+$('speechAudioFile').addEventListener('change', async () => {
+  const file = $('speechAudioFile').files?.[0];
+  if (!file) return;
+  if (!$('speechConsent').checked) {
+    $('speechStatus').textContent = 'Confirm paid API use before choosing a recording.';
+    $('speechAudioFile').value = '';
+    return;
+  }
+  try {
+    $('speechStatus').textContent = 'Preparing the saved recording on this device…';
+    const audio = await prepareSavedRecording(file);
+    await transcribeRecording(audio);
+  } catch (error) {
+    $('speechStatus').textContent = error?.message || 'That recording could not be prepared.';
+  } finally {
+    $('speechAudioFile').value = '';
+  }
+});
+
 $('cancelRecording').addEventListener('click', () => {
   if (!capture) return;
   stopCapture();
@@ -918,7 +975,7 @@ $('recordToggle').addEventListener('click', async () => {
   try {
     stream = await openMicrophone();
   } catch (error) {
-    if (generation === captureGeneration) $('speechStatus').textContent = microphoneProblem(error);
+    if (generation === captureGeneration) showRecordingRecovery(microphoneProblem(error));
     captureStarting = false;
     return;
   }
@@ -963,7 +1020,27 @@ $('recordToggle').addEventListener('click', async () => {
     silent.gain.value = 0;
     processor.connect(silent);
     silent.connect(context.destination);
-    capture = { stream, context, source, processor, chunks };
+    capture = { stream, context, source, processor, chunks, muteTimer: null };
+    const track = stream.getAudioTracks?.()[0] || stream.getTracks()[0];
+    if (track?.addEventListener) {
+      const interrupted = () => {
+        if (!capture || capture.stream !== stream) return;
+        stopCapture();
+        showRecordingRecovery('The microphone was interrupted before audio was sent. Retry it or choose a saved recording.');
+      };
+      track.addEventListener('ended', interrupted, { once: true });
+      track.addEventListener('mute', () => {
+        if (!capture || capture.stream !== stream) return;
+        capture.muteTimer = setTimeout(() => {
+          if (track.muted && capture?.stream === stream) interrupted();
+        }, 1500);
+      });
+      track.addEventListener('unmute', () => {
+        if (capture?.stream !== stream || !capture.muteTimer) return;
+        clearTimeout(capture.muteTimer);
+        capture.muteTimer = null;
+      });
+    }
     $('recordingFeedback').hidden = false;
     $('recordToggle').textContent = 'Stop and transcribe';
     $('speechStatus').textContent = 'Recording…';
@@ -972,8 +1049,7 @@ $('recordToggle').addEventListener('click', async () => {
     // leaving the recording indicator lit with nothing listening.
     for (const track of stream.getTracks()) track.stop();
     if (context) void context.close().catch(() => {});
-    $('speechStatus').textContent = `Recording could not start on this device (${error?.name || 'unknown error'}). `
-      + 'Opening the website in Chrome usually works.';
+    showRecordingRecovery(`Recording could not start on this device (${error?.name || 'unknown error'}). Retry it or choose a saved recording.`);
   } finally { captureStarting = false; }
 });
 

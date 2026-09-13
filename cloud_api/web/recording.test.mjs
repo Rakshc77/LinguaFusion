@@ -14,7 +14,7 @@ function harness(rate = 48000) {
   const events = {};
   const requests = [];
   const $ = id => {
-    if (!elements.has(id)) elements.set(id, { checked: true, textContent: '', addEventListener(type, fn) { this[type] = fn; } });
+    if (!elements.has(id)) elements.set(id, { checked: true, textContent: '', hidden: true, value: '', addEventListener(type, fn) { this[type] = fn; } });
     return elements.get(id);
   };
   const node = () => ({ connect() {}, disconnect() {} });
@@ -23,18 +23,23 @@ function harness(rate = 48000) {
     createMediaStreamSource() { return node(); }
     createScriptProcessor() { return this.processor = node(); }
     createGain() { return { ...node(), gain: {} }; }
+    async decodeAudioData() {
+      const samples = new Float32Array(44100).fill(0.1);
+      return { duration:1, numberOfChannels:2, sampleRate:44100, getChannelData:() => samples };
+    }
     async close() { this.closed = true; }
   }
   const sandbox = vm.createContext({ $, window: { AudioContext, location: {}, addEventListener: (type, fn) => events[type] = fn },
     document: { addEventListener() {} }, navigator: { mediaDevices: { getUserMedia() {
       return new Promise(resolve => pending.push(() => {
-        const track = { stopped: false, stop() { this.stopped = true; } };
+        const track = { stopped: false, muted:false, listeners:{}, stop() { this.stopped = true; },
+          addEventListener(type, fn) { this.listeners[type] = fn; } };
         streams.push(track); resolve({ getTracks: () => [track] });
       }));
     } } }, Float32Array, Uint8Array, Blob, FormData, setTimeout, atob,
     crypto: { randomUUID: () => 'test-request' }, buildWav, MAX_SECONDS: 60,
     api: { async request(path, body) { requests.push({ path, body }); return { text: 'Test' }; } },
-    showSpending() {}, microphoneProblem: error => error.name });
+    showSpending() {}, microphoneProblem: error => error.name, isIosStandalone: () => false, clearTimeout });
   const stop = source.slice(source.indexOf('function stopCapture()'), source.indexOf('function clearPrivateText()'));
   const recording = source.slice(source.indexOf('async function openMicrophone()'), source.indexOf('// --- picture reading'));
   vm.runInContext(`let capture=null,captureStarting=false,captureGeneration=0,transcribing=false,nativeRecording=null,epoch=0;
@@ -67,6 +72,23 @@ test('Cancel recording clears microphone feedback and never uploads audio', asyn
   assert.equal(h.$('microphoneLevel').value, 0);
   assert.equal(h.requests.length, 0);
   assert.match(h.$('speechStatus').textContent, /No audio was sent/);
+});
+test('an ended iPhone microphone exposes retry and saved-recording recovery', async () => {
+  const h = harness(); const first = h.click(); h.pending.shift()(); await first;
+  h.streams[0].listeners.ended();
+  assert.equal(h.streams[0].stopped, true);
+  assert.equal(h.$('recordingRecovery').hidden, false);
+  assert.match(h.$('speechStatus').textContent, /interrupted/);
+});
+test('a saved Voice Memo is decoded locally and uploaded as strict WAV', async () => {
+  const h = harness();
+  h.$('speechAudioFile').files = [{ name:'memo.m4a', size:1024, arrayBuffer:async () => new ArrayBuffer(8) }];
+  await h.$('speechAudioFile').change();
+  assert.equal(h.requests.length, 1);
+  assert.equal(h.requests[0].path, '/api/transcribe');
+  assert.equal(h.requests[0].body.get('audio').type, 'audio/wav');
+  assert.equal(h.contexts[0].closed, true);
+  assert.equal(h.$('speechAudioFile').value, '');
 });
 for (const rate of [44100, 48000]) test(`automatic cutoff produces exactly 60 seconds at ${rate}Hz`, async () => {
   const h = harness(rate); const first = h.click(); h.pending.shift()(); await first;
