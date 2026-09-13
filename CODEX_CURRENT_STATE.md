@@ -1,5 +1,34 @@
 # LinguaFusion — current Codex handover
 
+## Current owner invitations and access alerts — September 13, 2026
+
+PR #8 was squash-merged into `main` as `485d282`. Online interface version
+`2026.09.13.2` adds an owner-phone invitation manager under **Settings >
+Owner controls**. The owner can create one-use links and QR codes lasting 1 hour,
+24 hours or 7 days, share them with the phone share sheet, see active/used/
+expired/revoked status and revoke an unused link. The first verified Firebase
+account that redeems a link is automatically approved with the existing standard
+allowance; no second account can use it.
+
+Invitation bearer tokens travel only in a URL fragment, are removed from the
+visible address after capture, and are stored in Firestore only as SHA-256
+digests. Redemption is transactional and idempotent for the winning account, so
+an interrupted grant can retry without reopening the link to someone else.
+Names, organisations and verified email handling keep the existing access-request
+privacy boundary.
+
+Pending ordinary requests now put a count badge on Settings. The owner may enable
+a local phone notification while the owner interface is open and visible; tapping
+it focuses the app and opens Access requests. This is intentionally not described
+as background web push. The existing verified Cloud Monitoring owner email alert
+for `access_request_submitted` remains the reliable closed-app notification.
+
+Validation passed locally (64 browser tests; 200 cloud tests), JavaScript syntax
+and whitespace checks passed, and GitHub's Cloud pilot workflow passed on PR #8.
+The change is merged but needs one Cloud Run build/promotion from current `main`
+before it is live. It is hosted/online-only: do not rebuild or replace Android
+APK 1.16, its signing key or offline models.
+
 ## Current iPhone recording recovery — September 13, 2026
 
 PR #7 was squash-merged into `main` as `b2fce57`. Online interface version
