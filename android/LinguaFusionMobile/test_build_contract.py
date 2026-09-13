@@ -197,6 +197,32 @@ def test_only_the_bundled_page_gets_the_javascript_bridge():
         'the cloud page must never receive a native bridge'
 
 
+def test_cloud_access_alerts_use_a_narrow_origin_checked_route():
+    cloud = MAIN[MAIN.index('private void showCloudApp'):MAIN.index('private void saveDataUrl')]
+    assert '"linguafusion-notify".equals(target.getScheme())' in cloud
+    notify = cloud[cloud.index('if("linguafusion-notify"'):]
+    notify = notify[:notify.index('if("linguafusion-update"')]
+    assert 'request.isForMainFrame()' in notify
+    assert 'isCloudOrigin' in notify
+    permission = notify[notify.index('"permission".equals'):notify.index('else if')]
+    assert 'request.hasGesture()' in permission, \
+        'a hosted page must not open Android permission UI without a real tap'
+    assert 'addJavascriptInterface' not in cloud
+
+
+def test_access_notifications_are_fixed_rate_limited_and_open_the_owner_requests():
+    manifest = (PROJECT / 'AndroidManifest.xml').read_text(encoding='utf-8')
+    assert 'android.permission.POST_NOTIFICATIONS' in manifest
+    alert = MAIN[MAIN.index('private void showAccessRequestNotification'):]
+    alert = alert[:alert.index('\n    /** Write a data: URL')]
+    assert 'lastAccessNotificationAt<60_000' in alert
+    assert 'LinguaFusion access request' in alert
+    assert 'Someone is waiting for your approval.' in alert
+    assert 'OPEN_OWNER_REQUESTS' in alert and 'PendingIntent.getActivity' in alert
+    assert 'setContentText(' in alert and 'target.getQueryParameter' not in alert, \
+        'remote content must never become native notification text'
+
+
 def test_the_bridge_is_removed_when_the_web_view_goes():
     teardown = MAIN[MAIN.index('private void releaseWebView'):]
     teardown = teardown[:teardown.index('\n    }')]
