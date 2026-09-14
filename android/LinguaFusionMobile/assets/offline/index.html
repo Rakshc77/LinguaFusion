@@ -61,7 +61,11 @@
       <div class="actions">
         <button id="copyTranscript" class="secondary" type="button">Copy transcript</button>
         <button id="copyTranslation" class="secondary" type="button">Copy translation</button>
+        <button id="readTranscript" class="secondary" type="button" aria-pressed="false">Read transcript aloud</button>
+        <button id="readSpeechTranslation" class="secondary" type="button" aria-pressed="false">Read translation aloud</button>
+        <select id="speechReadRate" class="read-rate" aria-label="Speech result reading speed"></select>
       </div>
+      <p id="speakReadStatus" class="hint read-aloud-status" role="status" aria-live="polite"></p>
     </section>
 
     <section class="view" id="viewTranslate" hidden aria-labelledby="translateTitle">
@@ -82,7 +86,12 @@
       <button id="translate" type="button">Translate</button>
       <p class="hint" id="translateStatus" role="status" aria-live="polite"></p>
       <div class="out" id="textResult" dir="auto"></div>
-      <div class="actions"><button id="copyText" class="secondary" type="button">Copy</button></div>
+      <div class="actions">
+        <button id="copyText" class="secondary" type="button">Copy</button>
+        <button id="readTextResult" class="secondary" type="button" aria-pressed="false">Read aloud</button>
+        <select id="textReadRate" class="read-rate" aria-label="Translation reading speed"></select>
+      </div>
+      <p id="translateReadStatus" class="hint read-aloud-status" role="status" aria-live="polite"></p>
     </section>
 
     <section class="view" id="viewRead" hidden aria-labelledby="readTitle">
@@ -96,7 +105,11 @@
       <div class="actions">
         <button id="copyRead" class="secondary" type="button">Copy</button>
         <button id="sendReadToTranslate" class="secondary" type="button">Translate this</button>
+        <button id="readPictureResult" class="secondary" type="button" aria-pressed="false">Read aloud</button>
+        <select id="pictureReadLanguage" aria-label="Picture text reading language"></select>
+        <select id="pictureReadRate" class="read-rate" aria-label="Picture text reading speed"></select>
       </div>
+      <p id="pictureReadStatus" class="hint read-aloud-status" role="status" aria-live="polite"></p>
     </section>
 
     <section class="view" id="viewSay" hidden aria-labelledby="sayTitle">

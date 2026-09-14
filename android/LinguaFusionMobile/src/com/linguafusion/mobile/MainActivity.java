@@ -47,6 +47,10 @@ import android.widget.ScrollView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.webkit.JavaScriptReplyProxy;
+import androidx.webkit.WebViewCompat;
+import androidx.webkit.WebViewFeature;
+
 import org.json.JSONObject;
 
 import java.io.BufferedReader;
@@ -58,6 +62,7 @@ import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
+import java.util.Collections;
 import java.util.Objects;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
@@ -103,6 +108,7 @@ public final class MainActivity extends Activity {
     private OfflineSpeech offlineSpeech;
     private OfflineTranslation offlineTranslation;
     private OfflineVision offlineVision;
+    private ReadAloudEngine readAloud;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -589,6 +595,17 @@ public final class MainActivity extends Activity {
         @Override public void checkForUpdate(String requestId){
             MainActivity.this.checkForUpdate(requestId);
         }
+        @Override public void readAloud(String id,String text,String language,double rate){
+            MainActivity.this.readAloud().speak(id,text,language,rate,true,(resultId,state,message) -> {
+                if(webView==null)return;
+                String json;
+                try{json=new JSONObject().put("id",resultId).put("state",state).put("message",message).toString();}
+                catch(Exception impossible){return;}
+                String script="window.LinguaFusionReadAloud&&window.LinguaFusionReadAloud.onmessage&&window.LinguaFusionReadAloud.onmessage({data:"+JSONObject.quote(json)+"});";
+                webView.post(() -> {if(webView!=null)webView.evaluateJavascript(script,null);});
+            });
+        }
+        @Override public void stopReadAloud(){if(readAloud!=null)readAloud.stop();}
         @Override public void leaveOfflineMode(){
             runOnUiThread(() -> {
                 String before=preferences.getString("mode.before","");
@@ -616,6 +633,7 @@ public final class MainActivity extends Activity {
         applySystemBarTheme(false);
         releaseWebView();
         webView=newWebViewWithMediaSupport();
+        installCloudReadAloudBridge(webView);
         webView.setWebViewClient(new WebViewClient(){
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
                 Uri target=request.getUrl();
@@ -686,6 +704,48 @@ public final class MainActivity extends Activity {
         // all and the person is left thinking the app is broken.
         webView.setDownloadListener((url, agent, disposition, mime, size) -> saveDataUrl(url, disposition));
         webView.loadUrl(CLOUD_BASE+"/pilot/"); setInsetContentView(webView);
+    }
+
+    /**
+     * A single, text-only native capability for the hosted page. AndroidX
+     * injects the object only at the exact cloud origin; no general-purpose
+     * JavaScript interface is exposed to remote content.
+     */
+    private void installCloudReadAloudBridge(WebView owner){
+        if(!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))return;
+        WebViewCompat.addWebMessageListener(owner,"LinguaFusionReadAloud",Collections.singleton(CLOUD_BASE),
+            (view,message,sourceOrigin,isMainFrame,reply) -> {
+                if(view!=webView || !isMainFrame || !isCloudOrigin(sourceOrigin))return;
+                String data=message.getData();
+                if(data==null || data.length()>ReadAloudText.MAX_CHARACTERS+512)return;
+                try{
+                    JSONObject request=new JSONObject(data);
+                    String type=request.optString("type","");
+                    if("stop".equals(type)){
+                        if(readAloud!=null)readAloud.stop();
+                        return;
+                    }
+                    if(!"speak".equals(type))return;
+                    String id=request.optString("id","");
+                    readAloud().speak(id,request.optString("text",""),
+                        request.optString("language",""),request.optDouble("rate",0),false,
+                        (resultId,state,detail) -> sendReadAloudReply(owner,reply,resultId,state,detail));
+                }catch(Exception ignored){
+                    // Malformed remote data never reaches Android TTS.
+                }
+            });
+    }
+
+    private ReadAloudEngine readAloud(){
+        if(readAloud==null)readAloud=new ReadAloudEngine(this);
+        return readAloud;
+    }
+
+    private void sendReadAloudReply(WebView owner,JavaScriptReplyProxy reply,String id,String state,String message){
+        if(owner!=webView || !isCloudOrigin(Uri.parse(owner.getUrl()==null?"":owner.getUrl())))return;
+        try{
+            reply.postMessage(new JSONObject().put("id",id).put("state",state).put("message",message).toString());
+        }catch(Exception ignored){}
     }
 
     private void ensureAccessRequestChannel(){
@@ -903,7 +963,10 @@ public final class MainActivity extends Activity {
         if(cloudRecorderDialog!=null)cloudRecorderDialog.dismiss();
         if(pendingAudioRequest!=null){pendingAudioRequest.deny();pendingAudioRequest=null;}
         cancelNativeAudioRecording();
+        if(readAloud!=null)readAloud.stop();
         if(webView==null)return;
+        if(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))
+            WebViewCompat.removeWebMessageListener(webView,"LinguaFusionReadAloud");
         webView.stopLoading();webView.removeJavascriptInterface("LinguaFusionNative");webView.removeJavascriptInterface("LinguaFusionOffline");webView.setWebChromeClient(null);webView.setWebViewClient(null);webView.destroy();webView=null;
     }
     private String jsQuote(String value){
@@ -1086,7 +1149,8 @@ public final class MainActivity extends Activity {
     @Override public void onBackPressed(){if(webView!=null&&webView.canGoBack())webView.goBack();else super.onBackPressed();}
     @Override protected void onPause(){
         if(cloudRecorderDialog!=null && nativeAudioRecording)cloudRecorderDialog.dismiss();
+        if(readAloud!=null)readAloud.stop();
         super.onPause();
     }
-    @Override protected void onDestroy(){releaseWebView();executor.shutdownNow();super.onDestroy();}
+    @Override protected void onDestroy(){releaseWebView();if(readAloud!=null)readAloud.shutdown();executor.shutdownNow();super.onDestroy();}
 }

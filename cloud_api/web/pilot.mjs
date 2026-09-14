@@ -4,6 +4,7 @@ import { createCloudClient } from './cloud-client.mjs';
 import { PRONUNCIATION_LANGUAGES, pronunciationView, validateRequest } from './pronunciation.mjs';
 import { buildWav, MAX_SECONDS } from './wav.mjs';
 import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, getFont, getTheme, applyMode, initAppearance } from './themes.mjs';
+import { createReadAloudController } from './read-aloud.mjs';
 
 const $ = id => document.getElementById(id);
 const auth = createCloudAuth();
@@ -63,8 +64,11 @@ function rememberModel(id) {
 
 const languages = [['en', 'English'], ['de', 'German'], ['es', 'Spanish'],
                    ['hi', 'Hindi'], ['ar', 'Arabic'], ['or', 'Odia']];
+const readLanguages = [['en', 'English'], ['de', 'German'], ['ar', 'Arabic'],
+                       ['es', 'Spanish'], ['fr', 'French'], ['hi', 'Hindi'], ['or', 'Odia']];
 for (const [value, text] of languages) { $('source').add(new Option(text, value)); $('target').add(new Option(text, value)); }
 $('target').value = 'de';
+
 try {
   const pair = JSON.parse(localStorage.getItem('lf-language-pair'));
   if (pair && ['auto', ...languages.map(([code]) => code)].includes(pair.source)
@@ -88,6 +92,60 @@ $('swapLanguages').addEventListener('click', () => {
   status('Languages swapped. Your source text is unchanged.');
 });
 for (const [value, text] of PRONUNCIATION_LANGUAGES) $('pronounceLanguage').add(new Option(text, value));
+
+for (const id of ['transcriptReadLanguage', 'ocrReadLanguage']) {
+  for (const [value, text] of readLanguages) $(id).add(new Option(`Read as ${text}`, value));
+  const key = id === 'transcriptReadLanguage' ? 'lf-read-transcript-language' : 'lf-read-ocr-language';
+  try {
+    const saved = localStorage.getItem(key);
+    if (readLanguages.some(([language]) => language === saved)) $(id).value = saved;
+  } catch { /* optional */ }
+  $(id).addEventListener('change', () => {
+    try { localStorage.setItem(key, $(id).value); } catch { /* optional */ }
+  });
+}
+function rememberedReadRate() {
+  try {
+    const value = Number(localStorage.getItem('lf-read-aloud-rate'));
+    return [0.75, 1, 1.25].includes(value) ? value : 1;
+  } catch { return 1; }
+}
+let readRate = rememberedReadRate();
+for (const id of ['transcriptReadRate', 'translationReadRate', 'ocrReadRate']) {
+  for (const [value, text] of [[0.75, '0.75×'], [1, '1×'], [1.25, '1.25×']]) $(id).add(new Option(text, String(value)));
+  $(id).value = String(readRate);
+  $(id).addEventListener('change', () => {
+    const value = Number($(id).value);
+    if (![0.75, 1, 1.25].includes(value)) return;
+    readRate = value;
+    for (const other of ['transcriptReadRate', 'translationReadRate', 'ocrReadRate']) $(other).value = String(value);
+    try { localStorage.setItem('lf-read-aloud-rate', String(value)); } catch { /* optional */ }
+  });
+}
+
+const readTargets = [
+  { id:'transcript', button:'readTranscript', status:'transcriptReadStatus',
+    text:() => $('transcript').textContent, language:() => $('transcriptReadLanguage').value },
+  { id:'translation', button:'readTranslation', status:'translationReadStatus',
+    text:() => $('result').dataset.readLanguage ? $('result').textContent : '',
+    language:() => $('result').dataset.readLanguage || $('target').value },
+  { id:'ocr', button:'readOcr', status:'ocrReadStatus',
+    text:() => $('ocrResult').textContent, language:() => $('ocrReadLanguage').value },
+];
+const readAloud = createReadAloudController({ scope:window, onState:event => {
+  for (const target of readTargets) {
+    const active = event.state === 'speaking' && event.id === target.id;
+    $(target.button).textContent = active ? 'Stop' : 'Read aloud';
+    $(target.button).setAttribute('aria-pressed', String(active));
+  }
+  const target = readTargets.find(item => item.id === event.id);
+  if (target) $(target.status).textContent = event.message;
+}});
+for (const target of readTargets) {
+  $(target.button).addEventListener('click', () => readAloud.read({
+    id:target.id, text:target.text(), language:target.language(), rate:readRate,
+  }));
+}
 
 // Appearance first, so the chosen look is in place before anything is drawn.
 initAppearance();
@@ -225,14 +283,17 @@ function stopCapture() {
 }
 
 function clearPrivateText() {
+  readAloud.stop({ quiet:true });
   $('password').value = ''; $('newPassword').value = '';
   $('text').value = ''; $('result').textContent = 'Your translation will appear here.';
+  delete $('result').dataset.readLanguage;
   $('paidConsent').checked = false;
   $('pronounceText').value = ''; $('pronounceConsent').checked = false;
   $('pronounceResult').hidden = true; $('pronounceStatus').textContent = '';
   $('pronounceNative').textContent = ''; $('pronounceRoman').textContent = '';
   $('transcript').textContent = ''; $('speechStatus').textContent = ''; $('speechConsent').checked = false;
   $('ocrResult').textContent = ''; $('ocrStatus').textContent = ''; $('ocrConsent').checked = false;
+  for (const id of ['transcriptReadStatus', 'translationReadStatus', 'ocrReadStatus']) $(id).textContent = '';
   $('ocrFile').value = '';
   $('reqName').value = ''; $('reqOrg').value = ''; $('accessStatus').textContent = '';
   $('ownerUsers').replaceChildren(); $('requestList').replaceChildren();
@@ -982,12 +1043,16 @@ $('translateForm').addEventListener('submit', async event => {
   body.set('model', chosenModel);
   body.set('paid_consent', String($('paidConsent').checked));
   translating = true; applyReadiness();
+  readAloud.stop();
+  delete $('result').dataset.readLanguage;
   $('result').textContent = 'Translating…'; status('Translating…');
   try {
     const result = await api.request('/api/translate', body);
     if (current !== epoch) return;
     if (result.ok !== true || typeof result.translated_text !== 'string') throw new Error('Unexpected response.');
     $('result').textContent = result.translated_text;
+    $('result').dataset.readLanguage = result.target_lang || $('target').value;
+    $('result').lang = $('result').dataset.readLanguage;
     status('Translation complete.');
     if (result.spending) showSpending(result.spending);
   } catch (error) {
@@ -1146,6 +1211,7 @@ $('speechAudioFile').addEventListener('change', async () => {
     return;
   }
   try {
+    readAloud.stop();
     $('speechStatus').textContent = 'Preparing the saved recording on this device…';
     const audio = await prepareSavedRecording(file);
     await transcribeRecording(audio);
@@ -1166,6 +1232,7 @@ $('recordToggle').addEventListener('click', async () => {
   if (capture) { await finishRecording(); return; }
   if (!ready.transcribe) return;
   if (!$('speechConsent').checked) { $('speechStatus').textContent = 'Confirm paid API use before recording.'; return; }
+  readAloud.stop();
 
   if (window.LFNativeCloudRecording === true) {
     const id = crypto.randomUUID();
@@ -1279,9 +1346,10 @@ window.addEventListener('lf-native-recording', async event => {
     await transcribeRecording(bytes);
   } catch { $('speechStatus').textContent = 'Could not read the phone recording. Please try again.'; }
 });
-window.addEventListener('pagehide', stopCapture);
+window.addEventListener('pagehide', () => { stopCapture(); readAloud.stop({ quiet:true }); });
 document.addEventListener('visibilitychange', () => {
   // Native permission/dialog lifecycle is managed by Android itself.
+  if (document.hidden) readAloud.stop({ quiet:true });
   if (document.hidden && !nativeRecording) stopCapture();
   if (!document.hidden && ownerActive) void loadRequests(true);
 });

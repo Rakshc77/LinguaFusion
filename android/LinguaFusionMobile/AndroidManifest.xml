@@ -8,6 +8,13 @@
          rather than through Play, so nothing else would ever update it.
          Android still shows its own install confirmation every time. -->
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Android 11+ package visibility: let TextToSpeech discover the voice
+         engine selected in the phone's system settings. -->
+    <queries>
+        <intent>
+            <action android:name="android.intent.action.TTS_SERVICE" />
+        </intent>
+    </queries>
     <application
         android:allowBackup="false"
         android:icon="@drawable/ic_launcher"
