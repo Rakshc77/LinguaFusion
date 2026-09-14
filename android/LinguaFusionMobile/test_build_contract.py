@@ -210,6 +210,36 @@ def test_cloud_access_alerts_use_a_narrow_origin_checked_route():
     assert 'addJavascriptInterface' not in cloud
 
 
+def test_read_aloud_is_origin_scoped_and_offline_rejects_network_voices():
+    cloud = MAIN[MAIN.index('private void showCloudApp'):MAIN.index('private void ensureAccessRequestChannel')]
+    assert 'installCloudReadAloudBridge(webView)' in cloud
+    bridge = MAIN[MAIN.index('private void installCloudReadAloudBridge'):
+                  MAIN.index('private void ensureAccessRequestChannel')]
+    assert 'WebViewCompat.addWebMessageListener' in bridge
+    assert 'Collections.singleton(CLOUD_BASE)' in bridge
+    assert '!isMainFrame' in bridge and '!isCloudOrigin(sourceOrigin)' in bridge
+    assert 'ReadAloudText.MAX_CHARACTERS' in bridge
+    assert 'addJavascriptInterface' not in bridge
+
+    engine = (PROJECT / 'src' / 'com' / 'linguafusion' / 'mobile'
+              / 'ReadAloudEngine.java').read_text(encoding='utf-8')
+    assert 'isNetworkConnectionRequired()' in engine
+    assert 'TextToSpeech.getMaxSpeechInputLength()' in engine
+    assert 'UtteranceProgressListener' in engine
+    manifest = (PROJECT / 'AndroidManifest.xml').read_text(encoding='utf-8')
+    assert 'android.intent.action.TTS_SERVICE' in manifest
+
+
+def test_offline_read_aloud_uses_only_the_bundled_page_bridge():
+    bridge = (PROJECT / 'src' / 'com' / 'linguafusion' / 'mobile'
+              / 'OfflineBridge.java').read_text(encoding='utf-8')
+    assert 'public void readAloud(' in bridge and 'host.readAloud(' in bridge
+    assert 'public void stopReadAloud()' in bridge
+    page = (PROJECT / 'assets' / 'offline' / 'app.js').read_text(encoding='utf-8')
+    assert 'native.readAloud(' in page and 'native.stopReadAloud()' in page
+    assert "import { createReadAloudController } from './read-aloud.mjs'" in page
+
+
 def test_access_notifications_are_fixed_rate_limited_and_open_the_owner_requests():
     manifest = (PROJECT / 'AndroidManifest.xml').read_text(encoding='utf-8')
     assert 'android.permission.POST_NOTIFICATIONS' in manifest
@@ -355,7 +385,7 @@ def test_both_modes_share_one_appearance():
     import filecmp
     web = PROJECT.parent.parent / 'cloud_api' / 'web'
     offline = PROJECT / 'assets' / 'offline'
-    for name in ['linguafusion-themes.css', 'pilot.css', 'themes.mjs']:
+    for name in ['linguafusion-themes.css', 'pilot.css', 'themes.mjs', 'read-aloud.mjs']:
         assert (offline / name).is_file(), f'{name} is not bundled in the APK'
         assert filecmp.cmp(web / name, offline / name, shallow=False), (
             f'{name} has drifted from the online app. '

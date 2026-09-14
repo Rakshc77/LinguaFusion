@@ -38,6 +38,7 @@ function harness(rate = 48000) {
       }));
     } } }, Float32Array, Uint8Array, Blob, FormData, setTimeout, atob,
     crypto: { randomUUID: () => 'test-request' }, buildWav, MAX_SECONDS: 60,
+    readAloud: { stop() {} },
     api: { async request(path, body) { requests.push({ path, body }); return { text: 'Test' }; } },
     showSpending() {}, microphoneProblem: error => error.name, isIosStandalone: () => false, clearTimeout });
   const stop = source.slice(source.indexOf('function stopCapture()'), source.indexOf('function clearPrivateText()'));

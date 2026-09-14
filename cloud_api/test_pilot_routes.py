@@ -290,6 +290,8 @@ def test_pronunciation_module_is_served_but_tests_are_not():
     with client:
         assert client.get('/pilot/pronunciation.mjs').status_code == 200
         assert client.get('/pilot/pronunciation.test.mjs').status_code == 404
+        assert client.get('/pilot/read-aloud.mjs').status_code == 200
+        assert client.get('/pilot/read-aloud.test.mjs').status_code == 404
 
 
 def test_container_build_copies_every_module_the_app_imports():

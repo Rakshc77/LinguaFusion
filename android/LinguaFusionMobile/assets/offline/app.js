@@ -16,9 +16,24 @@
 // choice made in one is the choice the other starts from.
 import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, applyMode,
          getFont, getMode, getTheme, initAppearance } from './themes.mjs';
+import { createReadAloudController } from './read-aloud.mjs';
 
 const native = window.LinguaFusionOffline;
 const $ = (id) => document.getElementById(id);
+
+// The shared controller speaks to the cloud app through AndroidX WebMessage.
+// This page is bundled and already has the smaller Offline bridge, so adapt
+// only the same speak/stop messages to that trusted interface.
+window.LinguaFusionReadAloud = {
+  onmessage:null,
+  postMessage(json) {
+    let message;
+    try { message = JSON.parse(json); } catch { return; }
+    if (message.type === 'stop') native.stopReadAloud();
+    else if (message.type === 'speak') native.readAloud(
+      message.id, message.text, message.language, message.rate);
+  },
+};
 
 /* ---------- the request/response bridge ---------- */
 
@@ -60,6 +75,36 @@ function ask(method, onProgress, ...args) {
 let state = { languages: [], models: [], installedPacks: new Set() };
 let recording = false;
 let busy = false;
+let readRate = (() => {
+  try {
+    const value = Number(localStorage.getItem('lf-read-aloud-rate'));
+    return [0.75, 1, 1.25].includes(value) ? value : 1;
+  } catch { return 1; }
+})();
+
+const readTargets = [
+  { id:'offline-transcript', button:'readTranscript', status:'speakReadStatus',
+    text:() => $('transcript').textContent,
+    language:() => $('transcript').dataset.readLanguage || ($('fromLang').value === 'auto' ? '' : $('fromLang').value) },
+  { id:'offline-speech-translation', button:'readSpeechTranslation', status:'speakReadStatus',
+    text:() => $('translation').textContent, language:() => $('toLang').value },
+  { id:'offline-text-translation', button:'readTextResult', status:'translateReadStatus',
+    text:() => $('textResult').textContent, language:() => $('textTo').value },
+  { id:'offline-picture', button:'readPictureResult', status:'pictureReadStatus',
+    text:() => $('readResult').textContent, language:() => $('pictureReadLanguage').value },
+];
+const readAloud = createReadAloudController({ scope:window, onState:event => {
+  for (const target of readTargets) {
+    const active = event.state === 'speaking' && event.id === target.id;
+    $(target.button).textContent = active
+      ? 'Stop'
+      : target.id === 'offline-transcript' ? 'Read transcript aloud'
+      : target.id === 'offline-speech-translation' ? 'Read translation aloud' : 'Read aloud';
+    $(target.button).setAttribute('aria-pressed', String(active));
+  }
+  const target = readTargets.find(item => item.id === event.id);
+  if (target) $(target.status).textContent = event.message;
+}});
 
 /* ---------- appearance ---------- */
 
@@ -105,6 +150,7 @@ function updatePivotWarning() {
 async function toggleRecording() {
   if (busy) return;
   if (!recording) {
+    readAloud.stop();
     const failure = native.startRecording();
     if (failure) { say('speakStatus', failure); return; }
     recording = true;
@@ -115,6 +161,7 @@ async function toggleRecording() {
 
   recording = false;
   busy = true;
+  readAloud.stop();
   $('record').disabled = true;
   $('record').textContent = 'Working…';
   say('speakStatus', 'Transcribing on this phone. This can take a while.');
@@ -131,6 +178,7 @@ async function toggleRecording() {
   if (result.error) { say('speakStatus', result.error); return; }
 
   $('transcript').textContent = result.transcript || '';
+  $('transcript').dataset.readLanguage = result.spokenLanguage || result.detected || '';
   const detected = result.detected
     ? ` Heard ${nameOf(result.detected) || result.detected}.` : '';
   say('speakStatus', `Done — ${result.seconds ?? '?'} seconds.${detected}`);
@@ -138,6 +186,7 @@ async function toggleRecording() {
   if (result.translation) {
     $('translationWrap').hidden = false;
     $('translation').textContent = result.translation;
+    $('translation').lang = $('toLang').value;
   } else if (result.translationError) {
     say('speakStatus', `${result.error || 'Transcribed.'} ${result.translationError}`);
   }
@@ -154,11 +203,13 @@ async function translateTyped() {
   const text = $('sourceText').value.trim();
   if (!text) { say('translateStatus', 'Type something to translate.'); return; }
   $('translate').disabled = true;
+  readAloud.stop();
   say('translateStatus', 'Translating on this phone…');
   const result = await ask('translateText', null, text, $('textFrom').value, $('textTo').value);
   $('translate').disabled = false;
   if (result.error) { say('translateStatus', result.error); $('textResult').textContent = ''; return; }
   $('textResult').textContent = result.translation || '';
+  $('textResult').lang = $('textTo').value;
   say('translateStatus', result.pivoted
     ? 'Done. This pair goes through English, so it is rougher than usual.'
     : 'Done.');
@@ -168,6 +219,7 @@ async function translateTyped() {
 
 async function readPicture() {
   $('readPicture').disabled = true;
+  readAloud.stop();
   say('readStatus', 'Choose a picture…');
   const result = await ask('readPicture', null);
   $('readPicture').disabled = false;
@@ -371,6 +423,7 @@ async function refresh() {
   fill($('toLang'), state.languages, { selected: state.targetLanguage });
   fill($('textFrom'), state.languages, { selected: state.sourceLanguage === 'auto' ? 'en' : state.sourceLanguage });
   fill($('textTo'), state.languages, { selected: state.targetLanguage });
+  fill($('pictureReadLanguage'), state.languages, { selected:$('pictureReadLanguage').value || 'en' });
 
   if (!state.transcriptionSupported) {
     $('record').disabled = true;
@@ -400,6 +453,7 @@ async function refresh() {
 }
 
 function show(view) {
+  readAloud.stop({ quiet:true });
   for (const section of ['viewSpeak', 'viewTranslate', 'viewRead', 'viewSay', 'viewStorage']) {
     $(section).hidden = section !== view;
   }
@@ -444,6 +498,28 @@ function start() {
   $('romanize').onclick = romanize;
   $('copySay').onclick = () => copy($('sayResult').textContent, 'sayStatus');
   $('checkUpdate').onclick = checkForUpdate;
+
+  for (const id of ['speechReadRate', 'textReadRate', 'pictureReadRate']) {
+    for (const [value, text] of [[0.75, '0.75×'], [1, '1×'], [1.25, '1.25×']]) $(id).add(new Option(text, String(value)));
+    $(id).value = String(readRate);
+    $(id).onchange = () => {
+      const value = Number($(id).value);
+      if (![0.75, 1, 1.25].includes(value)) return;
+      readRate = value;
+      for (const other of ['speechReadRate', 'textReadRate', 'pictureReadRate']) $(other).value = String(value);
+      try { localStorage.setItem('lf-read-aloud-rate', String(value)); } catch { /* optional */ }
+    };
+  }
+  for (const target of readTargets) {
+    $(target.button).onclick = () => readAloud.read({
+      id:target.id, text:target.text(), language:target.language(), rate:readRate,
+    });
+  }
+
+  window.addEventListener('pagehide', () => readAloud.stop({ quiet:true }));
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) readAloud.stop({ quiet:true });
+  });
 
   refresh();
 }

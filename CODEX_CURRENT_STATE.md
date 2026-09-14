@@ -1,5 +1,44 @@
 # LinguaFusion — current Codex handover
 
+## Read Aloud implementation — September 14, 2026
+
+Branch `codex/read-aloud` starts from `main` commit `02dbc32`. It implements the
+roadmap immediately below and supersedes its “planned, not implemented” wording.
+Online source is `2026.09.14.1`; Android source is 1.18/versionCode 19. The live
+service and published APK remain Online `2026.09.13.3` and Android 1.17 until
+the normal Cloud Run promotion and owner-PC signed APK publication are completed.
+
+Translation, transcription and OCR result cards now have Read Aloud/Stop and
+0.75×, 1× and 1.25× speed controls. Translation uses the returned target
+language; Online Transcript and OCR expose a small manual **Read as** selector
+because those provider responses do not include a reliable language code.
+Browser/iPhone uses Web Speech synthesis. Playback makes no LinguaFusion paid
+provider request. Only one utterance can run, and speech stops before recording,
+on hidden/page exit, logout/account cleanup or result replacement.
+
+Android uses native `TextToSpeech`, chunks below the engine input ceiling and
+tracks completion/error. The hosted page receives only an origin-restricted
+AndroidX WebMessage object, with native validation of id, text, language and
+rate; it still receives no broad `addJavascriptInterface`. Offline uses the
+existing bundled-page bridge and accepts only voices that report no network
+requirement. The compact selected-text/WhatsApp translation surface also reads
+its result aloud. Initial Offline scope remains English, German, Arabic,
+Spanish and French.
+
+Validation so far: all 72 browser tests pass; the relevant cloud/static Android
+set passes 82 tests with only the intentionally unavailable private-keystore
+test excluded. The full cloud suite additionally needs the normal qrcode test
+dependency in CI; this environment lacks it. Android Gradle compilation must be
+confirmed by GitHub Actions because this workspace cannot download Gradle. No
+provider calls, deployment, APK build or signing operation has been made.
+
+Before release: confirm both GitHub workflows; physically test each of the five
+Offline voices and at least one Online result on the owner's Samsung; check
+iPhone Safari and Home Screen playback; deploy Online; then build/publish signed
+Android 1.18 on the owner PC without changing the key.
+
+---
+
 ## End-of-night handover — September 13, 2026
 
 This section supersedes any older deployment, APK-version or next-step wording

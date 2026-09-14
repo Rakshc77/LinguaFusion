@@ -49,6 +49,11 @@ final class OfflineBridge {
 
         /** Looks for a newer build now, rather than waiting for a relaunch. */
         void checkForUpdate(String requestId);
+
+        /** Speaks only through Android's TTS engine; Offline requires a local voice. */
+        void readAloud(String id, String text, String language, double rate);
+
+        void stopReadAloud();
     }
 
     private final Host host;
@@ -297,6 +302,16 @@ final class OfflineBridge {
                 host.resolve(requestId, "{}");
             }
         });
+    }
+
+    @JavascriptInterface
+    public void readAloud(String id, String text, String language, double rate) {
+        host.readAloud(id, text, language, rate);
+    }
+
+    @JavascriptInterface
+    public void stopReadAloud() {
+        host.stopReadAloud();
     }
 
     /** The app offers an update on each launch. This is for the person who

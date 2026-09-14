@@ -49,7 +49,9 @@ public final class ProcessTextActivity extends Activity {
     private String targetCode;
     private boolean replaceAllowed;
     private boolean destroyed;
+    private boolean reading;
     private int translationGeneration;
+    private ReadAloudEngine readAloud;
 
     private Button sourceButton;
     private Button targetButton;
@@ -60,7 +62,9 @@ public final class ProcessTextActivity extends Activity {
     private TextView status;
     private TextView result;
     private TextView routeNote;
+    private TextView readStatus;
     private LinearLayout resultSection;
+    private Button readButton;
 
     @Override public void onCreate(Bundle state) {
         super.onCreate(state);
@@ -115,6 +119,11 @@ public final class ProcessTextActivity extends Activity {
         attributes.width = Math.min(available - dp(24), dp(520));
         attributes.height = WindowManager.LayoutParams.WRAP_CONTENT;
         window.setAttributes(attributes);
+    }
+
+    @Override protected void onPause() {
+        stopReadAloud();
+        super.onPause();
     }
 
     private View content() {
@@ -209,6 +218,11 @@ public final class ProcessTextActivity extends Activity {
         routeNote = text("", 12, palette.muted, Typeface.NORMAL);
         routeNote.setPadding(0, dp(7), 0, 0);
         resultSection.addView(routeNote, matchWrap());
+        readButton = outlinedButton("Read aloud");
+        readButton.setOnClickListener(view -> toggleReadAloud());
+        resultSection.addView(readButton, spacedMatchWrap(10));
+        readStatus = text("", 12, palette.muted, Typeface.NORMAL);
+        resultSection.addView(readStatus, spacedMatchWrap(4));
         card.addView(resultSection, spacedMatchWrap(14));
         resultSection.setVisibility(View.GONE);
 
@@ -257,6 +271,7 @@ public final class ProcessTextActivity extends Activity {
     }
 
     private void translateSelection() {
+        stopReadAloud();
         if (sourceCode.equals(targetCode)) {
             showError("Choose two different languages.");
             return;
@@ -327,6 +342,28 @@ public final class ProcessTextActivity extends Activity {
         clipboard.setPrimaryClip(ClipData.newPlainText("LinguaFusion translation", translatedText));
         Toast.makeText(this, "Translation copied", Toast.LENGTH_SHORT).show();
         if (!replaceAllowed) finish();
+    }
+
+    private void toggleReadAloud() {
+        if (translatedText == null) return;
+        if (reading) {
+            stopReadAloud();
+            return;
+        }
+        if (readAloud == null) readAloud = new ReadAloudEngine(this);
+        readAloud.speak("selected-translation", translatedText, targetCode, 1d, true,
+            (id,state,message) -> {
+                if (destroyed) return;
+                reading = "speaking".equals(state);
+                readButton.setText(reading ? "Stop" : "Read aloud");
+                readStatus.setText(message);
+            });
+    }
+
+    private void stopReadAloud() {
+        reading = false;
+        if (readButton != null) readButton.setText("Read aloud");
+        if (readAloud != null) readAloud.stop();
     }
 
     private String recalledLanguage(String key, String fallback) {
@@ -469,6 +506,10 @@ public final class ProcessTextActivity extends Activity {
             copyButton.setEnabled(enabled);
             copyButton.setAlpha(enabled ? 1f : 0.45f);
         }
+        if (readButton != null) {
+            readButton.setEnabled(enabled);
+            readButton.setAlpha(enabled ? 1f : 0.45f);
+        }
     }
 
     private int dp(int value) {
@@ -478,6 +519,7 @@ public final class ProcessTextActivity extends Activity {
     @Override protected void onDestroy() {
         destroyed = true;
         translationGeneration++;
+        if (readAloud != null) readAloud.shutdown();
         executor.shutdownNow();
         translation.close();
         super.onDestroy();
