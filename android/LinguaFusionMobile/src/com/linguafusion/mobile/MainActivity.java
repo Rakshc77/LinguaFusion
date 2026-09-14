@@ -596,7 +596,7 @@ public final class MainActivity extends Activity {
             MainActivity.this.checkForUpdate(requestId);
         }
         @Override public void readAloud(String id,String text,String language,double rate){
-            readAloud().speak(id,text,language,rate,true,(resultId,state,message) -> {
+            MainActivity.this.readAloud().speak(id,text,language,rate,true,(resultId,state,message) -> {
                 if(webView==null)return;
                 String json;
                 try{json=new JSONObject().put("id",resultId).put("state",state).put("message",message).toString();}
