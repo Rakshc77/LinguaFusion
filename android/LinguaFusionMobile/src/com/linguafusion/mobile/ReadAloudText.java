@@ -49,7 +49,10 @@ final class ReadAloudText {
         int start = 0;
         while (start < text.length()) {
             int end = Math.min(text.length(), start + maximum);
-            if (end < text.length()) {
+            // If the limit lands immediately before whitespace, the current
+            // slice already ends on a complete word. Searching backwards in
+            // that case would make an unnecessarily short chunk.
+            if (end < text.length() && !Character.isWhitespace(text.charAt(end))) {
                 int split = -1;
                 for (int at = end; at > start + maximum / 2; at--) {
                     if (Character.isWhitespace(text.charAt(at - 1))) {
