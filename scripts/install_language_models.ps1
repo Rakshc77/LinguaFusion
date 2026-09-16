@@ -5,5 +5,5 @@ if (-not (Test-Path -LiteralPath ".\.venv\Scripts\python.exe")) {
     throw "The project virtual environment was not found. Run the normal dependency setup first."
 }
 
-Write-Host "This one-time setup downloads OCR and local voices for all seven languages, plus the larger Odia speech model." -ForegroundColor Cyan
-& .\.venv\Scripts\python.exe .\scripts\install_arabic_odia_models.py
+Write-Host "Installing local speech, voice and OCR packs for all seven LinguaFusion languages." -ForegroundColor Cyan
+& .\.venv\Scripts\python.exe .\scripts\install_language_models.py

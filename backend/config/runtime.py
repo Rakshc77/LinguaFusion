@@ -26,6 +26,7 @@ from backend.config.paths import (
 PIPER_VOICES = {
     "en": "en_US-lessac-medium.onnx",
     "de": "de_DE-thorsten-medium.onnx",
+    "fr": "fr_FR-tom-medium.onnx",
     "es": "es_ES-sharvard-medium.onnx",
     "hi": "hi_IN-priyamvada-medium.onnx",
 }
@@ -56,7 +57,7 @@ def _argos_status() -> Dict[str, Any]:
         import argostranslate.translate
         languages = argostranslate.translate.get_installed_languages()
         codes = sorted(getattr(lang, "code", "") for lang in languages if getattr(lang, "code", ""))
-        required = {"en", "de", "es", "hi"}
+        required = {"en", "de", "fr", "es", "hi"}
         return {"ok": bool(required & set(codes)), "installed_languages": codes, "error": None}
     except Exception as exc:
         return {"ok": False, "installed_languages": [], "error": str(exc)}
@@ -175,9 +176,9 @@ def runtime_health() -> Dict[str, Any]:
         },
         "tesseract": _tool_status(TESSERACT_EXE) if TESSERACT_EXE.exists() else _tool_status(command="tesseract"),
         "tesseract_languages": {
-            "ok": all((TESSDATA_DIR / f"{code}.traineddata").is_file() for code in ("eng", "deu", "spa", "hin", "ara", "ori")),
+            "ok": all((TESSDATA_DIR / f"{code}.traineddata").is_file() for code in ("eng", "deu", "fra", "spa", "hin", "ara", "ori")),
             "directory": str(TESSDATA_DIR),
-            "languages": [code for code in ("eng", "deu", "spa", "hin", "ara", "ori") if (TESSDATA_DIR / f"{code}.traineddata").is_file()],
+            "languages": [code for code in ("eng", "deu", "fra", "spa", "hin", "ara", "ori") if (TESSDATA_DIR / f"{code}.traineddata").is_file()],
         },
     }
 

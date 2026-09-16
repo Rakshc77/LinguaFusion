@@ -119,7 +119,7 @@ The first setup for Arabic and Odia speech, OCR, and voices is larger than the
 normal application install. Run once:
 
 ```powershell
-.\scripts\install_arabic_odia_models.ps1
+.\scripts\install_language_models.ps1
 ```
 
 Arabic speech uses Whisper; Odia speech uses the dedicated local MMS model.

@@ -113,7 +113,8 @@ DEFAULT_TRANSLATION_MODEL = 'mistralai/mistral-small-24b-instruct-2501'
 MODEL_GUIDANCE_IS_MEASURED = False
 
 
-LANGUAGES = {'en': 'English', 'de': 'German', 'es': 'Spanish', 'hi': 'Hindi', 'ar': 'Arabic', 'or': 'Odia'}
+LANGUAGES = {'en': 'English', 'de': 'German', 'fr': 'French', 'es': 'Spanish',
+             'hi': 'Hindi', 'ar': 'Arabic', 'or': 'Odia'}
 
 # Idioms, so they are not translated literally. Loaded once: the lookup runs on
 # every translation and re-reading the file each time would be silly.

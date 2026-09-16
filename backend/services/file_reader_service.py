@@ -67,9 +67,10 @@ SUPPORTED_TEXT_EXTENSIONS = {
 }
 
 OCR_LANGS = {
-    "auto": "eng+deu+spa+hin+ara+ori",
+    "auto": "eng+deu+fra+spa+hin+ara+ori",
     "en": "eng",
     "de": "deu",
+    "fr": "fra",
     "es": "spa",
     "hi": "hin",
     "ar": "ara",

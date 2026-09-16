@@ -1,4 +1,9 @@
-"""One-time installer for Arabic/Odia OCR, TTS, and Odia ASR assets."""
+"""One-time installer for LinguaFusion's seven desktop language packs.
+
+Piper supplies English, German, French, Spanish and Hindi voices. Meta MMS
+supplies Arabic/Odia voices plus Odia ASR. Tesseract data covers OCR for all
+seven languages. Downloads are retained locally after the first setup.
+"""
 
 from __future__ import annotations
 
@@ -10,11 +15,34 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 if str(PROJECT_ROOT) not in sys.path:
     sys.path.insert(0, str(PROJECT_ROOT))
 
-from backend.config.paths import MMS_TTS_MODELS_DIR, ODIA_ASR_MODEL_DIR, TESSDATA_DIR
+from backend.config.paths import MMS_TTS_MODELS_DIR, ODIA_ASR_MODEL_DIR, PIPER_MODELS_DIR, TESSDATA_DIR
 
 
-OCR_LANGS = ("eng", "deu", "spa", "hin", "ara", "ori", "osd")
+OCR_LANGS = ("eng", "deu", "fra", "spa", "hin", "ara", "ori", "osd")
 TESSDATA_BASE = "https://github.com/tesseract-ocr/tessdata_best/raw/main"
+PIPER_BASE = "https://huggingface.co/rhasspy/piper-voices/resolve/main"
+PIPER_VOICES = {
+    "English": ("en/en_US/lessac/medium", "en_US-lessac-medium.onnx"),
+    "German": ("de/de_DE/thorsten/medium", "de_DE-thorsten-medium.onnx"),
+    "French": ("fr/fr_FR/tom/medium", "fr_FR-tom-medium.onnx"),
+    "Spanish": ("es/es_ES/sharvard/medium", "es_ES-sharvard-medium.onnx"),
+    "Hindi": ("hi/hi_IN/priyamvada/medium", "hi_IN-priyamvada-medium.onnx"),
+}
+
+
+def _download(url: str, target: Path, minimum_bytes: int) -> None:
+    if target.is_file() and target.stat().st_size >= minimum_bytes:
+        return
+    target.parent.mkdir(parents=True, exist_ok=True)
+    partial = target.with_suffix(target.suffix + ".part")
+    try:
+        urllib.request.urlretrieve(url, partial)
+        if partial.stat().st_size < minimum_bytes:
+            raise RuntimeError(f"Downloaded file is unexpectedly small: {target.name}")
+        partial.replace(target)
+    finally:
+        if partial.exists():
+            partial.unlink()
 
 
 def install_ocr() -> None:
@@ -25,7 +53,20 @@ def install_ocr() -> None:
             print(f"OCR {code}: already installed")
             continue
         print(f"OCR {code}: downloading official tessdata_best pack")
-        urllib.request.urlretrieve(f"{TESSDATA_BASE}/{code}.traineddata", target)
+        _download(f"{TESSDATA_BASE}/{code}.traineddata", target, 100_000)
+
+
+def install_piper_voices() -> None:
+    PIPER_MODELS_DIR.mkdir(parents=True, exist_ok=True)
+    for language, (folder, filename) in PIPER_VOICES.items():
+        model = PIPER_MODELS_DIR / filename
+        config = PIPER_MODELS_DIR / f"{filename}.json"
+        if model.is_file() and model.stat().st_size > 1_000_000 and config.is_file():
+            print(f"Voice {language}: already installed")
+            continue
+        print(f"Voice {language}: downloading official Piper model")
+        _download(f"{PIPER_BASE}/{folder}/{filename}", model, 1_000_000)
+        _download(f"{PIPER_BASE}/{folder}/{filename}.json", config, 1_000)
 
 
 def install_tts() -> None:
@@ -70,11 +111,12 @@ def install_odia_asr() -> None:
 
 
 def main() -> int:
-    print("Installing LinguaFusion Arabic and Odia offline assets")
+    print("Installing LinguaFusion seven-language desktop assets")
     install_ocr()
+    install_piper_voices()
     install_tts()
     install_odia_asr()
-    print("Arabic and Odia assets are installed.")
+    print("All seven desktop language packs are installed.")
     return 0
 
 

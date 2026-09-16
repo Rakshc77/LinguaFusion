@@ -44,9 +44,10 @@ def _tesseract_config(base: str) -> str:
 OCR_LANGS = {
     # Latin-first auto mode gives better German umlauts/Spanish OCR.
     # Select Hindi explicitly for Devanagari-heavy images.
-    "auto": "eng+deu+spa+hin+ara+ori",
+    "auto": "eng+deu+fra+spa+hin+ara+ori",
     "en": "eng",
     "de": "deu",
+    "fr": "fra",
     "es": "spa",
     "hi": "hin",
     "ar": "ara",

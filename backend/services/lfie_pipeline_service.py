@@ -22,7 +22,7 @@ from backend.services.free_online_correction_service import provider_status
 from backend.services.translation_service import translate_with_views
 
 SUPPORTED_WORKFLOWS = {"speech", "ocr", "reader", "translation", "notes", "search", "generic"}
-SUPPORTED_LANGS = {"en", "de", "es", "hi", "ar", "or", "auto", "unknown"}
+SUPPORTED_LANGS = {"en", "de", "fr", "es", "hi", "ar", "or", "auto", "unknown"}
 DEVANAGARI_RE = re.compile(r"[\u0900-\u097F]")
 ARABIC_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
 ODIA_RE = re.compile(r"[\u0B00-\u0B7F]")
@@ -379,7 +379,7 @@ def translate_with_lfie(text: str, source_lang: str = "auto", target_lang: str =
     if (source_lang or "auto").lower() == "auto":
         lang = before.get("language", {})
         resolved_source = "auto" if lang.get("is_mixed") else lang.get("language", "en")
-        if resolved_source not in {"en", "de", "es", "hi", "ar", "or", "auto"}:
+        if resolved_source not in {"en", "de", "fr", "es", "hi", "ar", "or", "auto"}:
             resolved_source = "en"
     translation = translate_with_views(before.get("normalized_text", text), resolved_source, target_lang)
     translated_text = translation.get("translated_text", "") if isinstance(translation, dict) else ""

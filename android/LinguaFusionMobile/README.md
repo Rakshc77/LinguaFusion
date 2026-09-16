@@ -39,8 +39,10 @@ not exposed through a general-purpose JavaScript interface. The bundled Offline
 page uses its existing private bridge and refuses any voice whose Android
 `Voice.isNetworkConnectionRequired()` value is true.
 
-Android 1.19 source raises the paid Online recording limit from 60 seconds to
-five minutes. The native recorder still stops automatically at the limit and
+Android 1.19 raised the paid Online recording limit from 60 seconds to five
+minutes. Android 1.20 keeps that limit and, when a requested language voice is
+missing, opens Android's trusted voice-data installer/settings after the user
+taps Read Aloud. The native recorder still stops automatically at the limit and
 keeps the existing explicit native Start/Stop-and-send confirmation flow.
 
 The app validates language, speed, request id and a 12,000-character limit in

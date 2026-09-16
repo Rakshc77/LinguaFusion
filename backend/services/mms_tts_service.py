@@ -44,7 +44,7 @@ def _load(lang: str):
         if not model_dir or not is_available(lang):
             raise FileNotFoundError(
                 f"The offline {lang} TTS model is missing at {model_dir}. "
-                "Run scripts\\install_arabic_odia_models.ps1 once while online."
+                "Run scripts\\install_language_models.ps1 once while online."
             )
 
         import torch

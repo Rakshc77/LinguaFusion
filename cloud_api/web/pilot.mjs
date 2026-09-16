@@ -62,10 +62,10 @@ function rememberModel(id) {
   try { localStorage.setItem('lf-translate-model', id); } catch { /* nothing to remember with */ }
 }
 
-const languages = [['en', 'English'], ['de', 'German'], ['es', 'Spanish'],
-                   ['hi', 'Hindi'], ['ar', 'Arabic'], ['or', 'Odia']];
-const readLanguages = [['en', 'English'], ['de', 'German'], ['ar', 'Arabic'],
-                       ['es', 'Spanish'], ['fr', 'French'], ['hi', 'Hindi'], ['or', 'Odia']];
+// One order everywhere: selectors, read-aloud, desktop and Android Online.
+const languages = [['en', 'English'], ['de', 'German'], ['fr', 'French'],
+                   ['es', 'Spanish'], ['hi', 'Hindi'], ['ar', 'Arabic'], ['or', 'Odia']];
+const readLanguages = languages;
 for (const [value, text] of languages) { $('source').add(new Option(text, value)); $('target').add(new Option(text, value)); }
 $('target').value = 'de';
 

@@ -1,8 +1,10 @@
 package com.linguafusion.mobile;
 
 import android.content.Context;
+import android.content.Intent;
 import android.os.Handler;
 import android.os.Looper;
+import android.provider.Settings;
 import android.speech.tts.TextToSpeech;
 import android.speech.tts.UtteranceProgressListener;
 import android.speech.tts.Voice;
@@ -37,6 +39,7 @@ final class ReadAloudEngine implements TextToSpeech.OnInitListener {
     }
 
     private final Handler main = new Handler(Looper.getMainLooper());
+    private final Context context;
     private TextToSpeech speech;
     private boolean ready;
     private boolean failed;
@@ -46,7 +49,8 @@ final class ReadAloudEngine implements TextToSpeech.OnInitListener {
     private int generation;
 
     ReadAloudEngine(Context context) {
-        speech = new TextToSpeech(context.getApplicationContext(), this);
+        this.context = context.getApplicationContext();
+        speech = new TextToSpeech(this.context, this);
     }
 
     void speak(String id, String value, String languageValue, double rateValue,
@@ -128,14 +132,18 @@ final class ReadAloudEngine implements TextToSpeech.OnInitListener {
             .max(Comparator.comparingInt(Voice::getQuality))
             .orElse(null);
         if (request.offline && voice == null) {
+            openVoiceInstaller();
             request.result.state(request.id, "error",
-                "Download an offline " + locale.getDisplayLanguage() + " voice in Android text-to-speech settings.");
+                "The Android voice installer was opened. Download an offline "
+                    + locale.getDisplayLanguage() + " voice, then return and try again.");
             return;
         }
         int languageResult = voice == null ? speech.setLanguage(locale) : speech.setVoice(voice);
         if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
+            openVoiceInstaller();
             request.result.state(request.id, "error",
-                "This phone has no usable " + locale.getDisplayLanguage() + " voice.");
+                "The Android voice installer was opened because this phone has no usable "
+                    + locale.getDisplayLanguage() + " voice.");
             return;
         }
         if (speech.setSpeechRate(request.rate) == TextToSpeech.ERROR) {
@@ -195,5 +203,23 @@ final class ReadAloudEngine implements TextToSpeech.OnInitListener {
         if (speech != null) speech.shutdown();
         speech = null;
         ready = false;
+    }
+
+    /** Open Android's own trusted voice-data installer after a user-initiated
+     * Read Aloud attempt. Some TTS engines expose only their settings page, so
+     * keep a system-settings fallback instead of leaving a dead-end message. */
+    private void openVoiceInstaller() {
+        Intent install = new Intent(TextToSpeech.Engine.ACTION_INSTALL_TTS_DATA)
+            .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK);
+        try {
+            context.startActivity(install);
+        } catch (RuntimeException unavailable) {
+            try {
+                context.startActivity(new Intent(Settings.ACTION_SETTINGS)
+                    .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            } catch (RuntimeException ignored) {
+                // The result message remains useful on stripped-down devices.
+            }
+        }
     }
 }

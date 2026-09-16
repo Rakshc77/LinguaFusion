@@ -30,7 +30,7 @@ MODEL_NAME = os.environ.get("LF_WHISPER_MODEL", "small").strip() or "small"
 DEVICE_PREF = os.environ.get("LF_WHISPER_DEVICE", "cuda").strip().lower() or "cuda"
 ASR_HOTWORDS = os.environ.get("LF_WHISPER_HOTWORDS", "LinguaFusion").strip()
 
-SUPPORTED_LANGS = {"en", "de", "es", "hi", "ar", "or"}
+SUPPORTED_LANGS = {"en", "de", "fr", "es", "hi", "ar", "or"}
 WHISPER_LANGS = SUPPORTED_LANGS - {"or"}
 
 NOISE_TOKENS = {
@@ -174,6 +174,7 @@ def _normalize_language(language: str) -> str:
     language = (language or "auto").lower().replace("_", "-").split("-")[0]
     aliases = {
         "english": "en", "german": "de", "deutsch": "de",
+        "french": "fr", "francais": "fr", "français": "fr",
         "spanish": "es", "espanol": "es", "español": "es",
         "hindi": "hi", "hin": "hi",
         "arabic": "ar", "ara": "ar",

@@ -1,5 +1,17 @@
 # 🌐 LinguaFusion — Offline-First Multilingual AI Translation & Speech Suite
 
+## Unified language packs and appearance
+
+The current desktop source uses the same seven-language catalogue as the phone
+and Online app: English, German, French, Spanish, Hindi, Arabic and Odia. Run
+`scripts\install_language_models.ps1` once from the repository root to install
+missing Piper/MMS voice models and Tesseract OCR packs. Settings reports voice,
+speech, OCR and translation readiness for every language.
+
+The desktop appearance is now the same Studio/Minimal system as the phone.
+Studio Day is warm editorial; Studio Night is sunset rose on plum. The top-bar
+pill controls Day/Night, so Settings does not duplicate that selector.
+
 [![Version](https://img.shields.io/badge/version-1.0--rc2.13-blue.svg)](https://linguafusion.fyi)
 [![Platform](https://img.shields.io/badge/platform-Windows%20%7C%20Web%20PWA%20%7C%20Android-lightgrey.svg)]()
 [![License](https://img.shields.io/badge/license-Proprietary-red.svg)]()
@@ -183,4 +195,3 @@ This is an active development project. Some workflows, especially OCR table reco
 ## License
 
 This project is licensed under the MIT License. See the `LICENSE` file for details.
-

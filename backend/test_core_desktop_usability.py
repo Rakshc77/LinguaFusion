@@ -11,8 +11,20 @@ import textwrap
 def test_desktop_responsive_visibility_and_icon_usability():
     script = textwrap.dedent(
         r"""
+        import sys
+        import types
         from PySide6.QtTest import QTest
-        from PySide6.QtWidgets import QApplication
+        from PySide6.QtWidgets import QApplication, QWidget
+
+        # The responsive shell does not open audio hardware. Keep this UI test
+        # runnable on headless CI hosts that do not ship the PortAudio library.
+        sys.modules.setdefault("sounddevice", types.SimpleNamespace())
+        # QtWebEngine needs desktop X11 libraries that a headless layout test
+        # does not use. A QWidget is sufficient for the unopened guide window.
+        sys.modules.setdefault(
+            "PySide6.QtWebEngineWidgets",
+            types.SimpleNamespace(QWebEngineView=QWidget),
+        )
         from desktop.main import LinguaFusionWindow
 
         app = QApplication([])
@@ -131,8 +143,9 @@ def test_desktop_responsive_visibility_and_icon_usability():
             assert all(button.parentWidget() is window.translate_action_host for button in window.translate_action_buttons)
             assert all(button.window() is window for button in window.translate_action_buttons)
 
-        # A dark PC look must retain the same icon and control visibility contract.
-        window.set_theme("aurora-glass")
+        # Studio night must retain the same icon and control visibility contract.
+        window.set_theme("studio")
+        window.toggle_color_inversion(True)
         settle(280)
         assert all(not button.icon().isNull() for button in icon_buttons)
         assert window.translate_input.isVisible() and window.translate_output.isVisible()
@@ -153,15 +166,12 @@ def test_desktop_responsive_visibility_and_icon_usability():
         window.switch_page("Settings")
         resize(1180, 720)
         settle()
-        assert window.theme_combo.count() == 9
+        assert window.theme_combo.count() == 2
         assert window.font_combo.count() == 6
         assert window.motion_combo.count() == 3
-        assert set(window.DESKTOP_THEME_IDS) == {
-            "broadsheet", "editorial-split", "reading-room", "gallery",
-            "editorial-luxe", "glass-dark", "aurora-glass", "blueprint",
-            "zen",
-        }
-        assert "Aurora Glass" in window.theme_status_label.text()
+        assert tuple(window.DESKTOP_THEME_IDS) == ("studio", "minimal")
+        assert "Studio" in window.theme_status_label.text()
+        assert window.dark_mode is True
 
         # Task Center remains usable at the minimum supported window size.
         window.switch_page("Tasks")
@@ -229,7 +239,7 @@ def test_desktop_responsive_visibility_and_icon_usability():
 
         window.set_font("editorial")
         settle()
-        assert window.current_theme == "aurora-glass"
+        assert window.current_theme == "studio"
         assert window.current_font == "editorial"
         assert "Editorial Serif" in window.font_status_label.text()
         assert "Georgia" in window.styleSheet()
@@ -241,19 +251,20 @@ def test_desktop_responsive_visibility_and_icon_usability():
             assert window.current_theme == theme_id
             assert window.current_font == "editorial"
             theme_spec = window.DESKTOP_THEME_SPECS[theme_id]
+            effective_spec = window._invert_theme_spec(theme_spec) if window.color_inversion_active else theme_spec
             rendered_theme_styles[theme_id] = window.styleSheet()
-            assert theme_spec["bg"] in window.styleSheet()
-            assert theme_spec["accent"] in window.styleSheet()
+            assert effective_spec["bg"] in window.styleSheet()
+            assert effective_spec["accent"] in window.styleSheet()
             assert all(not button.icon().isNull() for button in icon_buttons)
         assert len(set(rendered_theme_styles.values())) == len(window.DESKTOP_THEME_IDS)
-        assert "#00DCEB" not in rendered_theme_styles["broadsheet"]
-        assert "font-family: 'Georgia'" in rendered_theme_styles["broadsheet"]
+        assert "#00DCEB" not in rendered_theme_styles["studio"]
+        assert "font-family: 'Georgia'" in rendered_theme_styles["studio"]
 
         for font_id, font_spec in window.DESKTOP_FONT_SPECS.items():
             window.set_font(font_id)
             settle(25)
             assert window.current_font == font_id
-            assert window.current_theme == "zen"
+            assert window.current_theme == "minimal"
             assert font_spec["body"] in window.styleSheet()
 
         for motion_id in ("full", "reduced", "off"):

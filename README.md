@@ -13,10 +13,11 @@ for any active feature branch before changing it.
 
 Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 
-## Current release
+## Current release and next source
 
-- Online interface: `2026.09.14.1`
-- Android: `1.18` / versionCode `19`
+- Published baseline: Online `2026.09.16.1`; Android `1.19` / versionCode `20`.
+- Current source: Online `2026.09.16.2`; Android `1.20` / versionCode `21`;
+  Windows desktop `1.0-rc2.15-unified-languages`.
 - Android provides phone-only Offline translation and transcription for English,
   German, Arabic, Spanish and French.
 - Android selected-text translation works from WhatsApp and other apps through
@@ -27,16 +28,35 @@ Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 The existing private Android signing key must be preserved. Never generate a
 replacement key: a differently signed APK cannot update existing installations.
 
-Current source prepares Online `2026.09.16.1` and Android `1.19` / versionCode
-`20`, raising Online recording and saved-audio transcription from one minute to
-five minutes. They are not live until the cloud interface is deployed and the Android
-APK is rebuilt and published with the existing owner key.
+The five-minute Online recording/saved-audio limit is retained. The new source
+is not live until the cloud interface is deployed and Android is rebuilt and
+published with the existing owner key.
+
+## Language support
+
+LinguaFusion now uses one ordered catalogue throughout Online, Windows and
+shared UI: English, German, French, Spanish, Hindi, Arabic and Odia. Capability
+labels stay honest where a device or Offline engine supports less.
+
+| Surface | Translation | Transcription | OCR | Read Aloud |
+|---|---|---|---|---|
+| Online/browser | All seven | All seven | All seven | All seven when the device has a voice |
+| Android Offline | English, German, French, Spanish, Arabic | English, German, French, Spanish, Arabic | English, German, French, Spanish (Latin script) | The five Offline languages when an offline device voice exists |
+| Windows desktop | All seven with local models | Whisper for six; MMS for Odia | All seven | Piper for English/German/French/Spanish/Hindi; MMS for Arabic/Odia |
+
+Windows Settings now shows model readiness per language and opens the unified
+installer. From the repository root it can also be run directly:
+
+```powershell
+.\scripts\install_language_models.ps1
+```
 
 ## Current appearance
 
-Only Studio and Minimal are offered by the cloud app. Both have Day and Night
-modes. Studio day uses Warm Editorial parchment and terracotta; Studio night
-uses Sunset rose on plum. Minimal is monochrome. Typeface selection is
+Only Studio and Minimal are offered by the cloud and Windows apps. Both have Day
+and Night modes controlled by the same top-bar pill. Studio day uses Warm
+Editorial parchment and terracotta; Studio night uses Sunset rose on plum.
+Minimal is monochrome. Typeface selection is
 independent; “Match the look” uses editorial headings for Studio and sans-serif
 for Minimal. Previously selected typefaces are preserved.
 

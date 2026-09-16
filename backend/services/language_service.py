@@ -11,7 +11,7 @@ except Exception as exc:  # pragma: no cover - depends on local install
 else:
     LANGDETECT_IMPORT_ERROR = None
 
-SUPPORTED_LANGS = {"en", "de", "es", "hi", "ar", "or"}
+SUPPORTED_LANGS = {"en", "de", "fr", "es", "hi", "ar", "or"}
 
 DEVANAGARI_RE = re.compile(r"[\u0900-\u097F]")
 ARABIC_RE = re.compile(r"[\u0600-\u06FF\u0750-\u077F\u08A0-\u08FF]")
@@ -38,9 +38,15 @@ SPANISH_HINTS = {
     "el", "la", "los", "las", "una", "uno", "para", "que", "gracias", "hola", "cómo", "como",
     "estás", "estas", "en", "de", "y", "con", "por", "traducción", "traduccion",
 }
+FRENCH_HINTS = {
+    "le", "la", "les", "un", "une", "des", "et", "est", "dans", "pour", "avec", "bonjour",
+    "merci", "français", "francais", "traduction", "langue", "texte", "voix", "document",
+    "cette", "nous", "vous", "mais", "pas", "plus", "comme", "sur", "du", "de",
+}
 
 GERMAN_CHAR_RE = re.compile(r"[ÄÖÜäöüß]")
 SPANISH_CHAR_RE = re.compile(r"[ñáéíóúü¿¡]", re.IGNORECASE)
+FRENCH_CHAR_RE = re.compile(r"[àâæçéèêëîïôœùûüÿ]", re.IGNORECASE)
 
 
 def _tokens(text: str) -> List[str]:
@@ -50,7 +56,7 @@ def _tokens(text: str) -> List[str]:
 def _score_tokens(raw_text: str) -> Tuple[Dict[str, int], List[str]]:
     tokens = _tokens(raw_text)
     raw_lower = (raw_text or "").lower()
-    scores = {"en": 0, "de": 0, "es": 0, "hi": 0, "ar": 0, "or": 0}
+    scores = {"en": 0, "de": 0, "fr": 0, "es": 0, "hi": 0, "ar": 0, "or": 0}
 
     if DEVANAGARI_RE.search(raw_text or ""):
         scores["hi"] += 6
@@ -62,6 +68,8 @@ def _score_tokens(raw_text: str) -> Tuple[Dict[str, int], List[str]]:
         scores["de"] += 3
     if SPANISH_CHAR_RE.search(raw_text or ""):
         scores["es"] += 3
+    if FRENCH_CHAR_RE.search(raw_text or ""):
+        scores["fr"] += 3
 
     for token in tokens:
         if token in ENGLISH_HINTS:
@@ -70,6 +78,8 @@ def _score_tokens(raw_text: str) -> Tuple[Dict[str, int], List[str]]:
             scores["de"] += 1
         if token in SPANISH_HINTS:
             scores["es"] += 1
+        if token in FRENCH_HINTS:
+            scores["fr"] += 1
 
     # Phrase-level cues for mixed technical/Reader documents.
     if re.search(r"\b(?:this|the)\b.*\b(?:system|document|paragraph|reader|translation)\b", raw_lower):

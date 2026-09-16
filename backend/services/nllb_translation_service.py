@@ -49,6 +49,7 @@ if DEVICE_PREF != "cpu":
 LANG_CODE_MAP = {
     "en": "eng_Latn",
     "de": "deu_Latn",
+    "fr": "fra_Latn",
     "es": "spa_Latn",
     "hi": "hin_Deva",
     "ar": "arb_Arab",

@@ -1653,7 +1653,7 @@ def reader_translate(text: str = Form(...), target_lang: str = Form("de"), sourc
                 resolved_source = "auto"
             else:
                 resolved_source = detected.get("language")
-                if resolved_source not in {"en", "de", "es", "hi", "ar", "or"}:
+                if resolved_source not in {"en", "de", "fr", "es", "hi", "ar", "or"}:
                     resolved_source = "en"
         translation = translate_with_views(text, resolved_source, target_lang)
         payload = {"ok": translation.get("ok"), "source_lang": resolved_source, "target_lang": target_lang, "translation": translation}

@@ -100,7 +100,7 @@ class CreateNoteInput(BaseModel):
     @classmethod
     def valid_language(cls, value: str) -> str:
         normalized = value.lower().replace("_", "-").split("-")[0]
-        if normalized not in {"en", "de", "es", "hi", "ar", "or"}:
+        if normalized not in {"en", "de", "fr", "es", "hi", "ar", "or"}:
             raise ValueError(f"Unsupported language: {value}")
         return normalized
 
