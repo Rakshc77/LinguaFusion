@@ -16,6 +16,7 @@ ensure_runtime_dirs()
 VOICE_MODELS = {
     "en": "en_US-lessac-medium.onnx",
     "de": "de_DE-thorsten-medium.onnx",
+    "fr": "fr_FR-tom-medium.onnx",
     "es": "es_ES-sharvard-medium.onnx",
     "hi": "hi_IN-priyamvada-medium.onnx",
 }
@@ -192,6 +193,11 @@ SPANISH_TTS_HINTS = {
     "tarde", "empieza", "sala", "azul", "sistema", "debe", "cambiar", "voz", "española", "espanola", "nombres",
     "madrid", "zaragoza", "reconocerse", "correctamente", "inscripción", "inscripcion", "termina", "viernes", "plaza", "limitada",
 }
+FRENCH_TTS_HINTS = {
+    "bonjour", "merci", "français", "francais", "traduction", "langue", "document", "voix",
+    "cette", "avec", "pour", "dans", "nous", "vous", "elles", "être", "etre", "résultat", "resultat",
+    "lecteur", "système", "systeme", "phrase", "aujourd'hui", "également", "egalement", "après", "apres",
+}
 HINDI_TTS_HINTS = {
     "और", "है", "हैं", "में", "का", "की", "के", "यह", "इस", "कृपया", "अनुवाद", "रीडर",
     "दस्तावेज़", "तकनीकी", "शब्द", "नाम", "सिस्टम", "परीक्षण", "भाषा", "वाक्य",
@@ -209,11 +215,13 @@ def detect_tts_segment_language(text: str, fallback: str = "en") -> str:
         return script_lang
 
     tokens = _tts_tokens(segment)
-    scores = {"de": 0, "en": 0, "es": 0, "hi": 0}
+    scores = {"de": 0, "en": 0, "fr": 0, "es": 0, "hi": 0}
     if re.search(r"[ÄÖÜäöüß]", segment):
         scores["de"] += 3
     if re.search(r"[áéíóúñÁÉÍÓÚÑ¿¡]", segment):
         scores["es"] += 3
+    if re.search(r"[àâæçèêëîïôœùûÿÀÂÆÇÈÊËÎÏÔŒÙÛŸ]", segment):
+        scores["fr"] += 3
 
     lowered = segment.lower()
     if re.search(r"\b(?:hallo zusammen|heute testen|deutsche sätze|eigennamen|technischen begriffen)\b", lowered):
@@ -222,6 +230,8 @@ def detect_tts_segment_language(text: str, fallback: str = "en") -> str:
         scores["en"] += 4
     if re.search(r"\b(?:después aparece|en español|trabajo con|el lector|la prueba|el resultado)\b", lowered):
         scores["es"] += 4
+    if re.search(r"\b(?:bonjour|en français|avec le|la traduction|le lecteur|le résultat)\b", lowered):
+        scores["fr"] += 4
 
     for token in tokens:
         normalized = token.replace("ü", "ue").replace("ä", "ae").replace("ö", "oe").replace("ß", "ss")
@@ -231,6 +241,8 @@ def detect_tts_segment_language(text: str, fallback: str = "en") -> str:
             scores["en"] += 1
         if token in SPANISH_TTS_HINTS or normalized in SPANISH_TTS_HINTS:
             scores["es"] += 1
+        if token in FRENCH_TTS_HINTS or normalized in FRENCH_TTS_HINTS:
+            scores["fr"] += 1
 
     best_lang, best_score = max(scores.items(), key=lambda item: item[1])
     if best_score >= 2:
@@ -272,6 +284,8 @@ def _section_context_from_line(line: str) -> str | None:
         return "hi"
     if re.search(r"\b(spanish|español|espanol)\b", lowered):
         return "es"
+    if re.search(r"\b(french|français|francais)\b", lowered):
+        return "fr"
     if re.search(r"\b(german|deutsch|deutsche)\b", lowered):
         return "de"
     if re.search(r"\b(english|opening|welcome)\b", lowered):
@@ -315,10 +329,13 @@ def _split_latin_sentences(line: str) -> list[str]:
 
 _DE_DIACRITIC_RE = re.compile(r"[ÄÖÜäöüß]")
 _ES_DIACRITIC_RE = re.compile(r"[áéíóúñÁÉÍÓÚÑ¿¡]")
+_FR_DIACRITIC_RE = re.compile(r"[àâæçèêëîïôœùûÿÀÂÆÇÈÊËÎÏÔŒÙÛŸ]")
 _WORD_OR_SPACE_RE = re.compile(r"\S+|\s+")
 
 
 def _classify_latin_word(word: str) -> str:
+    if _FR_DIACRITIC_RE.search(word):
+        return "fr"
     if _DE_DIACRITIC_RE.search(word):
         return "de"
     if _ES_DIACRITIC_RE.search(word):
@@ -388,7 +405,7 @@ def _split_latin_by_word_evidence(sentence: str, fallback: str) -> list[tuple[st
         text = text.strip()
         if not text:
             continue
-        lang = cls if cls in {"de", "es"} else sentence_lang
+        lang = cls if cls in {"de", "fr", "es"} else sentence_lang
         result.append((text, lang))
     return result or [(sentence, sentence_lang)]
 

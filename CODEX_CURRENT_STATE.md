@@ -1,5 +1,41 @@
 # LinguaFusion — current Codex handover
 
+## Unified languages and desktop Studio — September 16, 2026
+
+Branch `codex/unified-languages-desktop` starts from published `main` commit
+`3eb4b3d` (Online `2026.09.16.1`, Android 1.19/versionCode 20). It prepares
+Online `2026.09.16.2`, Android 1.20/versionCode 21 and Windows desktop
+`1.0-rc2.15-unified-languages`.
+
+One canonical ordered catalogue now covers English, German, French, Spanish,
+Hindi, Arabic and Odia. French was added to desktop translation, transcription,
+OCR, Piper voice configuration, diagnostics and the one-time model installer;
+the Online and legacy connected interfaces now expose the same seven choices.
+The Windows installer also checks/downloads the other missing Piper, MMS and
+Tesseract assets. Desktop Settings reports Voice, Speech, OCR and Translation
+readiness for every language.
+
+Android phone-only Offline remains intentionally limited to English, German,
+French, Spanish and Arabic for speech/translation; Hindi and Odia were not
+misrepresented as Offline core support. Android Offline OCR remains Latin-only
+(English/German/French/Spanish), while Online and desktop OCR cover all seven.
+Read Aloud accepts all seven Online and opens Android's trusted voice-data
+installer/settings after a user-initiated attempt when a device voice is absent.
+
+The Windows UI now uses the same approved Studio/Minimal system as the phone:
+Studio Day is warm editorial, Studio Night is sunset rose on plum, Minimal is
+monochrome, and the top-bar Day/Night pill is the only color-mode selector.
+The core page names/order and copy are aligned without removing desktop-only
+Reader, Notes, Tasks or Access capabilities.
+
+Release state: source changes are not deployed or published yet. Before release,
+run the Python/browser/Android contracts, push/merge this branch, deploy Online,
+then build and publish Android 1.20 on the owner PC with the existing signing key.
+Do not replace or regenerate that key. Desktop users can install all local packs
+with `scripts\install_language_models.ps1`.
+
+---
+
 ## Five-minute cloud transcription — September 16, 2026
 
 Branch `codex/cloud-transcription-5min` starts from published `main` commit

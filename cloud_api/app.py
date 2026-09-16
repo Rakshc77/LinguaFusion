@@ -33,7 +33,8 @@ from cloud_api.models import PAID, PRICE_REVIEWED, catalog, require_model, reser
 APPROVED_MONTHLY_LIMIT = 540
 APPROVED_MONTHLY_BUDGET_MICRO = 5_400_000
 
-LANGUAGES = {'en': 'English', 'de': 'German', 'es': 'Spanish', 'hi': 'Hindi', 'ar': 'Arabic', 'or': 'Odia'}
+LANGUAGES = {'en': 'English', 'de': 'German', 'fr': 'French', 'es': 'Spanish',
+             'hi': 'Hindi', 'ar': 'Arabic', 'or': 'Odia'}
 log = logging.getLogger('linguafusion.cloud')
 log.setLevel(logging.INFO)
 if not log.handlers:

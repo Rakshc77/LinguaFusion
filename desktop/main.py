@@ -33,6 +33,7 @@ else:
         sys.path.insert(0, _project_root)
 
 from backend.config.paths import STORAGE_DIR as BACKEND_STORAGE_DIR
+from backend.language_catalog import DESKTOP_LANGUAGES
 
 def _register_cuda_dll_dirs() -> None:
     # Use the backend's deterministic NVIDIA-package registration. The old
@@ -230,14 +231,7 @@ def set_autostart_enabled(enabled: bool) -> bool:
         return False
 
 
-LANGUAGES = [
-    ("English", "en"),
-    ("German", "de"),
-    ("Spanish", "es"),
-    ("Hindi", "hi"),
-    ("Arabic", "ar"),
-    ("Odia", "or"),
-]
+LANGUAGES = list(DESKTOP_LANGUAGES)
 
 DOCUMENT_EXTENSIONS = {".txt", ".md", ".pdf", ".docx", ".rtf", ".html", ".htm", ".csv", ".json", ".xml"}
 AUDIO_EXTENSIONS = {".wav", ".mp3", ".m4a", ".ogg", ".flac", ".aac", ".wma"}
@@ -407,23 +401,23 @@ class SkeletonWidget(QWidget):
 
 
 class ThemeToggle(QPushButton):
-    """Keyboard-accessible A/C theme switch painted without platform glyphs."""
+    """Keyboard-accessible day/night pill shared with the phone UI."""
 
     def __init__(self):
         super().__init__()
         self.setCheckable(True)
         self.setFixedSize(54, 30)
         self.setCursor(Qt.PointingHandCursor)
-        self.setAccessibleName("Use dark theme")
-        self.setToolTip("Switch between Broadsheet (A) and Night Studio (C)")
+        self.setAccessibleName("Switch to night mode")
+        self.setToolTip("Switch to night mode")
 
     def paintEvent(self, event):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.Antialiasing, True)
         checked = self.isChecked()
-        track = QColor("#2674D9" if checked else "#D7DEE8")
+        track = QColor("#F24E7A" if checked else "#B04A2F")
         if self.isDown():
-            track = QColor("#1F63BC" if checked else "#C7D0DC")
+            track = QColor("#D93B68" if checked else "#943D27")
         painter.setPen(Qt.NoPen)
         painter.setBrush(track)
         painter.drawRoundedRect(1, 3, 52, 24, 12, 12)
@@ -432,7 +426,7 @@ class ThemeToggle(QPushButton):
         painter.drawEllipse(knob_x, 5, 20, 20)
         if self.hasFocus():
             painter.setBrush(Qt.NoBrush)
-            painter.setPen(QPen(QColor("#4C9AFF" if checked else "#0B57D0"), 2))
+            painter.setPen(QPen(QColor("#F24E7A" if checked else "#B04A2F"), 2))
             painter.drawRoundedRect(1, 1, 52, 28, 14, 14)
         painter.end()
 
@@ -618,11 +612,15 @@ class LinguaFusionWindow(QMainWindow):
         self.app_settings = QSettings("LinguaFusion", "LinguaFusion")
         self._persist_settings = os.environ.get("LF_TEST_MODE", "").strip() != "1"
         self.current_theme = (
-            self.app_settings.value("appearance/theme_id", "broadsheet", type=str)
-            if self._persist_settings else "broadsheet"
+            self.app_settings.value("appearance/theme_id", "studio", type=str)
+            if self._persist_settings else "studio"
         )
         if self.current_theme not in self.DESKTOP_THEME_IDS:
-            self.current_theme = "broadsheet"
+            self.current_theme = "studio"
+        self.color_inversion_active = (
+            self.app_settings.value("appearance/dark_mode", False, type=bool)
+            if self._persist_settings else False
+        )
         self.current_font = (
             self.app_settings.value("appearance/font_id", "modern", type=str)
             if self._persist_settings else "modern"
@@ -869,7 +867,7 @@ class LinguaFusionWindow(QMainWindow):
         title = QLabel("LinguaFusion")
         self.brand_title = title
         title.setObjectName("AppTitle")
-        subtitle = QLabel("Private workspace")
+        subtitle = QLabel("Desktop Studio")
         self.brand_subtitle = subtitle
         subtitle.setObjectName("Muted")
         title_col.addWidget(title)
@@ -892,9 +890,9 @@ class LinguaFusionWindow(QMainWindow):
         self.nav_metadata = {}
         nav_items = [
             ("Translate", "translate"),
-            ("Reader", "reader"),
             ("Speech", "microphone"),
             ("OCR", "scan"),
+            ("Reader", "reader"),
             ("Notes", "notes"),
             ("Tasks", "history"),
             ("Access", "share"),
@@ -974,6 +972,13 @@ class LinguaFusionWindow(QMainWindow):
         self.inspector_toggle_btn.setAccessibleName("Toggle details panel")
         self.inspector_toggle_btn.clicked.connect(self.toggle_inspector)
         topbar.addWidget(self.inspector_toggle_btn)
+        topbar.addSpacing(4)
+        self.theme_toggle = ThemeToggle()
+        self.theme_toggle.setChecked(self.color_inversion_active)
+        self.theme_toggle.setAccessibleName("Switch to day mode" if self.color_inversion_active else "Switch to night mode")
+        self.theme_toggle.setToolTip(self.theme_toggle.accessibleName())
+        self.theme_toggle.clicked.connect(self.toggle_color_inversion)
+        topbar.addWidget(self.theme_toggle)
         self.system_badge = QLabel("● Server Online")
         self.system_badge.setObjectName("StatusBadge")
         self.system_badge.setSizePolicy(QSizePolicy.Fixed, QSizePolicy.Fixed)
@@ -1034,9 +1039,9 @@ class LinguaFusionWindow(QMainWindow):
         layout.setContentsMargins(18, 0, 18, 0)
         self.footer_left = QLabel("● Ready")
         self.footer_left.setObjectName("FooterBadge")
-        self.footer_center = QLabel("Processing stays on this device")
+        self.footer_center = QLabel("Processing stays on this desktop")
         self.footer_center.setObjectName("Muted")
-        self.footer_right = QLabel("Local  •  Private  •  GPU accelerated")
+        self.footer_right = QLabel("Local-first  •  Private  •  Seven languages")
         self.footer_right.setObjectName("FooterText")
         layout.addWidget(self.footer_left)
         layout.addStretch(1)
@@ -1046,30 +1051,14 @@ class LinguaFusionWindow(QMainWindow):
         return footer
 
     # ---------- Styling ----------
-    # ---------- Cleaned PC Theme Concepts System ----------
+    # The phone and desktop deliberately share the same two looks. Day/night
+    # is controlled by the top pill, never duplicated in Settings.
     DESKTOP_THEME_SPECS = {
-        "broadsheet": {"name": "Broadsheet (Classic Newspaper)", "group": "Editorial", "dark": False, "bg": "#F6F1E4", "sidebar": "#F6F1E4", "card": "#F6F1E4", "border": "#E2D9C5", "text": "#2B2622", "muted": "#6E6353", "accent": "#8A3A1F", "accent_hover": "#752E15", "btn_text": "#F6F1E4", "nav_active": "#E8DEC9", "nav_active_text": "#8A3A1F"},
-        "editorial-split": {"name": "Editorial Split (Dark Rail Split)", "group": "Editorial", "dark": False, "bg": "#F4EFE4", "sidebar": "#2B2622", "card": "#F4EFE4", "border": "#E3DCCB", "text": "#2B2622", "muted": "#8A7F6B", "accent": "#A05A3C", "accent_hover": "#8C4A2E", "btn_text": "#F4EFE4", "nav_active": "#3D3732", "nav_active_text": "#F4EFE4"},
-        "reading-room": {"name": "Reading Room (Literary Ivory)", "group": "Editorial", "dark": False, "bg": "#F7F3EA", "sidebar": "#EFE8D6", "card": "#F7F3EA", "border": "#E0D7C3", "text": "#2A2119", "muted": "#6A5D4A", "accent": "#B04A2F", "accent_hover": "#9A3A20", "btn_text": "#F7F3EA", "nav_active": "#EFE8D6", "nav_active_text": "#B04A2F"},
-        "gallery": {"name": "Gallery (Avant-garde Lime)", "group": "Editorial", "dark": True, "bg": "#0E0E10", "sidebar": "#161618", "card": "#0E0E10", "border": "#262628", "text": "#F2F2EE", "muted": "#5F5F63", "accent": "#D8FF3D", "accent_hover": "#C2EB29", "btn_text": "#0E0E10", "nav_active": "#161618", "nav_active_text": "#D8FF3D"},
-        "editorial-luxe": {"name": "Editorial Luxe (Fashion Gold)", "group": "Editorial", "dark": False, "bg": "#F4EFE4", "sidebar": "#ECE5D4", "card": "#F4EFE4", "border": "#DDD2BA", "text": "#2A2118", "muted": "#9C8A63", "accent": "#9C7A3C", "accent_hover": "#7A5F2A", "btn_text": "#F4EFE4", "nav_active": "#ECE5D4", "nav_active_text": "#9C7A3C"},
-        "glass-dark": {"name": "Glass Dark (Cyan Deep Glass)", "group": "Dark", "dark": True, "bg": "#070D18", "sidebar": "#0C1A2E", "card": "#0C1A2E", "border": "#1B2F4A", "text": "#EAF6FB", "muted": "#7FA9C4", "accent": "#22D3EE", "accent_hover": "#0EC0DB", "btn_text": "#03121A", "nav_active": "#16314D", "nav_active_text": "#22D3EE"},
-        "aurora-glass": {"name": "Aurora Glass (Frosted Teal Glass)", "group": "Dark", "dark": True, "bg": "#0C1018", "sidebar": "#121826", "card": "#121826", "border": "#2D3A50", "text": "#EEF3FB", "muted": "#8AA0C8", "accent": "#2DD4BF", "accent_hover": "#14B8A6", "btn_text": "#05201C", "nav_active": "#1A2438", "nav_active_text": "#2DD4BF"},
-        "blueprint": {"name": "Technical Blueprint (Drafting Navy)", "group": "Utility", "dark": True, "bg": "#0A1830", "sidebar": "#0D2140", "card": "#0D2140", "border": "#2A4A75", "text": "#EAF4FF", "muted": "#5F8FBF", "accent": "#5FD0FF", "accent_hover": "#38BDF8", "btn_text": "#06223D", "nav_active": "#0D2140", "nav_active_text": "#5FD0FF"},
-        "zen": {"name": "Zen Focus (Minimalist Monochrome)", "group": "Dark", "dark": True, "bg": "#0A0A0A", "sidebar": "#111111", "card": "#141414", "border": "#262626", "text": "#F4F4F4", "muted": "#6F6F6F", "accent": "#F4F4F4", "accent_hover": "#E0E0E0", "btn_text": "#0A0A0A", "nav_active": "#222222", "nav_active_text": "#F4F4F4"}
+        "studio": {"name": "Studio", "group": "LinguaFusion", "dark": False, "bg": "#F4EFE4", "sidebar": "#FCF9F2", "card": "#FCF9F2", "border": "#D8CFBD", "text": "#2B2622", "muted": "#716553", "accent": "#B04A2F", "accent_hover": "#943D27", "btn_text": "#FFFFFF", "nav_active": "#EEE1CD", "nav_active_text": "#B04A2F"},
+        "minimal": {"name": "Minimal", "group": "LinguaFusion", "dark": False, "bg": "#FAFAFA", "sidebar": "#FFFFFF", "card": "#FFFFFF", "border": "#CECECE", "text": "#181818", "muted": "#646464", "accent": "#202020", "accent_hover": "#000000", "btn_text": "#FFFFFF", "nav_active": "#E9E9E9", "nav_active_text": "#202020"},
     }
 
-    DESKTOP_THEME_IDS = (
-        "broadsheet",
-        "editorial-split",
-        "reading-room",
-        "gallery",
-        "editorial-luxe",
-        "glass-dark",
-        "aurora-glass",
-        "blueprint",
-        "zen",
-    )
+    DESKTOP_THEME_IDS = ("studio", "minimal")
 
     # Typography is deliberately independent from the visual look. These are
     # native Windows stacks, so every choice remains available offline.
@@ -1083,15 +1072,8 @@ class LinguaFusionWindow(QMainWindow):
     }
 
     DESKTOP_LOOK_METRICS = {
-        "broadsheet": (2, 2, 240),
-        "editorial-split": (2, 2, 210),
-        "reading-room": (0, 0, 300),
-        "gallery": (0, 0, 180),
-        "editorial-luxe": (0, 0, 260),
-        "glass-dark": (16, 12, 240),
-        "aurora-glass": (18, 12, 260),
-        "blueprint": (2, 2, 160),
-        "zen": (0, 0, 300),
+        "studio": (18, 12, 220),
+        "minimal": (6, 6, 0),
     }
 
     def _generate_qss(self, spec):
@@ -1118,8 +1100,8 @@ class LinguaFusionWindow(QMainWindow):
         # is the appropriate monospace fallback here as well.
         mono_font = body_font
         card_radius, control_radius, _motion_ms = self.DESKTOP_LOOK_METRICS.get(
-            getattr(self, "current_theme", "broadsheet"),
-            self.DESKTOP_LOOK_METRICS["broadsheet"],
+            getattr(self, "current_theme", "studio"),
+            self.DESKTOP_LOOK_METRICS["studio"],
         )
         qss = f"""
             #Root, QMainWindow {{ background: {bg}; color: {text}; font-family: '{body_font}'; font-size: 14px; }}
@@ -1641,35 +1623,37 @@ class LinguaFusionWindow(QMainWindow):
 
     def _invert_theme_spec(self, spec):
         inverted = dict(spec)
-        inverted["dark"] = not spec["dark"]
-        if spec["dark"]:
-            inverted["bg"] = "#F8FAFC"
-            inverted["sidebar"] = "#FFFFFF"
-            inverted["card"] = "#FFFFFF"
-            inverted["border"] = "#CBD5E1"
-            inverted["text"] = "#0F172A"
-            inverted["muted"] = "#64748B"
-            inverted["nav_active"] = "#E2E8F0"
-            inverted["nav_active_text"] = spec["accent"]
+        inverted["dark"] = True
+        if getattr(self, "current_theme", "studio") == "minimal":
+            inverted.update({
+                "bg": "#121212", "sidebar": "#1C1C1C", "card": "#1C1C1C",
+                "border": "#535353", "text": "#F4F4F4", "muted": "#B0B0B0",
+                "accent": "#F4F4F4", "accent_hover": "#FFFFFF", "btn_text": "#121212",
+                "nav_active": "#303030", "nav_active_text": "#F4F4F4",
+            })
         else:
-            inverted["bg"] = "#0F172A"
-            inverted["sidebar"] = "#1E293B"
-            inverted["card"] = "#1E293B"
-            inverted["border"] = "#334155"
-            inverted["text"] = "#F8FAFC"
-            inverted["muted"] = "#94A3B8"
-            inverted["nav_active"] = "#334155"
-            inverted["nav_active_text"] = "#38BDF8"
+            inverted.update({
+                "bg": "#1A1015", "sidebar": "#261820", "card": "#261820",
+                "border": "#674152", "text": "#FCE8EC", "muted": "#C3AAB2",
+                "accent": "#F24E7A", "accent_hover": "#FF7198", "btn_text": "#1A1015",
+                "nav_active": "#3D2432", "nav_active_text": "#F24E7A",
+            })
         return inverted
 
-    def toggle_color_inversion(self):
-        self.color_inversion_active = not getattr(self, "color_inversion_active", False)
+    def toggle_color_inversion(self, checked=None):
+        self.color_inversion_active = bool(checked) if checked is not None else not getattr(self, "color_inversion_active", False)
+        if self._persist_settings:
+            self.app_settings.setValue("appearance/dark_mode", self.color_inversion_active)
+        if hasattr(self, "theme_toggle"):
+            self.theme_toggle.setChecked(self.color_inversion_active)
+            self.theme_toggle.setAccessibleName("Switch to day mode" if self.color_inversion_active else "Switch to night mode")
+            self.theme_toggle.setToolTip(self.theme_toggle.accessibleName())
         self.apply_style()
-        self.set_status(f"Color mode inverted ({'Dark' if self.dark_mode else 'Light'})")
+        self.set_status(f"{'Night' if self.dark_mode else 'Day'} mode active")
 
     def apply_style(self):
-        theme_id = getattr(self, "current_theme", "broadsheet")
-        spec = self.DESKTOP_THEME_SPECS.get(theme_id, self.DESKTOP_THEME_SPECS["broadsheet"])
+        theme_id = getattr(self, "current_theme", "studio")
+        spec = self.DESKTOP_THEME_SPECS.get(theme_id, self.DESKTOP_THEME_SPECS["studio"])
         if getattr(self, "color_inversion_active", False):
             spec = self._invert_theme_spec(spec)
         self.dark_mode = spec["dark"]
@@ -1691,7 +1675,7 @@ class LinguaFusionWindow(QMainWindow):
 
     def set_theme(self, theme_id: str):
         if theme_id not in self.DESKTOP_THEME_IDS:
-            theme_id = "broadsheet"
+            theme_id = "studio"
         self.current_theme = theme_id
         spec = self.DESKTOP_THEME_SPECS[theme_id]
         if self._persist_settings:
@@ -1763,8 +1747,8 @@ class LinguaFusionWindow(QMainWindow):
             current_widget.setGraphicsEffect(None)
 
         motion_ms = self.DESKTOP_LOOK_METRICS.get(
-            getattr(self, "current_theme", "broadsheet"),
-            self.DESKTOP_LOOK_METRICS["broadsheet"],
+            getattr(self, "current_theme", "studio"),
+            self.DESKTOP_LOOK_METRICS["studio"],
         )[2]
         duration = self.motion_duration(motion_ms)
         if duration <= 0:
@@ -2872,7 +2856,7 @@ class LinguaFusionWindow(QMainWindow):
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(12)
-        layout.addLayout(self.page_title("TRANSLATE / SIGNAL DECK", "Local NLLB translation • private processing • export-ready output"))
+        layout.addLayout(self.page_title("Say it their way.", "Translate privately with the same seven-language system as the phone."))
 
         workspace = QFrame()
         workspace.setObjectName("TranslateWorkspace")
@@ -3392,7 +3376,7 @@ class LinguaFusionWindow(QMainWindow):
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
-        layout.addLayout(self.page_title("AUDIO READER / DOCUMENT STREAM", "Local Piper playback • sentence tracking • private document processing"))
+        layout.addLayout(self.page_title("Listen on your terms.", "Import a document, choose its language and read it aloud locally."))
 
         controls_host = QWidget()
         controls_host.setObjectName("SignalFunctionStrip")
@@ -4423,7 +4407,7 @@ class LinguaFusionWindow(QMainWindow):
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
-        layout.addLayout(self.page_title("SCAN / OCR PIPELINE", "RapidOCR images • Tesseract scanned PDFs • local translation"))
+        layout.addLayout(self.page_title("Read what you see.", "Extract and translate pictures or scanned documents without leaving the desktop app."))
 
         controls_host = QWidget()
         controls_host.setObjectName("SignalFunctionStrip")
@@ -4670,7 +4654,7 @@ class LinguaFusionWindow(QMainWindow):
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
-        layout.addLayout(self.page_title("SAVED NOTES / LOCAL VAULT", "Searchable local archive for speech, OCR, reader, and translation results"))
+        layout.addLayout(self.page_title("Keep what matters.", "Save useful speech, picture, reader and translation results locally."))
 
         command_strip = QFrame()
         command_strip.setObjectName("SignalFunctionStrip")
@@ -5194,7 +5178,7 @@ class LinguaFusionWindow(QMainWindow):
         command_layout = QHBoxLayout(command_strip)
         command_layout.setContentsMargins(14, 8, 14, 8)
         command_layout.setSpacing(10)
-        signal_title = QLabel("●  SPEECH / LIVE CAPTURE")
+        signal_title = QLabel("Speak naturally.")
         signal_title.setObjectName("SignalTitle")
         command_layout.addWidget(signal_title)
 
@@ -6302,7 +6286,7 @@ class LinguaFusionWindow(QMainWindow):
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
-        layout.addLayout(self.page_title("SETTINGS / LOCAL CONFIGURATION", "Appearance, models, audio, privacy, storage, and GPU safety"))
+        layout.addLayout(self.page_title("Make it yours.", "Appearance, language packs, audio, privacy, storage and GPU safety."))
 
         settings_index = QFrame()
         settings_index.setObjectName("SignalFunctionStrip")
@@ -6354,9 +6338,8 @@ class LinguaFusionWindow(QMainWindow):
         appearance_title.setObjectName("CardTitle")
         appearance_layout.addWidget(appearance_title)
         appearance_description = QLabel(
-            "Choose one of nine PC-optimized looks, then choose the workspace font independently. "
-            "Changing the look keeps your font choice, and changing the font keeps your look. "
-            "Motion can be reduced or disabled without changing either."
+            "Studio matches the phone's warm editorial workspace; Minimal removes decorative surfaces. "
+            "Use the day/night pill in the top bar for color mode. Font and motion remain independent."
         )
         appearance_description.setObjectName("Muted")
         appearance_description.setWordWrap(True)
@@ -6364,7 +6347,7 @@ class LinguaFusionWindow(QMainWindow):
 
         theme_row = QHBoxLayout()
         theme_row.setSpacing(12)
-        combo_label = QLabel("PC look:")
+        combo_label = QLabel("Look:")
         combo_label.setObjectName("PaneTitle")
         theme_row.addWidget(combo_label)
 
@@ -6382,7 +6365,7 @@ class LinguaFusionWindow(QMainWindow):
             for tid, tspec in items:
                 self.theme_combo.addItem(f"[{grp_name}] {tspec['name']}", userData=tid)
 
-        curr_idx = self.theme_combo.findData(getattr(self, "current_theme", "broadsheet"))
+        curr_idx = self.theme_combo.findData(getattr(self, "current_theme", "studio"))
         if curr_idx >= 0:
             self.theme_combo.setCurrentIndex(curr_idx)
 
@@ -6392,7 +6375,7 @@ class LinguaFusionWindow(QMainWindow):
         theme_row.addWidget(self.theme_combo, 1)
         appearance_layout.addLayout(theme_row)
 
-        curr_spec = self.DESKTOP_THEME_SPECS.get(getattr(self, "current_theme", "broadsheet"), self.DESKTOP_THEME_SPECS["broadsheet"])
+        curr_spec = self.DESKTOP_THEME_SPECS.get(getattr(self, "current_theme", "studio"), self.DESKTOP_THEME_SPECS["studio"])
         self.theme_status_label = QLabel(f"Active Look: {curr_spec['name']}")
         self.theme_status_label.setObjectName("Muted")
         appearance_layout.addWidget(self.theme_status_label)
@@ -6455,6 +6438,41 @@ class LinguaFusionWindow(QMainWindow):
         self.motion_status_label.setObjectName("Muted")
         appearance_layout.addWidget(self.motion_status_label)
         layout.addWidget(appearance_card)
+
+        languages_card = Card("Card")
+        languages_card.setObjectName("SignalSettingsCard")
+        languages_layout = QVBoxLayout(languages_card)
+        languages_layout.setContentsMargins(18, 16, 18, 16)
+        languages_layout.setSpacing(9)
+        languages_title = QLabel("Language packs")
+        languages_title.setObjectName("CardTitle")
+        languages_layout.addWidget(languages_title)
+        languages_note = QLabel(
+            "One catalogue is used across speech, translation, OCR and Read Aloud. "
+            "Install missing desktop models once; they remain local afterward."
+        )
+        languages_note.setObjectName("Muted")
+        languages_note.setWordWrap(True)
+        languages_layout.addWidget(languages_note)
+        self.language_model_labels = {}
+        for language_name, language_code in LANGUAGES:
+            status = QLabel(f"{language_name}  •  checking local models…")
+            status.setObjectName("LanguagePackStatus")
+            status.setWordWrap(True)
+            self.language_model_labels[language_code] = status
+            languages_layout.addWidget(status)
+        language_actions = QHBoxLayout()
+        install_languages = QPushButton("Install missing language packs")
+        install_languages.setObjectName("PrimaryButton")
+        install_languages.clicked.connect(self.launch_language_model_installer)
+        language_actions.addWidget(install_languages)
+        refresh_languages = QPushButton("Refresh status")
+        refresh_languages.setObjectName("SecondaryButton")
+        refresh_languages.clicked.connect(self.check_health)
+        language_actions.addWidget(refresh_languages)
+        language_actions.addStretch(1)
+        languages_layout.addLayout(language_actions)
+        layout.addWidget(languages_card)
 
         gpu_card = Card("Card")
         gpu_card.setObjectName("SignalSettingsCard")
@@ -6520,6 +6538,44 @@ class LinguaFusionWindow(QMainWindow):
                 self.autostart_checkbox.blockSignals(True)
                 self.autostart_checkbox.setChecked(is_autostart_enabled())
                 self.autostart_checkbox.blockSignals(False)
+
+    def launch_language_model_installer(self):
+        script = Path(__file__).resolve().parents[1] / "scripts" / "install_language_models.ps1"
+        if not script.is_file():
+            self.set_status("The language-pack installer is missing.", error=True)
+            return
+        try:
+            creation_flags = getattr(subprocess, "CREATE_NEW_CONSOLE", 0) if sys.platform == "win32" else 0
+            subprocess.Popen(
+                ["powershell.exe", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", str(script)],
+                cwd=str(script.parent.parent), creationflags=creation_flags,
+            )
+            self.set_status("Language-pack installer opened. Refresh status after it finishes.")
+        except Exception as exc:
+            self.set_status(f"Could not open the language-pack installer: {exc}", error=True)
+
+    def update_language_model_status(self, diagnostics):
+        if not hasattr(self, "language_model_labels"):
+            return
+        checks = diagnostics.get("checks", {}) if isinstance(diagnostics, dict) else {}
+        services = diagnostics.get("services", {}) if isinstance(diagnostics, dict) else {}
+        piper = checks.get("piper_models", {}).get("voices", {})
+        mms = checks.get("mms_tts_models", {}).get("voices", {})
+        ocr_installed = set(checks.get("tesseract_languages", {}).get("languages", []))
+        ocr_codes = {"en":"eng", "de":"deu", "fr":"fra", "es":"spa", "hi":"hin", "ar":"ara", "or":"ori"}
+        for name, code in LANGUAGES:
+            voice_info = mms.get(code, {}) if code in {"ar", "or"} else piper.get(code, {})
+            voice_ready = bool(voice_info.get("model_ok")) and (
+                code in {"ar", "or"} or bool(voice_info.get("config_ok"))
+            )
+            speech_ready = bool(checks.get("odia_asr", {}).get("ok")) if code == "or" else bool(services.get("speech"))
+            parts = [
+                f"Voice {'Ready' if voice_ready else 'Download'}",
+                f"Speech {'Ready' if speech_ready else 'Download'}",
+                f"OCR {'Ready' if ocr_codes[code] in ocr_installed else 'Download'}",
+                f"Translation {'Ready' if services.get('translation') else 'Download'}",
+            ]
+            self.language_model_labels[code].setText(f"{name}  •  " + "  ·  ".join(parts))
 
     def build_access_page(self):
         page = QWidget()
@@ -6899,6 +6955,7 @@ class LinguaFusionWindow(QMainWindow):
             critical_ready = bool(services.get("speech")) and bool(services.get("tts"))
             self.system_badge.setText("● Offline Ready" if critical_ready else "● Backend Running")
             self.set_status("Ready" if critical_ready else "Backend running; check diagnostics")
+            self.update_language_model_status(data)
             if hasattr(self, "health_output"):
                 self.health_output.setText(json.dumps(data, indent=2, ensure_ascii=False))
 

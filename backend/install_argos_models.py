@@ -3,6 +3,8 @@ import argostranslate.package
 LANGUAGE_PAIRS = [
     ("en", "de"),
     ("de", "en"),
+    ("en", "fr"),
+    ("fr", "en"),
     ("en", "es"),
     ("es", "en"),
     ("en", "hi"),

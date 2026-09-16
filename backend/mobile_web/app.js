@@ -1,7 +1,7 @@
 "use strict";
 
 const $ = id => document.getElementById(id);
-const LANGUAGES = [["English","en"],["German","de"],["Spanish","es"],["Hindi","hi"],["Arabic","ar"],["Odia","or"]];
+const LANGUAGES = [["English","en"],["German","de"],["French","fr"],["Spanish","es"],["Hindi","hi"],["Arabic","ar"],["Odia","or"]];
 const state = { recorder: null, startedAt: 0, timer: null, waveFrame: 0, readerText: "", audio: null, audioUrl: "", probing: false, speechBusy: false, nativeRequestId: 0, nativePending: new Map(), lastSpeechSegments: [], agentPlan: null };
 
 function setHtml(id, html){ const el=$(id); if(el) el.innerHTML=html; }

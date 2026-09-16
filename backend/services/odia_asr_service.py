@@ -49,7 +49,7 @@ def _load():
         if not is_available():
             raise FileNotFoundError(
                 f"The offline Odia speech model is missing at {ODIA_ASR_MODEL_DIR}. "
-                "Run scripts\\install_arabic_odia_models.ps1 once while online."
+                "Run scripts\\install_language_models.ps1 once while online."
             )
 
         import torch

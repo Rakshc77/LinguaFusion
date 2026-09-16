@@ -14,16 +14,16 @@ def test_language_detection_and_translation_codes():
 
 
 def test_ocr_reader_and_all_client_language_lists():
+    from backend.language_catalog import DESKTOP_LANGUAGES
     from backend.services.file_reader_service import OCR_LANGS as READER_OCR_LANGS
     from backend.services.ocr_service import OCR_LANGS
 
     assert OCR_LANGS["ar"] == "ara" and OCR_LANGS["or"] == "ori"
     assert READER_OCR_LANGS["ar"] == "ara" and READER_OCR_LANGS["or"] == "ori"
     root = Path(__file__).resolve().parents[1]
-    desktop = (root / "desktop" / "main.py").read_text(encoding="utf-8")
     web = (root / "backend" / "mobile_web" / "app.js").read_text(encoding="utf-8")
     for name, code in (("Arabic", "ar"), ("Odia", "or")):
-        assert f'("{name}", "{code}")' in desktop
+        assert (name, code) in DESKTOP_LANGUAGES
         assert f'["{name}","{code}"]' in web
 
 
@@ -56,7 +56,7 @@ def test_missing_offline_models_fail_with_actionable_messages(tmp_path, monkeypa
     try:
         tts._load("or")
     except FileNotFoundError as exc:
-        assert "install_arabic_odia_models.ps1" in str(exc)
+        assert "install_language_models.ps1" in str(exc)
     else:
         raise AssertionError("Missing Odia TTS assets must not silently fall back")
     result = asr.transcribe_odia(tmp_path / "not-there.wav")

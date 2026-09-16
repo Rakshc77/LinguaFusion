@@ -26,7 +26,7 @@ from backend.services.entity_protection_service import (
 from backend.services.transliteration_service import transliterate_text, normalize_native_output
 from backend.services.language_service import detect_text_language
 
-APP_LANGS = {"en", "de", "es", "hi", "ar", "or"}
+APP_LANGS = {"en", "de", "fr", "es", "hi", "ar", "or"}
 DIRECT_PAIRS = {(source, target) for source in APP_LANGS for target in APP_LANGS if source != target}
 
 
