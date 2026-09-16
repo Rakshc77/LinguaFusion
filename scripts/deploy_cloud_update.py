@@ -89,8 +89,12 @@ def main():
                 raise SystemExit('Unexpected service layout; manual review required.')
             previous = containers[0]['image']
             containers[0]['image'] = f"{IMAGE}@{images[0]['digest']}"
-            operation = checked(session.patch(service_url, params={'updateMask': 'template.containers'},
-                json={'name': SERVICE, 'etag': service['etag'], 'template': {'containers': containers}}, timeout=40))
+            # Five-minute transcription files can legitimately take longer
+            # than the old 60-second request deadline to upload and process.
+            operation = checked(session.patch(service_url,
+                params={'updateMask': 'template.containers,template.timeout'},
+                json={'name': SERVICE, 'etag': service['etag'],
+                      'template': {'containers': containers, 'timeout': '150s'}}, timeout=40))
             print(json.dumps({'operation': operation['name'], 'previous_image': previous,
                               'new_image': containers[0]['image']}))
     else:

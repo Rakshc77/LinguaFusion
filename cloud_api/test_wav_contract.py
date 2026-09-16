@@ -58,8 +58,10 @@ def test_browser_encoded_audio_is_accepted_by_the_backend(tmp_path, seconds, sou
 
 
 def test_a_full_length_recording_still_passes_every_backend_check(tmp_path):
-    audio = encode_with_browser_code(60, 48000)
-    assert len(audio) <= 4_000_000, 'a 60 second recording must fit the upload limit'
+    # 16 kHz avoids allocating a redundant 48 kHz five-minute fixture here;
+    # the JavaScript unit suite separately exercises resampling from 48 kHz.
+    audio = encode_with_browser_code(300, 16000)
+    assert len(audio) <= 10_000_000, 'a five-minute recording must fit the upload limit'
 
     def handler(request):
         return httpx.Response(200, json={'text': ''})
@@ -69,11 +71,11 @@ def test_a_full_length_recording_still_passes_every_backend_check(tmp_path):
 
 
 def test_the_encoder_and_the_validator_agree_on_the_duration_limit(tmp_path):
-    # 61 seconds must be refused by the browser rather than rejected after upload.
+    # 301 seconds must be refused by the browser rather than rejected after upload.
     generator = WEB / '_contract_probe_long.mjs'
     generator.write_text(
         "import { buildWav } from './wav.mjs';\n"
-        "try { buildWav([new Float32Array(61 * 48000)], 48000); process.stdout.write('accepted'); }\n"
+        "try { buildWav([new Float32Array(301 * 16000)], 16000); process.stdout.write('accepted'); }\n"
         "catch (e) { process.stdout.write('refused:' + e.message); }\n", encoding='utf-8')
     try:
         result = subprocess.run([node, str(generator)], capture_output=True, text=True,
@@ -81,4 +83,4 @@ def test_the_encoder_and_the_validator_agree_on_the_duration_limit(tmp_path):
     finally:
         generator.unlink(missing_ok=True)
     assert result.stdout.startswith('refused:'), result.stdout
-    assert '60 seconds' in result.stdout
+    assert '300 seconds' in result.stdout

@@ -15,8 +15,8 @@ Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 
 ## Current release
 
-- Online interface: `2026.09.13.3`
-- Android: `1.17` / versionCode `18`
+- Online interface: `2026.09.14.1`
+- Android: `1.18` / versionCode `19`
 - Android provides phone-only Offline translation and transcription for English,
   German, Arabic, Spanish and French.
 - Android selected-text translation works from WhatsApp and other apps through
@@ -27,8 +27,9 @@ Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 The existing private Android signing key must be preserved. Never generate a
 replacement key: a differently signed APK cannot update existing installations.
 
-Current source prepares Online `2026.09.14.1` and Android `1.18` / versionCode
-`19`. They are not live until the cloud interface is deployed and the Android
+Current source prepares Online `2026.09.16.1` and Android `1.19` / versionCode
+`20`, raising Online recording and saved-audio transcription from one minute to
+five minutes. They are not live until the cloud interface is deployed and the Android
 APK is rebuilt and published with the existing owner key.
 
 ## Current appearance

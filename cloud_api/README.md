@@ -103,8 +103,9 @@ permanent, so the scarce one is risked last. A hold is settled to zero only when
 this process knows nothing was dispatched. Any failure that may have reached a
 provider keeps its hold and is never retried.
 
-`/api/transcribe` and `/api/ocr` accept up to 4 MB; every other route keeps the
-64 KiB text cap. The larger cap is granted per exact path, never by prefix.
+`/api/transcribe` accepts a validated WAV up to 10 MB and five minutes;
+`/api/ocr` keeps its 4 MB image limit; every other route keeps the 64 KiB text
+cap. Larger caps are granted per exact path, never by prefix.
 
 The pronunciation guide is a reading aid, not a translation. The pilot page
 shows the native text first and never replaces it, always displays the

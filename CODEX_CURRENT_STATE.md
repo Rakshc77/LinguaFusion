@@ -1,5 +1,27 @@
 # LinguaFusion — current Codex handover
 
+## Five-minute cloud transcription — September 16, 2026
+
+Branch `codex/cloud-transcription-5min` starts from published `main` commit
+`8ea60ad` (Online `2026.09.14.1`, Android 1.18/versionCode 19). It raises the
+paid Online recording and saved-audio limit from 60 seconds to five minutes.
+The browser and Android native recorder both stop at 300 seconds; the strict
+mono 16 kHz/16-bit WAV remains device-created and is now capped at 10 MB.
+
+The cloud request middleware allows the multipart framing margin only on the
+transcription route, extends the upload deadline, and preserves OCR's existing
+limit. The Groq adapter independently verifies duration, format and exact data
+length before dispatch. Browser, provider and Cloud Run request deadlines are
+extended so a valid five-minute upload is not cut off by the former one-minute
+deadline. The deployment helper now sets the existing Cloud Run service request
+timeout to 150 seconds while preserving its identity, secrets and other limits.
+
+Source versions are Online `2026.09.16.1` and Android 1.19/versionCode 20. They
+remain source-only until tests pass, the cloud image is promoted, and Android
+1.19 is rebuilt/published on the owner PC with the existing signing key.
+
+---
+
 ## Read Aloud implementation — September 14, 2026
 
 Branch `codex/read-aloud` starts from `main` commit `02dbc32`. It implements the

@@ -95,6 +95,7 @@ public final class MainActivity extends Activity {
     private Thread nativeAudioThread;
     private File nativeAudioFile;
     private static final int NATIVE_SAMPLE_RATE = 16000;
+    private static final int CLOUD_RECORDING_SECONDS = 300;
     // Owner-hosted cloud service. Unlike PC mode this needs no pairing key:
     // the page signs in with Firebase and the owner approves each account.
     private static final String CLOUD_BASE = "https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app";
@@ -903,7 +904,7 @@ public final class MainActivity extends Activity {
         if(cloudRecorderDialog!=null || requestId==null || !requestId.matches("[a-zA-Z0-9-]{1,80}"))return;
         AlertDialog dialog=new AlertDialog.Builder(this)
             .setTitle("Record speech")
-            .setMessage("Up to 60 seconds. Stop and send uploads audio for paid online transcription. Cancel discards it.")
+            .setMessage("Up to 5 minutes. Stop and send uploads audio for paid online transcription. Cancel discards it.")
             .setPositiveButton("Start",null).setNegativeButton("Cancel",null).create();
         cloudRecorderDialog=dialog;
         final boolean[] delivered={false};
@@ -930,10 +931,10 @@ public final class MainActivity extends Activity {
             }else if(!"OK".equals(result)){
                 dialog.setMessage(result+" You can also use the Online app in Chrome.");
             }else{
-                dialog.setMessage("Recording. Stop and send when ready; automatically stops at 60 seconds.");
+                dialog.setMessage("Recording. Stop and send when ready; automatically stops at 5 minutes.");
                 dialog.getButton(AlertDialog.BUTTON_POSITIVE).setText("Stop and send");
                 cloudRecordingTimeout=finish;
-                recordingHandler.postDelayed(finish,60000);
+                recordingHandler.postDelayed(finish,CLOUD_RECORDING_SECONDS*1000L);
             }
         }));
         dialog.show();
@@ -1026,10 +1027,9 @@ public final class MainActivity extends Activity {
 
     private void writeNativePcm(AudioRecord recorder,File outputFile,int bufferSize){
         byte[] buffer=new byte[bufferSize];
-        // Cloud recordings are capped at 60s by the dialog. Offline ones need
-        // their own cap: transcription turns every sample into a 4-byte float,
-        // so an unbounded recording becomes an unbounded allocation.
-        int remaining=cloudRecorderDialog!=null?NATIVE_SAMPLE_RATE*2*60
+        // Cloud and Offline recordings are capped independently. Transcription
+        // turns every sample into a 4-byte float, so neither may be unbounded.
+        int remaining=cloudRecorderDialog!=null?NATIVE_SAMPLE_RATE*2*CLOUD_RECORDING_SECONDS
             :("offline".equals(preferences.getString("mode",""))?NATIVE_SAMPLE_RATE*2*OFFLINE_RECORDING_SECONDS:Integer.MAX_VALUE);
         try(FileOutputStream output=new FileOutputStream(outputFile,false)){
             while(nativeAudioRecording && remaining>0){

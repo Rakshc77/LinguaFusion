@@ -50,7 +50,7 @@ test('samples beyond full scale are clamped, not wrapped', () => {
 test('empty and over-long recordings are refused before upload', () => {
   assert.throws(() => encodeWav(new Float32Array(0), 16000), /no audio/);
   const tooLong = new Float32Array((MAX_SECONDS + 1) * 16000);
-  assert.throws(() => encodeWav(tooLong, 16000), /60 seconds/);
+  assert.throws(() => encodeWav(tooLong, 16000), /300 seconds/);
 });
 
 test('a rate outside the accepted range is refused', () => {
@@ -60,7 +60,7 @@ test('a rate outside the accepted range is refused', () => {
 
 test('a full-length recording stays inside the upload limit', () => {
   const wav = buildWav([tone(MAX_SECONDS, 48000)], 48000);
-  assert.ok(wav.length <= 4_000_000, `60s produced ${wav.length} bytes`);
+  assert.ok(wav.length <= 10_000_000, `${MAX_SECONDS}s produced ${wav.length} bytes`);
   assert.equal(describeWav(wav).dataBytes, MAX_SECONDS * TARGET_SAMPLE_RATE * 2);
 });
 

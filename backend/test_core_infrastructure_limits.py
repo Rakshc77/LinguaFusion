@@ -98,6 +98,29 @@ def test_declared_length_timeout_and_disconnect_do_not_reach_parser():
     asyncio.run(run())
 
 
+def test_path_timeout_override_is_narrow_and_validated():
+    async def run():
+        reached = []
+        async def app(scope, receive, send):
+            reached.append(scope['path'])
+            await receive()
+        middleware = RequestLimitsMiddleware(
+            app, 10, timeout_seconds=1, path_timeouts={'/api/transcribe': 2})
+        assert middleware.timeout_seconds == 1
+        assert middleware.path_timeouts == {'/api/transcribe': 2}
+        async def receive():
+            return {'type': 'http.request', 'body': b'ok'}
+        async def send(message):
+            raise AssertionError(message)
+        for path in ['/api/transcribe', '/api/translate']:
+            await middleware({'type': 'http', 'method': 'POST', 'path': path,
+                              'headers': []}, receive, send)
+        assert reached == ['/api/transcribe', '/api/translate']
+    asyncio.run(run())
+    with pytest.raises(ValueError):
+        RequestLimitsMiddleware(lambda *args: None, 10, path_timeouts={'/bad': 0})
+
+
 def test_backup_of_live_wal_database_and_restore(tmp_path):
     storage = tmp_path / 'storage'
     storage.mkdir()

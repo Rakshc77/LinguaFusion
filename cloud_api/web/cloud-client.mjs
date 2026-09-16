@@ -1,6 +1,6 @@
 // Only fixed same-origin endpoints receive Firebase bearer tokens. Never use a
 // QR-code URL or the PC pairing server preference as a cloud API destination.
-export function createCloudClient(auth, fetcher = fetch, timeoutMs = 55000) {
+export function createCloudClient(auth, fetcher = fetch, timeoutMs = 140000) {
   let generation = 0;
   const pending = new Set();
   return Object.freeze({

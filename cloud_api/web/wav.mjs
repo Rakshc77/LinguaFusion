@@ -1,13 +1,13 @@
 // Turn captured audio into the exact format the backend accepts.
 //
 // MediaRecorder produces WebM/Opus, which the transcription adapter rejects.
-// It requires a complete mono 16-bit PCM WAV, 8000-48000 Hz, at most 60
-// seconds and 4 MB. These functions are pure so that contract is testable
+// It requires a complete mono 16-bit PCM WAV, 8000-48000 Hz, at most five
+// minutes and 10 MB. These functions are pure so that contract is testable
 // without a browser.
 
 export const TARGET_SAMPLE_RATE = 16000;
-export const MAX_SECONDS = 60;
-export const MAX_BYTES = 4_000_000;
+export const MAX_SECONDS = 300;
+export const MAX_BYTES = 10_000_000;
 
 /**
  * Resample by linear interpolation. Good enough for speech, and far better

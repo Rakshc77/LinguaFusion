@@ -230,6 +230,17 @@ def test_read_aloud_is_origin_scoped_and_offline_rejects_network_voices():
     assert 'android.intent.action.TTS_SERVICE' in manifest
 
 
+def test_cloud_recording_is_capped_at_five_minutes_in_native_code():
+    recorder = MAIN[MAIN.index('private void showCloudRecorder'):
+                    MAIN.index('private void sendCloudRecording')]
+    assert 'CLOUD_RECORDING_SECONDS = 300' in MAIN
+    assert 'CLOUD_RECORDING_SECONDS*1000L' in recorder
+    assert 'Up to 5 minutes' in recorder and 'automatically stops at 5 minutes' in recorder
+    writer = MAIN[MAIN.index('private void writeNativePcm'):
+                  MAIN.index('private byte[] stopNativeAudioRecordingToPcm')]
+    assert 'NATIVE_SAMPLE_RATE*2*CLOUD_RECORDING_SECONDS' in writer
+
+
 def test_offline_read_aloud_uses_only_the_bundled_page_bridge():
     bridge = (PROJECT / 'src' / 'com' / 'linguafusion' / 'mobile'
               / 'OfflineBridge.java').read_text(encoding='utf-8')
