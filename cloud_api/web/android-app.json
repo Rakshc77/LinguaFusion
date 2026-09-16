@@ -1,9 +1,9 @@
 {
  "file": "linguafusion-android.apk",
- "bytes": 22454134,
- "sha256": "b03c6a31132eb8b1ac80c5ab4e46f52db93e9baeba2ce0c1605fa98f3bf5d12d",
- "versionCode": 20,
- "versionName": "1.19",
+ "bytes": 22454138,
+ "sha256": "cc232102ce22d3adc5b08435996719353ab37a8d8bd96152df6d59ed687b3c43",
+ "versionCode": 21,
+ "versionName": "1.20",
  "published_at": "2026-09-16",
  "signing": "debug keystore"
 }
