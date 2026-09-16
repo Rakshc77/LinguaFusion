@@ -215,7 +215,7 @@ final class ReadAloudEngine implements TextToSpeech.OnInitListener {
             context.startActivity(install);
         } catch (RuntimeException unavailable) {
             try {
-                context.startActivity(new Intent(Settings.ACTION_TTS_SETTINGS)
+                context.startActivity(new Intent(Settings.ACTION_SETTINGS)
                     .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
             } catch (RuntimeException ignored) {
                 // The result message remains useful on stripped-down devices.
