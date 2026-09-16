@@ -141,9 +141,13 @@
           <div class="actions">
             <button id="copyTranscript" class="secondary" type="button">Copy</button>
             <button id="transcriptToTranslate" class="secondary" type="button">Translate this</button>
+            <button id="readTranscript" class="secondary" type="button" aria-pressed="false">Read aloud</button>
+            <select id="transcriptReadLanguage" aria-label="Transcript reading language"></select>
+            <select id="transcriptReadRate" class="read-rate" aria-label="Transcript reading speed"></select>
             <select id="transcriptFormat" aria-label="Transcript download format"></select>
             <button id="downloadTranscript" class="secondary" type="button">Download</button>
           </div>
+          <p id="transcriptReadStatus" class="hint read-aloud-status" role="status" aria-live="polite"></p>
         </div>
         <p class="hint unavailable" id="speechUnavailable" hidden>Speech is not switched on for this account.</p>
       </section>
@@ -172,9 +176,12 @@
           <div class="actions">
             <button id="copyTranslation" class="secondary" type="button">Copy</button>
             <button id="translationToSay" class="secondary" type="button">Say it</button>
+            <button id="readTranslation" class="secondary" type="button" aria-pressed="false">Read aloud</button>
+            <select id="translationReadRate" class="read-rate" aria-label="Translation reading speed"></select>
             <select id="translationFormat" aria-label="Translation download format"></select>
             <button id="downloadTranslation" class="secondary" type="button">Download</button>
           </div>
+          <p id="translationReadStatus" class="hint read-aloud-status" role="status" aria-live="polite"></p>
         </div>
         <p class="hint unavailable" id="translateUnavailable" hidden>Translation is not switched on for this account.</p>
       </section>
@@ -195,9 +202,13 @@
             <button id="copyOcr" class="secondary" type="button">Copy</button>
             <button id="ocrToTranslate" class="secondary" type="button">Translate this</button>
             <button id="ocrToSay" class="secondary" type="button">Say it</button>
+            <button id="readOcr" class="secondary" type="button" aria-pressed="false">Read aloud</button>
+            <select id="ocrReadLanguage" aria-label="Picture text reading language"></select>
+            <select id="ocrReadRate" class="read-rate" aria-label="Picture text reading speed"></select>
             <select id="ocrFormat" aria-label="Text download format"></select>
             <button id="downloadOcr" class="secondary" type="button">Download</button>
           </div>
+          <p id="ocrReadStatus" class="hint read-aloud-status" role="status" aria-live="polite"></p>
         </div>
         <p class="hint unavailable" id="ocrUnavailable" hidden>Picture reading is not switched on for this account.</p>
       </section>

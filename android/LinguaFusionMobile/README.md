@@ -26,6 +26,26 @@ The integration is implemented by `ProcessTextActivity`, registered for
 clipboard monitoring as a fallback; current Android versions restrict it and
 it would materially weaken the deliberate-selection privacy boundary.
 
+## Read results aloud
+
+Android 1.18 source adds **Read aloud** to Online and Offline translation,
+transcription and picture-text results, and to **Translate with LinguaFusion**.
+Only one result speaks at a time; starting a microphone, leaving the screen or
+closing the activity stops playback so the app cannot record its own voice.
+
+Online content reaches native `TextToSpeech` through an AndroidX WebKit message
+listener restricted to the exact LinguaFusion cloud origin. It is deliberately
+not exposed through a general-purpose JavaScript interface. The bundled Offline
+page uses its existing private bridge and refuses any voice whose Android
+`Voice.isNetworkConnectionRequired()` value is true.
+
+The app validates language, speed, request id and a 12,000-character limit in
+both JavaScript and Java. Longer results are split below Android's native TTS
+input ceiling. LinguaFusion makes no AI-provider request for playback and does
+not create or retain an audio file. Android voice packs remain managed by the
+phone; Offline playback requires an installed local voice for English, German,
+Arabic, Spanish or French.
+
 ## Build and publish
 
 The sideload flavour can update itself; the Play flavour omits the APK installer.

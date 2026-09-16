@@ -27,6 +27,10 @@ Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 The existing private Android signing key must be preserved. Never generate a
 replacement key: a differently signed APK cannot update existing installations.
 
+Current source prepares Online `2026.09.14.1` and Android `1.18` / versionCode
+`19`. They are not live until the cloud interface is deployed and the Android
+APK is rebuilt and published with the existing owner key.
+
 ## Current appearance
 
 Only Studio and Minimal are offered by the cloud app. Both have Day and Night
@@ -35,10 +39,11 @@ uses Sunset rose on plum. Minimal is monochrome. Typeface selection is
 independent; “Match the look” uses editorial headings for Studio and sans-serif
 for Minimal. Previously selected typefaces are preserved.
 
-## Planned: Read Aloud
+## Read Aloud
 
-Read Aloud is the next planned accessibility and language-learning feature. It
-is **not implemented yet**.
+Read Aloud is implemented in the current source as an accessibility and
+language-learning output action. It requires the release steps above before it
+appears in installed/live copies.
 
 The action will appear on Translation, Transcription and OCR result cards:
 
@@ -53,17 +58,18 @@ The action will appear on Translation, Transcription and OCR result cards:
   French. Availability still depends on an installed device voice.
 - Existing pronunciation guidance (**Say it**) remains separate.
 
-Platform plan:
+Platform behavior:
 
-1. Add the shared result-card controls and browser/iPhone PWA speech using the
-   Web Speech synthesis API, with a clear unavailable-voice fallback.
-2. Add native Android `TextToSpeech` for reliable installed-app and Offline
-   behavior. Offline mode must select a voice that does not require a network.
-3. Connect the hosted Online page to Android through an origin-restricted
-   AndroidX WebKit message listener, validate language/text/rate, chunk long
-   utterances, and stop speech on logout, account switch or content removal.
-4. Add a local voice preference, accessibility polish and physical-device tests
-   for all five languages on Android and iPhone Safari/Home Screen.
+1. Browser/iPhone PWA speech uses the Web Speech synthesis API, with a clear
+   unavailable-voice fallback.
+2. Android uses native `TextToSpeech` for reliable installed-app and Offline
+   behavior. Offline mode selects only a voice that does not require a network.
+3. The hosted Online page connects to Android through an origin-restricted
+   AndroidX WebKit message listener. The native layer validates language,
+   text and rate, chunks long utterances, and stops speech on logout, account
+   switch or content removal.
+4. Physical-device testing is still required for all five languages on Android
+   and iPhone Safari/Home Screen. A full voice chooser remains future polish.
 
 Voice data remains OS-managed rather than bundled in the APK, so the source/APK
 increase should be small; a phone may separately offer a voice-pack download.

@@ -1,4 +1,4 @@
-"""Copy the shared appearance into the offline Android app.
+"""Copy shared UI assets into the offline Android app.
 
 The offline page ships inside the APK and must render with no network, so it
 cannot link the hosted stylesheets -- it needs its own copies. Copies drift,
@@ -20,8 +20,9 @@ TARGET = ROOT / 'android' / 'LinguaFusionMobile' / 'assets' / 'offline'
 
 # The whole of the appearance contract. pilot.css is included even though the
 # offline page uses a subset of it: taking part of a stylesheet is how the two
-# start to differ again.
-SHARED = ['linguafusion-themes.css', 'pilot.css', 'themes.mjs']
+# start to differ again. Read Aloud shares its validated one-active-result
+# state machine too; only the native transport differs.
+SHARED = ['linguafusion-themes.css', 'pilot.css', 'themes.mjs', 'read-aloud.mjs']
 
 
 def main():
@@ -31,7 +32,7 @@ def main():
     for name in SHARED:
         source, target = SOURCE / name, TARGET / name
         if not source.is_file():
-            raise SystemExit(f'Missing shared appearance file: {source}')
+            raise SystemExit(f'Missing shared UI file: {source}')
         if target.is_file() and filecmp.cmp(source, target, shallow=False):
             continue
         shutil.copy2(source, target)

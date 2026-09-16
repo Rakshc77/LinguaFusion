@@ -127,6 +127,8 @@ button.danger { background:transparent; color:#b3261e; border:1px solid #b3261e;
 .actions { display:flex; flex-wrap:wrap; gap:8px; align-items:center; margin-top:10px; }
 .actions button { margin:0; min-height:42px; }
 .actions select { width:auto; min-width:150px; flex:0 1 auto; min-height:42px; }
+.actions select.read-rate { min-width:84px; }
+.read-aloud-status:empty { display:none; }
 .recording-recovery { margin-top:12px; padding:12px 14px; border:1px solid var(--line); border-radius:var(--radius); background:var(--notice); }
 .recording-recovery .hint { margin:0; }
 .button-link { min-height:42px; padding:10px 16px; border:1px solid var(--line); border-radius:var(--radius); color:var(--text); background:var(--panel); font:600 15px/1.4 var(--lf-font-body); text-decoration:none; display:inline-flex; align-items:center; }

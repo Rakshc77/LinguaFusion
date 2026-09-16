@@ -4,11 +4,11 @@
 // responses are per-user and carry approval state, spending and personal data,
 // and a cached copy could be shown to a different person on a shared device or
 // long after it stopped being true.
-const VERSION = 'linguafusion-online-2026.09.13.3';
+const VERSION = 'linguafusion-online-2026.09.14.1';
 const SHELL = [
   '/pilot/', '/pilot/pilot.css', '/pilot/pilot.mjs', '/pilot/cloud-auth.mjs',
   '/pilot/cloud-client.mjs', '/pilot/firebase-config.mjs', '/pilot/pronunciation.mjs',
-  '/pilot/wav.mjs', '/pilot/icon.svg', '/pilot/manifest.webmanifest',
+  '/pilot/wav.mjs', '/pilot/read-aloud.mjs', '/pilot/icon.svg', '/pilot/manifest.webmanifest',
   '/pilot/updates.mjs', '/pilot/themes.mjs', '/pilot/linguafusion-themes.css',
 ];
 
