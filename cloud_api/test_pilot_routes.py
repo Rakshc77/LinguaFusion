@@ -233,7 +233,7 @@ def test_oversized_upload_is_refused_before_the_provider():
     client, policy, budget_path = build(unexpected('oversized upload reached a provider'))
     with client:
         response = client.post('/api/transcribe', headers=AUTH, data={'paid_consent': 'true'},
-                               files={'audio': ('a.wav', b'\x00' * (6 * 1024 * 1024), 'audio/wav')})
+                               files={'audio': ('a.wav', b'\x00' * (12 * 1024 * 1024), 'audio/wav')})
     assert response.status_code == 413
     assert charges(policy) == [] and holds(budget_path) == []
 

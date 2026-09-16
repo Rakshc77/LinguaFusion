@@ -22,6 +22,8 @@ MAX_TRANSLATION_CHARACTERS = 6000
 MAX_TRANSLATION_OUTPUT_TOKENS = 8192
 MAX_PRONUNCIATION_CHARACTERS = 2000
 MAX_PRONUNCIATION_OUTPUT_TOKENS = 4096
+MAX_TRANSCRIPTION_SECONDS = 300
+MAX_TRANSCRIPTION_BYTES = 10_000_000
 
 # Provider prices drift, so they are checked on a schedule rather than trusted
 # forever. The reminder recurs on this day each month and is shown to the owner
@@ -206,7 +208,7 @@ class PilotProviders:
         self.budget = budget
         self.transport = transport
 
-    async def _post(self, provider, url, headers, **kwargs):
+    async def _post(self, provider, url, headers, timeout=60, **kwargs):
         # There is deliberately NO date-based hard stop here any more. It used to
         # refuse every request after a fixed date, which would have taken the
         # service down for everyone without warning. Price review is now a
@@ -214,7 +216,7 @@ class PilotProviders:
         # Persist BEFORE dispatch; shared across processes, restarts and providers.
         self.budget.reserve(provider, 10000)
         try:
-            async with httpx.AsyncClient(timeout=60, follow_redirects=False,
+            async with httpx.AsyncClient(timeout=timeout, follow_redirects=False,
                                          trust_env=False, transport=self.transport) as client:
                 async with client.stream('POST', url, headers=headers, **kwargs) as response:
                     body = bytearray()
@@ -356,21 +358,24 @@ class PilotProviders:
             raise ProviderFailure('Pronunciation guide unavailable or incomplete; native text is unchanged.') from None
 
     async def transcribe(self, key, audio):
-        # Restrict pilot to validated mono PCM WAV, <=60 seconds and 4 MB.
-        if not isinstance(audio, bytes) or len(audio) > 4_000_000:
+        # Five minutes of mono 16 kHz/16-bit PCM is about 9.6 MB. Keep the
+        # byte and duration checks independent so malformed headers cannot
+        # turn a small upload into unbounded provider work.
+        if not isinstance(audio, bytes) or len(audio) > MAX_TRANSCRIPTION_BYTES:
             raise ValueError('WAV exceeds the test limit')
         try:
             with wave.open(io.BytesIO(audio)) as wav:
                 frames, rate = wav.getnframes(), wav.getframerate()
-                if wav.getnchannels() != 1 or wav.getsampwidth() != 2 or not 8000 <= rate <= 48000 or not 0 < frames <= 60 * rate:
+                if wav.getnchannels() != 1 or wav.getsampwidth() != 2 or not 8000 <= rate <= 48000 or not 0 < frames <= MAX_TRANSCRIPTION_SECONDS * rate:
                     raise ValueError()
                 if len(wav.readframes(frames)) != frames * 2:
                     raise ValueError()
         except (wave.Error, EOFError, ValueError):
-            raise ValueError('Use a complete mono 16-bit PCM WAV of at most 60 seconds') from None
+            raise ValueError('Use a complete mono 16-bit PCM WAV of at most 5 minutes') from None
         data = await self._post('groq', 'https://api.groq.com/openai/v1/audio/transcriptions', self._headers(key),
                                 files={'file': ('sample.wav', audio, 'audio/wav')},
-                                data={'model': 'whisper-large-v3-turbo', 'response_format': 'json', 'temperature': '0'})
+                                data={'model': 'whisper-large-v3-turbo', 'response_format': 'json', 'temperature': '0'},
+                                timeout=120)
         if not isinstance(data.get('text'), str):
             raise ProviderFailure('Transcription response invalid; reservation retained.')
         # Groq reports no usage, but the audio was measured above to validate it.

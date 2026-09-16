@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { buildWav } from './wav.mjs';
+import { buildWav, MAX_SECONDS } from './wav.mjs';
 
 // Execute the shipped recording handlers, not a duplicate implementation.
 const source = readFileSync(new URL('./pilot.mjs', import.meta.url), 'utf8');
@@ -37,7 +37,7 @@ function harness(rate = 48000) {
         streams.push(track); resolve({ getTracks: () => [track] });
       }));
     } } }, Float32Array, Uint8Array, Blob, FormData, setTimeout, atob,
-    crypto: { randomUUID: () => 'test-request' }, buildWav, MAX_SECONDS: 60,
+    crypto: { randomUUID: () => 'test-request' }, buildWav, MAX_SECONDS,
     readAloud: { stop() {} },
     api: { async request(path, body) { requests.push({ path, body }); return { text: 'Test' }; } },
     showSpending() {}, microphoneProblem: error => error.name, isIosStandalone: () => false, clearTimeout });
@@ -91,15 +91,15 @@ test('a saved Voice Memo is decoded locally and uploaded as strict WAV', async (
   assert.equal(h.contexts[0].closed, true);
   assert.equal(h.$('speechAudioFile').value, '');
 });
-for (const rate of [44100, 48000]) test(`automatic cutoff produces exactly 60 seconds at ${rate}Hz`, async () => {
+for (const rate of [44100, 48000]) test(`automatic cutoff produces exactly five minutes at ${rate}Hz`, async () => {
   const h = harness(rate); const first = h.click(); h.pending.shift()(); await first;
-  for (let count = 0; count < Math.ceil(rate * 60 / 4096); count++) {
+  for (let count = 0; count < Math.ceil(rate * MAX_SECONDS / 4096); count++) {
     h.contexts[0].processor.onaudioprocess({ inputBuffer: { getChannelData: () => new Float32Array(4096) } });
   }
   await Promise.resolve();
   assert.equal(h.requests.length, 1);
   const wav = h.requests[0].body.get('audio');
-  assert.equal(wav.size, 44 + 16000 * 60 * 2);
+  assert.equal(wav.size, 44 + 16000 * MAX_SECONDS * 2);
   assert.equal(h.streams[0].stopped, true);
 });
 test('native APK starts no browser microphone; cancellation permits retry', async () => {

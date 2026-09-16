@@ -24,7 +24,7 @@ from cloud_api.ocr_layout import reconstruct
 from cloud_api.pilot_capabilities import (CAPABILITIES, recent_failures, DEFAULT_TRANSLATION_MODEL, ManagedBudget,
                                           PilotGateway, TRANSLATION_MODELS, translation_charge_id)
 from cloud_api.pilot_providers import (MAX_PRONUNCIATION_CHARACTERS, MAX_TRANSLATION_CHARACTERS,
-                                        PilotProviders, review_due)
+                                        MAX_TRANSCRIPTION_BYTES, PilotProviders, review_due)
 from cloud_api.test_budget import TestBudget
 from cloud_api.models import PAID, PRICE_REVIEWED, catalog, require_model, reserve_cost, usage_cost, budget_micro, usd
 
@@ -263,9 +263,14 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
     app = FastAPI(title='LinguaFusion cloud pilot', docs_url=None, redoc_url=None, openapi_url=None)
     # Audio and images legitimately exceed the 64 KB text default; every other
     # path keeps the small cap. The read timeout covers a slow phone upload.
-    media_limit = 5 * 1024 * 1024
+    # Multipart framing sits outside the WAV itself, hence the small margin
+    # above the adapter's exact 10 MB audio ceiling. OCR keeps its old cap.
+    transcription_request_limit = 11 * 1024 * 1024
+    image_request_limit = 5 * 1024 * 1024
     app.add_middleware(RequestLimitsMiddleware, max_bytes=64 * 1024, max_uploads=4, timeout_seconds=30,
-                       path_limits={'/api/transcribe': media_limit, '/api/ocr': media_limit})
+                       path_limits={'/api/transcribe': transcription_request_limit,
+                                    '/api/ocr': image_request_limit},
+                       path_timeouts={'/api/transcribe': 120})
     if settings.origins:
         app.add_middleware(CORSMiddleware, allow_origins=list(settings.origins),
                            allow_methods=['GET', 'POST'], allow_headers=['Authorization', 'Content-Type'])
@@ -525,7 +530,7 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
                 'pronunciation_languages': ['hi', 'ar', 'or'] if pilot['pronounce'] else [],
                 'max_text_characters': MAX_TRANSLATION_CHARACTERS,
                 'max_pronunciation_characters': MAX_PRONUNCIATION_CHARACTERS,
-                'max_upload_bytes': 4_000_000}
+                'max_upload_bytes': MAX_TRANSCRIPTION_BYTES}
 
     @app.post('/translate')
     async def translate(text: str = Form(..., max_length=4000), source_lang: str = Form('auto'),
@@ -572,7 +577,8 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
         if not data:
             raise HTTPException(422, f'Attach {description}.')
         if len(data) > limit:
-            raise HTTPException(413, f'{description.capitalize()} exceeds the {limit // (1024 * 1024)} MB limit.')
+            megabytes = limit / 1_000_000
+            raise HTTPException(413, f'{description.capitalize()} exceeds the {megabytes:g} MB limit.')
         return data
 
     @app.post('/api/translate')
@@ -619,7 +625,7 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
     async def api_transcribe(audio: UploadFile = File(...), paid_consent: bool = Form(False), uid=Depends(identity)):
         key = require_key(settings.groq_key, 'cloud speech')
         require_consent(paid_consent)
-        data = await read_upload(audio, 4_000_000, 'a mono 16-bit PCM WAV')
+        data = await read_upload(audio, MAX_TRANSCRIPTION_BYTES, 'a mono 16-bit PCM WAV')
         limiter.enter(uid)
         try:
             # Empty text is a legitimate result for silence. It is returned as

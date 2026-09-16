@@ -7,7 +7,8 @@ from starlette.responses import JSONResponse
 
 
 class RequestLimitsMiddleware:
-    def __init__(self, app, max_bytes, max_uploads=4, timeout_seconds=120, path_limits=None):
+    def __init__(self, app, max_bytes, max_uploads=4, timeout_seconds=120,
+                 path_limits=None, path_timeouts=None):
         self.app = app
         self.max_bytes = max_bytes
         # Exact-path overrides for routes that legitimately carry audio or images.
@@ -18,6 +19,9 @@ class RequestLimitsMiddleware:
             raise ValueError('Each path limit must be a positive byte count')
         self.max_uploads = max_uploads
         self.timeout_seconds = timeout_seconds
+        self.path_timeouts = dict(path_timeouts or {})
+        if any(type(v) is not int or v <= 0 for v in self.path_timeouts.values()):
+            raise ValueError('Each path timeout must be a positive whole number of seconds')
         self._uploads = 0
         self._lock = threading.Lock()
 
@@ -27,7 +31,9 @@ class RequestLimitsMiddleware:
         headers = dict(scope.get('headers', []))
         # Match on the raw path before routing, so the cap applies to the same
         # bytes the parser would otherwise buffer.
-        max_bytes = self.path_limits.get(scope.get('path', ''), self.max_bytes)
+        path = scope.get('path', '')
+        max_bytes = self.path_limits.get(path, self.max_bytes)
+        timeout_seconds = self.path_timeouts.get(path, self.timeout_seconds)
 
         async def reject(status, detail):
             response = JSONResponse({'detail': detail}, status_code=status,
@@ -55,7 +61,7 @@ class RequestLimitsMiddleware:
             # Roll larger bodies to disk; never accumulate an unbounded byte string.
             with tempfile.SpooledTemporaryFile(max_size=1024 * 1024) as body:
                 total = 0
-                deadline = asyncio.get_running_loop().time() + self.timeout_seconds
+                deadline = asyncio.get_running_loop().time() + timeout_seconds
                 while True:
                     remaining = deadline - asyncio.get_running_loop().time()
                     try:
