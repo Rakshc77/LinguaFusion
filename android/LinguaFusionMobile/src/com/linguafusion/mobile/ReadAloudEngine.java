@@ -27,6 +27,7 @@ final class ReadAloudEngine implements TextToSpeech.OnInitListener {
         final float rate;
         final boolean offline;
         final Result result;
+        boolean fallbackAttempted;
 
         Request(String id, String text, String language, float rate, boolean offline, Result result) {
             this.id = id;
@@ -45,6 +46,7 @@ final class ReadAloudEngine implements TextToSpeech.OnInitListener {
     private boolean failed;
     private Request pending;
     private Request active;
+    private String activePrefix = "";
     private String finalUtterance = "";
     private int generation;
 
@@ -110,6 +112,9 @@ final class ReadAloudEngine implements TextToSpeech.OnInitListener {
                     @Override public void onStart(String utteranceId) {}
                     @Override public void onDone(String utteranceId) { main.post(() -> finish(utteranceId, false)); }
                     @Override public void onError(String utteranceId) { main.post(() -> finish(utteranceId, true)); }
+                    @Override public void onError(String utteranceId, int errorCode) {
+                        main.post(() -> finish(utteranceId, true));
+                    }
                     @Override public void onStop(String utteranceId, boolean interrupted) {
                         main.post(() -> stoppedByEngine(utteranceId));
                     }
@@ -124,21 +129,31 @@ final class ReadAloudEngine implements TextToSpeech.OnInitListener {
     }
 
     private void start(Request request) {
+        start(request, false);
+    }
+
+    private void start(Request request, boolean useSystemDefault) {
         Locale locale = Locale.forLanguageTag(request.language);
         Set<Voice> available = speech.getVoices();
-        Voice voice = (available == null ? java.util.stream.Stream.<Voice>empty() : available.stream())
+        // Android engines can advertise a high-quality network voice that is
+        // not actually downloadable or usable on the current connection. Use
+        // an installed/local voice first in both modes. Online may fall back to
+        // the engine's preferred voice; Offline never may.
+        Voice localVoice = (available == null ? java.util.stream.Stream.<Voice>empty() : available.stream())
             .filter(candidate -> request.language.equals(candidate.getLocale().getLanguage()))
-            .filter(candidate -> !request.offline || !candidate.isNetworkConnectionRequired())
+            .filter(candidate -> !candidate.isNetworkConnectionRequired())
             .max(Comparator.comparingInt(Voice::getQuality))
             .orElse(null);
-        if (request.offline && voice == null) {
+        if (request.offline && localVoice == null) {
             openVoiceInstaller();
             request.result.state(request.id, "error",
                 "The Android voice installer was opened. Download an offline "
                     + locale.getDisplayLanguage() + " voice, then return and try again.");
             return;
         }
-        int languageResult = voice == null ? speech.setLanguage(locale) : speech.setVoice(voice);
+        int languageResult = !useSystemDefault && localVoice != null
+            ? speech.setVoice(localVoice)
+            : speech.setLanguage(locale);
         if (languageResult == TextToSpeech.LANG_MISSING_DATA || languageResult == TextToSpeech.LANG_NOT_SUPPORTED) {
             openVoiceInstaller();
             request.result.state(request.id, "error",
@@ -155,13 +170,15 @@ final class ReadAloudEngine implements TextToSpeech.OnInitListener {
         int token = ++generation;
         int maximum = Math.max(256, TextToSpeech.getMaxSpeechInputLength() - 32);
         List<String> chunks = ReadAloudText.chunks(request.text, maximum);
-        finalUtterance = "lf-" + token + "-" + (chunks.size() - 1);
+        activePrefix = "lf-" + token + "-";
+        finalUtterance = activePrefix + (chunks.size() - 1);
         for (int index = 0; index < chunks.size(); index++) {
             int queue = index == 0 ? TextToSpeech.QUEUE_FLUSH : TextToSpeech.QUEUE_ADD;
-            int started = speech.speak(chunks.get(index), queue, null, "lf-" + token + "-" + index);
+            int started = speech.speak(chunks.get(index), queue, null, activePrefix + index);
             if (started == TextToSpeech.ERROR) {
                 speech.stop();
                 active = null;
+                activePrefix = "";
                 finalUtterance = "";
                 request.result.state(request.id, "error", "This phone could not start Read Aloud.");
                 return;
@@ -172,18 +189,38 @@ final class ReadAloudEngine implements TextToSpeech.OnInitListener {
     }
 
     private void finish(String utteranceId, boolean error) {
-        if (active == null || !utteranceId.equals(finalUtterance)) return;
+        if (active == null) return;
+        if (error) {
+            if (!utteranceId.startsWith(activePrefix)) return;
+            if (!active.offline && !active.fallbackAttempted) {
+                Request retry = active;
+                retry.fallbackAttempted = true;
+                active = null;
+                activePrefix = "";
+                finalUtterance = "";
+                speech.stop();
+                retry.result.state(retry.id, "speaking", "Trying this phone's preferred voice…");
+                start(retry, true);
+                return;
+            }
+        } else if (!utteranceId.equals(finalUtterance)) {
+            return;
+        }
         Request finished = active;
         active = null;
+        activePrefix = "";
         finalUtterance = "";
-        finished.result.state(finished.id, error ? "error" : "done",
-            error ? "This phone could not finish reading that result." : "Finished.");
+        if (error) openVoiceInstaller();
+        finished.result.state(finished.id, error ? "error" : "done", error
+            ? "Android's voice settings were opened because the selected voice could not play."
+            : "Finished.");
     }
 
     private void stoppedByEngine(String utteranceId) {
         if (active == null || !utteranceId.equals(finalUtterance)) return;
         Request stopped = active;
         active = null;
+        activePrefix = "";
         finalUtterance = "";
         stopped.result.state(stopped.id, "stopped", "Stopped.");
     }
@@ -192,6 +229,7 @@ final class ReadAloudEngine implements TextToSpeech.OnInitListener {
         Request stopped = active != null ? active : pending;
         active = null;
         pending = null;
+        activePrefix = "";
         finalUtterance = "";
         generation++;
         if (speech != null) speech.stop();

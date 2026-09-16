@@ -224,6 +224,11 @@ def test_read_aloud_is_origin_scoped_and_offline_rejects_network_voices():
     engine = (PROJECT / 'src' / 'com' / 'linguafusion' / 'mobile'
               / 'ReadAloudEngine.java').read_text(encoding='utf-8')
     assert 'isNetworkConnectionRequired()' in engine
+    assert '.filter(candidate -> !candidate.isNetworkConnectionRequired())' in engine
+    assert 'fallbackAttempted' in engine
+    assert 'start(retry, true)' in engine
+    assert 'speech.setLanguage(locale)' in engine
+    assert 'ACTION_INSTALL_TTS_DATA' in engine
     assert 'TextToSpeech.getMaxSpeechInputLength()' in engine
     assert 'UtteranceProgressListener' in engine
     manifest = (PROJECT / 'AndroidManifest.xml').read_text(encoding='utf-8')
