@@ -9,6 +9,11 @@ import { createReadAloudController } from './read-aloud.mjs';
 const $ = id => document.getElementById(id);
 const auth = createCloudAuth();
 const api = createCloudClient(auth);
+const shellParams = new URLSearchParams(window.location.search);
+const desktopEmbed = shellParams.get('embed') === 'desktop';
+const embeddedViews = { account:'viewAccount', say:'viewSay' };
+const embeddedView = desktopEmbed ? (embeddedViews[shellParams.get('view')] || '') : '';
+if (desktopEmbed) document.documentElement.dataset.embed = 'desktop';
 
 let epoch = 0;
 let signedIn = false;
@@ -797,6 +802,7 @@ async function checkAccess() {
     $('onboarding').hidden = true;
     $('workspace').hidden = false;
     $('pageFooter').hidden = true;
+    if (embeddedView) showView(embeddedView);
     $('ownerPanel').hidden = !caps.is_owner;
     ownerActive = Boolean(caps.is_owner);
     // Fetched only when asked: it calls out to a provider.

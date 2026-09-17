@@ -61,7 +61,7 @@ from concurrent.futures import ThreadPoolExecutor
 from PySide6.QtCore import Qt, QTimer, QPointF, QSize, Signal, QSettings, QRunnable, QThreadPool, QObject, QPropertyAnimation, QEasingCurve, QUrl
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWebEngineWidgets import QWebEngineView
-from PySide6.QtGui import QShortcut, QKeySequence, QPainter, QPen, QColor, QPainterPath, QTextCursor, QTextCharFormat, QIcon, QPixmap, QAction, QFontDatabase, QLinearGradient, QPalette
+from PySide6.QtGui import QShortcut, QKeySequence, QPainter, QPen, QColor, QPainterPath, QTextCursor, QTextCharFormat, QIcon, QPixmap, QAction, QFontDatabase, QLinearGradient, QPalette, QDesktopServices
 from PySide6.QtWidgets import (
     QApplication, QComboBox, QFileDialog, QFrame, QGridLayout, QHBoxLayout,
     QLabel, QLineEdit, QMainWindow, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, QTextEdit,
@@ -78,6 +78,10 @@ except ModuleNotFoundError:
             return QIcon()
 
 SERVER_URL = "http://localhost:8000"
+CLOUD_APP_URL = os.environ.get(
+    "LF_CLOUD_APP_URL",
+    "https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app",
+).strip().rstrip("/")
 
 
 def _desktop_api_key() -> str:
@@ -656,7 +660,7 @@ class LinguaFusionWindow(QMainWindow):
         self.executor = ThreadPoolExecutor(max_workers=4)
         self.generated_audio_files = []
         self.audio_paused = False
-        self.current_page_name = "Translate"
+        self.current_page_name = "Speech"
         self.recent_history = {name: [] for name in ["Translate", "Reader", "Speech", "OCR", "Notes", "Tasks", "Settings"]}
         self.reader_current_file = "None"
         self.reader_detected_language = "Auto"
@@ -736,7 +740,7 @@ class LinguaFusionWindow(QMainWindow):
         self._is_backend_online = False
         self.build_shell()
         self.apply_style()
-        self.switch_page("Translate")
+        self.switch_page("Speech")
         self.setup_system_tray()
 
         self.backend_poll_timer = QTimer(self)
@@ -888,18 +892,21 @@ class LinguaFusionWindow(QMainWindow):
 
         self.nav_buttons = {}
         self.nav_metadata = {}
+        # Match the phone app's information architecture. Desktop-only utilities
+        # still exist in the codebase, but no longer compete with the six core
+        # workflows in primary navigation.
         nav_items = [
-            ("Translate", "translate"),
-            ("Speech", "microphone"),
-            ("OCR", "scan"),
-            ("Reader", "reader"),
-            ("Notes", "notes"),
-            ("Tasks", "history"),
-            ("Access", "share"),
-            ("Settings", "settings"),
+            ("Speak", "Speech", "microphone"),
+            ("Translate", "Translate", "translate"),
+            ("Read", "OCR", "scan"),
+            ("Say it", "Say", "reader"),
+            ("Model", "Model", "layers"),
+            ("Settings", "Settings", "settings"),
         ]
-        for name, icon_name in nav_items:
+        self.nav_targets = {}
+        for name, target, icon_name in nav_items:
             btn = QPushButton(name)
+            self.nav_targets[name] = target
             self.nav_metadata[name] = (icon_name, name)
             btn.setObjectName("NavButton")
             btn.setCheckable(True)
@@ -907,36 +914,17 @@ class LinguaFusionWindow(QMainWindow):
             btn.setIconSize(QSize(20, 20))
             btn.setMinimumHeight(44)
             btn.setAccessibleName(name)
-            btn.clicked.connect(lambda checked=False, page=name: self.switch_page(page))
+            btn.clicked.connect(lambda checked=False, page=target: self.switch_page(page))
             self.nav_buttons[name] = btn
             layout.addWidget(btn)
 
         layout.addStretch(1)
 
-        recent_header = QHBoxLayout()
-        self.recent_header_label = QLabel("RECENT")
-        recent = self.recent_header_label
-        recent.setObjectName("SectionLabel")
-        self.recent_more_label = QLabel("More")
-        more = self.recent_more_label
-        more.setObjectName("LinkLabel")
-        recent_header.addWidget(recent)
-        recent_header.addStretch(1)
-        recent_header.addWidget(more)
-        layout.addLayout(recent_header)
-
-        self.recent_items_box = QVBoxLayout()
-        layout.addLayout(self.recent_items_box)
-        self.update_recent_items("Translate")
-
-        self.sidebar_import_btn = QPushButton("Import file")
-        import_btn = self.sidebar_import_btn
-        import_btn.setObjectName("PrimaryButton")
-        import_btn.setIcon(app_icon("upload", 18, normal="#FFFFFF", active="#FFFFFF"))
-        import_btn.setIconSize(QSize(18, 18))
-        import_btn.clicked.connect(lambda: self.switch_page("Reader"))
-        self.register_band_widget(import_btn)
-        layout.addWidget(import_btn)
+        mode_note = QLabel("Local desktop\nPrivate by default")
+        mode_note.setObjectName("Muted")
+        mode_note.setWordWrap(True)
+        mode_note.setAlignment(Qt.AlignCenter)
+        layout.addWidget(mode_note)
         return sidebar
 
     def build_main_area(self):
@@ -953,6 +941,7 @@ class LinguaFusionWindow(QMainWindow):
         self.search_box = QLineEdit()
         self.search_box.setObjectName("SearchBox")
         self.search_box.setMinimumWidth(0)
+        self.search_box.setVisible(False)
         topbar.addWidget(self.search_box)
         topbar.addStretch(1)
         
@@ -971,6 +960,7 @@ class LinguaFusionWindow(QMainWindow):
         self.inspector_toggle_btn.setToolTip("Hide details panel")
         self.inspector_toggle_btn.setAccessibleName("Toggle details panel")
         self.inspector_toggle_btn.clicked.connect(self.toggle_inspector)
+        self.inspector_toggle_btn.setVisible(False)
         topbar.addWidget(self.inspector_toggle_btn)
         topbar.addSpacing(4)
         self.theme_toggle = ThemeToggle()
@@ -996,13 +986,11 @@ class LinguaFusionWindow(QMainWindow):
         self.pages.setSizePolicy(QSizePolicy.Ignored, QSizePolicy.Expanding)
         self.page_index = {}
         for display_name, canonical_name, builder in [
-            ("Translate", "Translate", self.build_translate_page),
-            ("Audio Reader", "Reader", self.build_reader_page),
             ("Speech", "Speech", self.build_speech_page),
+            ("Translate", "Translate", self.build_translate_page),
             ("Scan / OCR", "OCR", self.build_ocr_page),
-            ("Saved Notes", "Notes", self.build_notes_page),
-            ("Task Center", "Tasks", self.build_tasks_page),
-            ("Remote Access", "Access", self.build_access_page),
+            ("Say it", "Say", self.build_say_page),
+            ("Model", "Model", self.build_models_page),
             ("Settings", "Settings", self.build_settings_page),
         ]:
             idx = self.pages.addWidget(builder())
@@ -1039,7 +1027,7 @@ class LinguaFusionWindow(QMainWindow):
         layout.setContentsMargins(18, 0, 18, 0)
         self.footer_left = QLabel("● Ready")
         self.footer_left.setObjectName("FooterBadge")
-        self.footer_center = QLabel("Processing stays on this desktop")
+        self.footer_center = QLabel("Local workflows stay on this desktop · Say it and Account are Online")
         self.footer_center.setObjectName("Muted")
         self.footer_right = QLabel("Local-first  •  Private  •  Seven languages")
         self.footer_right.setObjectName("FooterText")
@@ -1120,6 +1108,8 @@ class LinguaFusionWindow(QMainWindow):
             #PrimaryButton:pressed {{ background: {accent_hover}; }}
             #SecondaryButton {{ background: {card}; color: {text}; border: 1px solid {border}; border-radius: {control_radius}px; padding: 9px 14px; font-weight: 600; }}
             #SecondaryButton:hover {{ border-color: {accent}; color: {text}; }}
+            #SecondaryButton:checked {{ background: {nav_active}; color: {nav_active_text}; border-color: {accent}; }}
+            #OnlineAccountView {{ background: {card}; border: 1px solid {border}; border-radius: {card_radius}px; }}
             #ChromeButton {{ background: transparent; color: {muted}; border: 1px solid transparent; border-radius: {control_radius}px; padding: 6px; }}
             #ChromeButton:hover {{ background: {card}; border-color: {border}; }}
             #SearchBox {{ background: {card}; border: 1px solid {border}; border-radius: {control_radius}px; padding: 9px 14px; color: {text}; min-height: 20px; }}
@@ -2135,16 +2125,23 @@ class LinguaFusionWindow(QMainWindow):
 
 
     def switch_page(self, page_name):
-        self.current_page_name = page_name
-        self.pages.setCurrentIndex(self.page_index[page_name])
+        aliases = {"Speak": "Speech", "Read": "OCR", "Say it": "Say"}
+        canonical_name = aliases.get(page_name, page_name)
+        self.current_page_name = canonical_name
+        self.pages.setCurrentIndex(self.page_index[canonical_name])
+        if canonical_name == "Settings" and hasattr(self, "settings_stack"):
+            if self.settings_stack.currentIndex() == 0:
+                self.load_online_account()
+        elif canonical_name == "Say":
+            self.load_online_say()
         self.animate_page_transition()
 
         if hasattr(self, "page_scroll"):
             QTimer.singleShot(0, lambda: self.page_scroll.verticalScrollBar().setValue(0))
         for name, button in self.nav_buttons.items():
-            button.setChecked(name == page_name)
-        self.update_right_panel(page_name)
-        self.update_recent_items(page_name)
+            button.setChecked(self.nav_targets.get(name, name) == canonical_name)
+        self.update_right_panel(canonical_name)
+        self.update_recent_items(canonical_name)
         self.update_responsive_layout()
 
     def resizeEvent(self, event):
@@ -2399,12 +2396,10 @@ class LinguaFusionWindow(QMainWindow):
             if self.sidebar_user_override is None
             else bool(self.sidebar_user_override)
         )
-        auto_show_inspector = width >= 1520
-        show_inspector = (
-            auto_show_inspector
-            if self.inspector_user_override is None
-            else bool(self.inspector_user_override)
-        )
+        # The phone-aligned desktop shell deliberately has one content rail.
+        # Page-specific details remain inside each workflow instead of opening a
+        # second inspector that has no equivalent on mobile.
+        show_inspector = False
         self.sidebar_collapsed = compact_sidebar
         self.inspector_collapsed = not show_inspector
 
@@ -6279,20 +6274,259 @@ class LinguaFusionWindow(QMainWindow):
             self.set_status("Speech saved as note")
         self.run_background(task, success)
 
-    # ---------- Settings ----------
+    # ---------- Model and account settings ----------
+    def build_models_page(self):
+        page = QWidget()
+        page.setObjectName("SignalSettingsPage")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+        layout.addLayout(self.page_title(
+            "Models on this desktop.",
+            "See what is ready for every language and install only what is missing.",
+        ))
+
+        languages_card = Card("Card")
+        languages_card.setObjectName("SignalSettingsCard")
+        languages_layout = QVBoxLayout(languages_card)
+        languages_layout.setContentsMargins(18, 16, 18, 16)
+        languages_layout.setSpacing(9)
+        languages_title = QLabel("Language readiness")
+        languages_title.setObjectName("CardTitle")
+        languages_layout.addWidget(languages_title)
+        languages_note = QLabel(
+            "One catalogue powers local Speak, Translate, Read and Read Aloud. "
+            "Installed packs stay on this PC and work without the cloud."
+        )
+        languages_note.setObjectName("Muted")
+        languages_note.setWordWrap(True)
+        languages_layout.addWidget(languages_note)
+        self.language_model_labels = {}
+        for language_name, language_code in LANGUAGES:
+            status = QLabel(f"{language_name}  •  checking local models…")
+            status.setObjectName("LanguagePackStatus")
+            status.setWordWrap(True)
+            self.language_model_labels[language_code] = status
+            languages_layout.addWidget(status)
+        language_actions = QHBoxLayout()
+        install_languages = QPushButton("Install missing language packs")
+        install_languages.setObjectName("PrimaryButton")
+        install_languages.clicked.connect(self.launch_language_model_installer)
+        language_actions.addWidget(install_languages)
+        refresh_languages = QPushButton("Refresh status")
+        refresh_languages.setObjectName("SecondaryButton")
+        refresh_languages.clicked.connect(self.check_health)
+        language_actions.addWidget(refresh_languages)
+        language_actions.addStretch(1)
+        languages_layout.addLayout(language_actions)
+        layout.addWidget(languages_card)
+
+        gpu_card = Card("Card")
+        gpu_card.setObjectName("SignalSettingsCard")
+        gpu_layout = QVBoxLayout(gpu_card)
+        gpu_layout.setContentsMargins(18, 14, 18, 14)
+        gpu_layout.setSpacing(8)
+        gpu_title = QLabel("GPU safety")
+        gpu_title.setObjectName("CardTitle")
+        gpu_layout.addWidget(gpu_title)
+        gpu_notice = QLabel(
+            "RTX 2080 Ti: apply the required -500 MHz memory-clock offset in MSI Afterburner "
+            "before CUDA inference. Use LF_WHISPER_DEVICE=cpu for the safe fallback."
+        )
+        gpu_notice.setObjectName("SignalGpuSafety")
+        gpu_notice.setWordWrap(True)
+        gpu_layout.addWidget(gpu_notice)
+        layout.addWidget(gpu_card)
+
+        ai_card = Card("Card")
+        ai_card.setObjectName("SignalSettingsCard")
+        ai_layout = QVBoxLayout(ai_card)
+        ai_layout.setContentsMargins(18, 16, 18, 16)
+        ai_layout.setSpacing(12)
+        ai_title = QLabel("Local AI correction")
+        ai_title.setObjectName("CardTitle")
+        ai_layout.addWidget(ai_title)
+        ai_desc = QLabel(
+            "Ollama can clean up speech and OCR locally. No account, cloud key or upload is required."
+        )
+        ai_desc.setObjectName("Muted")
+        ai_desc.setWordWrap(True)
+        ai_layout.addWidget(ai_desc)
+        self.ollama_status_label = QLabel("Status: checking…")
+        ai_layout.addWidget(self.ollama_status_label)
+        ollama_test_btn = QPushButton("Check Ollama status")
+        ollama_test_btn.setObjectName("SecondaryButton")
+        ollama_test_btn.clicked.connect(lambda: self.test_ai_provider("ollama"))
+        ai_layout.addWidget(ollama_test_btn)
+        layout.addWidget(ai_card)
+        QTimer.singleShot(300, self.load_ai_provider_settings)
+        return page
+
+    def _online_feature_url(self, view):
+        safe_view = view if view in {"account", "say"} else "account"
+        return QUrl(f"{CLOUD_APP_URL}/pilot/?embed=desktop&view={safe_view}")
+
+    def build_say_page(self):
+        page = QWidget()
+        page.setObjectName("SignalSettingsPage")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+        layout.addLayout(self.page_title(
+            "Say it",
+            "Get the same approximate pronunciation guide used by the phone app.",
+        ))
+
+        notice = Card("Card")
+        notice.setObjectName("SignalSettingsCard")
+        notice_layout = QHBoxLayout(notice)
+        notice_layout.setContentsMargins(16, 12, 16, 12)
+        notice_text = QLabel(
+            "Online feature · sign-in and owner approval are required. Text is sent only after "
+            "you confirm paid use in the embedded phone interface."
+        )
+        notice_text.setObjectName("Muted")
+        notice_text.setWordWrap(True)
+        notice_layout.addWidget(notice_text, 1)
+        reload_button = QPushButton("Reload")
+        reload_button.setObjectName("SecondaryButton")
+        notice_layout.addWidget(reload_button)
+        browser_button = QPushButton("Open in browser")
+        browser_button.setObjectName("SecondaryButton")
+        browser_button.clicked.connect(
+            lambda: QDesktopServices.openUrl(self._online_feature_url("say"))
+        )
+        notice_layout.addWidget(browser_button)
+        layout.addWidget(notice)
+
+        self.online_say_view = QWebEngineView()
+        self.online_say_view.setObjectName("OnlineAccountView")
+        self.online_say_view.setMinimumHeight(560)
+        self._online_say_loaded = False
+        if hasattr(self.online_say_view, "setUrl"):
+            reload_button.clicked.connect(self.reload_online_say)
+        else:
+            reload_button.setEnabled(False)
+        layout.addWidget(self.online_say_view, 1)
+        return page
+
+    def load_online_say(self):
+        if self._online_say_loaded or not hasattr(self.online_say_view, "setUrl"):
+            return
+        self._online_say_loaded = True
+        self.online_say_view.setUrl(self._online_feature_url("say"))
+
+    def reload_online_say(self):
+        if not self._online_say_loaded:
+            self.load_online_say()
+            return
+        self.online_say_view.reload()
+
+    def _online_account_url(self):
+        return self._online_feature_url("account")
+
+    def build_online_account_page(self):
+        page = QWidget()
+        page.setObjectName("OnlineAccountPage")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+
+        notice = Card("Card")
+        notice.setObjectName("SignalSettingsCard")
+        notice_layout = QHBoxLayout(notice)
+        notice_layout.setContentsMargins(16, 12, 16, 12)
+        notice_text = QLabel(
+            "Your Online account uses the same secure Firebase sign-in as the phone app. "
+            "Owner tools appear automatically for the configured owner account."
+        )
+        notice_text.setObjectName("Muted")
+        notice_text.setWordWrap(True)
+        notice_layout.addWidget(notice_text, 1)
+        reload_button = QPushButton("Reload")
+        reload_button.setObjectName("SecondaryButton")
+        notice_layout.addWidget(reload_button)
+        browser_button = QPushButton("Open in browser")
+        browser_button.setObjectName("SecondaryButton")
+        browser_button.clicked.connect(lambda: QDesktopServices.openUrl(self._online_account_url()))
+        notice_layout.addWidget(browser_button)
+        layout.addWidget(notice)
+
+        self.online_account_view = QWebEngineView()
+        self.online_account_view.setObjectName("OnlineAccountView")
+        self.online_account_view.setMinimumHeight(560)
+        self._online_account_loaded = False
+        if hasattr(self.online_account_view, "setUrl"):
+            reload_button.clicked.connect(self.reload_online_account)
+        else:
+            reload_button.setEnabled(False)
+        layout.addWidget(self.online_account_view, 1)
+        return page
+
     def build_settings_page(self):
         page = QWidget()
         page.setObjectName("SignalSettingsPage")
         layout = QVBoxLayout(page)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
-        layout.addLayout(self.page_title("Make it yours.", "Appearance, language packs, audio, privacy, storage and GPU safety."))
+        layout.addLayout(self.page_title(
+            "Settings",
+            "Sign in, manage owner access, or adjust this desktop.",
+        ))
+
+        section_row = QHBoxLayout()
+        self.account_settings_button = QPushButton("Account & owner")
+        self.account_settings_button.setObjectName("SecondaryButton")
+        self.account_settings_button.setCheckable(True)
+        self.desktop_settings_button = QPushButton("Desktop preferences")
+        self.desktop_settings_button.setObjectName("SecondaryButton")
+        self.desktop_settings_button.setCheckable(True)
+        section_row.addWidget(self.account_settings_button)
+        section_row.addWidget(self.desktop_settings_button)
+        section_row.addStretch(1)
+        layout.addLayout(section_row)
+
+        self.settings_stack = QStackedWidget()
+        self.settings_stack.addWidget(self.build_online_account_page())
+        self.settings_stack.addWidget(self.build_desktop_preferences_page())
+        layout.addWidget(self.settings_stack, 1)
+        self.account_settings_button.clicked.connect(lambda: self.show_settings_section(0))
+        self.desktop_settings_button.clicked.connect(lambda: self.show_settings_section(1))
+        self.show_settings_section(0)
+        return page
+
+    def show_settings_section(self, index):
+        self.settings_stack.setCurrentIndex(index)
+        self.account_settings_button.setChecked(index == 0)
+        self.desktop_settings_button.setChecked(index == 1)
+        if index == 0 and self.current_page_name == "Settings":
+            self.load_online_account()
+
+    def load_online_account(self):
+        if self._online_account_loaded or not hasattr(self.online_account_view, "setUrl"):
+            return
+        self._online_account_loaded = True
+        self.online_account_view.setUrl(self._online_account_url())
+
+    def reload_online_account(self):
+        if not self._online_account_loaded:
+            self.load_online_account()
+            return
+        self.online_account_view.reload()
+
+    def build_desktop_preferences_page(self):
+        page = QWidget()
+        page.setObjectName("SignalSettingsPage")
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(10)
+        layout.addLayout(self.page_title("Desktop preferences", "Appearance, startup and background behavior for this PC."))
 
         settings_index = QFrame()
         settings_index.setObjectName("SignalFunctionStrip")
         settings_index_layout = QHBoxLayout(settings_index)
         settings_index_layout.setContentsMargins(8, 6, 8, 6)
-        for section in ("APPEARANCE", "MODELS", "AUDIO", "TRANSLATION", "OCR", "PRIVACY", "STORAGE", "ADVANCED"):
+        for section in ("APPEARANCE", "STARTUP", "BACKGROUND"):
             label = QLabel(section)
             label.setObjectName("SignalMetaLine")
             settings_index_layout.addWidget(label)
@@ -6439,92 +6673,6 @@ class LinguaFusionWindow(QMainWindow):
         appearance_layout.addWidget(self.motion_status_label)
         layout.addWidget(appearance_card)
 
-        languages_card = Card("Card")
-        languages_card.setObjectName("SignalSettingsCard")
-        languages_layout = QVBoxLayout(languages_card)
-        languages_layout.setContentsMargins(18, 16, 18, 16)
-        languages_layout.setSpacing(9)
-        languages_title = QLabel("Language packs")
-        languages_title.setObjectName("CardTitle")
-        languages_layout.addWidget(languages_title)
-        languages_note = QLabel(
-            "One catalogue is used across speech, translation, OCR and Read Aloud. "
-            "Install missing desktop models once; they remain local afterward."
-        )
-        languages_note.setObjectName("Muted")
-        languages_note.setWordWrap(True)
-        languages_layout.addWidget(languages_note)
-        self.language_model_labels = {}
-        for language_name, language_code in LANGUAGES:
-            status = QLabel(f"{language_name}  •  checking local models…")
-            status.setObjectName("LanguagePackStatus")
-            status.setWordWrap(True)
-            self.language_model_labels[language_code] = status
-            languages_layout.addWidget(status)
-        language_actions = QHBoxLayout()
-        install_languages = QPushButton("Install missing language packs")
-        install_languages.setObjectName("PrimaryButton")
-        install_languages.clicked.connect(self.launch_language_model_installer)
-        language_actions.addWidget(install_languages)
-        refresh_languages = QPushButton("Refresh status")
-        refresh_languages.setObjectName("SecondaryButton")
-        refresh_languages.clicked.connect(self.check_health)
-        language_actions.addWidget(refresh_languages)
-        language_actions.addStretch(1)
-        languages_layout.addLayout(language_actions)
-        layout.addWidget(languages_card)
-
-        gpu_card = Card("Card")
-        gpu_card.setObjectName("SignalSettingsCard")
-        gpu_layout = QVBoxLayout(gpu_card)
-        gpu_layout.setContentsMargins(18, 14, 18, 14)
-        gpu_layout.setSpacing(8)
-        gpu_title = QLabel("GPU SAFETY / RTX 2080 Ti")
-        gpu_title.setObjectName("CardTitle")
-        gpu_layout.addWidget(gpu_title)
-        gpu_notice = QLabel(
-            "Required before CUDA inference: apply a -500 MHz memory clock offset in MSI Afterburner. "
-            "LinguaFusion cannot verify Afterburner automatically; confirm it manually before using "
-            "faster-whisper or Ollama on the GPU."
-        )
-        gpu_notice.setObjectName("SignalGpuSafety")
-        gpu_notice.setWordWrap(True)
-        gpu_layout.addWidget(gpu_notice)
-        gpu_fallback = QLabel("SAFE FALLBACK  •  set LF_WHISPER_DEVICE=cpu")
-        gpu_fallback.setObjectName("SignalStatus")
-        gpu_layout.addWidget(gpu_fallback)
-        layout.addWidget(gpu_card)
-
-        ai_card = Card("Card")
-        ai_card.setObjectName("SignalSettingsCard")
-        ai_layout = QVBoxLayout(ai_card)
-        ai_layout.setContentsMargins(18, 16, 18, 16)
-        ai_layout.setSpacing(12)
-        ai_title = QLabel("Local AI (Ollama)")
-        ai_title.setObjectName("CardTitle")
-        ai_layout.addWidget(ai_title)
-
-        ai_desc = QLabel(
-            "Speech and OCR correction run automatically through your local Ollama model "
-            "when it's running -- nothing to enable, no keys, no internet involved."
-        )
-        ai_desc.setObjectName("Muted")
-        ai_desc.setWordWrap(True)
-        ai_layout.addWidget(ai_desc)
-
-        self.ollama_status_label = QLabel("Status: checking...")
-        ai_layout.addWidget(self.ollama_status_label)
-
-        ollama_btns = QHBoxLayout()
-        ollama_test_btn = QPushButton("Check Ollama Status")
-        ollama_test_btn.setObjectName("PrimaryButton")
-        ollama_test_btn.clicked.connect(lambda: self.test_ai_provider("ollama"))
-        ollama_btns.addWidget(ollama_test_btn)
-        ollama_btns.addStretch(1)
-        ai_layout.addLayout(ollama_btns)
-        layout.addWidget(ai_card)
-
-        QTimer.singleShot(300, self.load_ai_provider_settings)
         return page
 
     def toggle_autostart_setting(self, checked: bool):

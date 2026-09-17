@@ -67,6 +67,8 @@ def test_desktop_responsive_visibility_and_icon_usability():
 
         # Minimum supported window: workspace wins space automatically.
         resize(1180, 720)
+        window.switch_page("Translate")
+        settle()
         assert window.sidebar_collapsed
         assert window.sidebar.width() == 72
         assert not window.right_panel.isVisible()
@@ -97,25 +99,16 @@ def test_desktop_responsive_visibility_and_icon_usability():
         assert not window.right_panel.isVisible()
         assert_translation_workspace(530)
 
-        # The inspector can be explicitly opened at standard size.
-        window.inspector_toggle_btn.click()
-        settle()
-        assert window.right_panel.isVisible()
-        assert window.right_panel.width() == 278
-        assert window.inspector_toggle_btn.toolTip() == "Hide details panel"
-        assert_translation_workspace(390)
-
-        # Expanded mode shows the information rail by default.
+        # The phone-aligned shell keeps one content rail at every width.
         window.sidebar_user_override = None
         window.inspector_user_override = None
         resize(1800, 1050)
         assert window.sidebar.width() == 238
-        assert window.right_panel.isVisible()
+        assert not window.right_panel.isVisible()
         assert_translation_workspace(570)
 
-        # Both rails can collapse for a distraction-free canvas.
+        # Navigation can still collapse for a distraction-free canvas.
         window.sidebar_toggle_btn.click()
-        window.inspector_toggle_btn.click()
         settle()
         assert window.sidebar.width() == 72
         assert not window.right_panel.isVisible()
@@ -173,26 +166,21 @@ def test_desktop_responsive_visibility_and_icon_usability():
         assert "Studio" in window.theme_status_label.text()
         assert window.dark_mode is True
 
-        # Task Center remains usable at the minimum supported window size.
-        window.switch_page("Tasks")
+        # Primary navigation mirrors the phone. Desktop-only legacy utilities
+        # are deliberately absent from the main product surface.
+        assert tuple(window.nav_buttons) == ("Speak", "Translate", "Read", "Say it", "Model", "Settings")
+        assert not ({"Notes", "Tasks", "Access"} & set(window.nav_buttons))
+        window.switch_page("Read")
+        assert window.current_page_name == "OCR"
+        window.switch_page("Say it")
+        assert window.current_page_name == "Say"
+        assert "view=say" in window._online_feature_url("say").toString()
+        window.switch_page("Settings")
         resize(1180, 720)
         settle()
-        assert "Tasks" in window.nav_buttons
-        assert window.agent_request_text.isVisible()
-        assert window.agent_natural_request.isVisible()
-        assert window.agent_plan_button.isVisible()
-        assert window.agent_confirm_plan_button.isVisible()
-        assert not window.agent_confirm_plan_button.isEnabled()
-        assert "Nothing has run yet" in window._format_agent_plan({
-            "title": "Preview",
-            "summary": "Safe plan",
-            "can_execute": True,
-            "steps": [{"tool": "translate_text"}],
-            "model": "test-model",
-        })
-        assert window.agent_task_output.isVisible()
-        assert window.agent_task_selector.isVisible()
-        assert window.agent_poll_timer.isActive()
+        assert window.account_settings_button.isChecked()
+        assert window.settings_stack.currentIndex() == 0
+        assert "embed=desktop" in window._online_account_url().toString()
         assert window.page_scroll.horizontalScrollBar().maximum() == 0
 
         # Rapid wheel ticks must accumulate instead of repeatedly restarting
