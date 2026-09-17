@@ -17,8 +17,10 @@ def test_desktop_window_starts_and_closes():
 
         app = QApplication([])
         window = LinguaFusionWindow()
-        expected_pages = {"Translate", "Reader", "Speech", "OCR", "Notes", "Access", "Settings"}
+        expected_pages = {"Speech", "Translate", "OCR", "Say", "Model", "Settings"}
         assert expected_pages <= set(window.page_index)
+        assert tuple(window.nav_buttons) == ("Speak", "Translate", "Read", "Say it", "Model", "Settings")
+        assert not ({"Notes", "Tasks", "Access"} & set(window.nav_buttons))
         assert window.minimumWidth() == 1180
         window.show()
 

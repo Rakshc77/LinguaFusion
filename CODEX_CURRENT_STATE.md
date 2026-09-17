@@ -1,5 +1,43 @@
 # LinguaFusion — current Codex handover
 
+## Desktop phone shell and owner account — September 16, 2026
+
+Branch `codex/desktop-phone-owner` starts from published `main` commit
+`fde835a` (Online `2026.09.16.2`, Android 1.20/versionCode 21). It prepares
+Online `2026.09.16.3` and Windows desktop
+`1.0-rc2.16-phone-shell-owner`; Android source and APK are unchanged.
+
+Windows primary navigation now matches the phone exactly: Speak, Translate,
+Read, Say it, Model and Settings. Speak, Translate and Read map to the native
+Speech, Translate and OCR workspaces. Say it embeds the phone's authenticated
+Online pronunciation guide; Model contains local language readiness, installer
+access, GPU safety and Ollama status. Notes, Tasks, document Reader, Remote Access,
+global search, recents and the right inspector remain in legacy source where
+needed for data compatibility but are no longer built into primary navigation.
+
+Settings has two explicit sections. **Account & owner** embeds the fixed
+`/pilot/?embed=desktop&view=account` cloud route in Qt WebEngine, retaining the
+phone app's Firebase sign-in, password reset, approval request, owner-only
+policy checks, one-time invite links/QR codes, people/limits, usage and provider
+diagnostics. Authentication tokens stay inside the existing web client and are
+not copied into Python. **Desktop preferences** contains Studio/Minimal,
+typeface, motion, startup and system-tray behavior. The embedded route hides
+only the redundant phone bottom navigation; unapproved users still see the
+normal request-access flow, and non-owner accounts never receive owner data.
+
+Validation in this Linux workspace: Python syntax and static desktop-embed
+contracts pass; all 72 browser tests pass. PySide6 is unavailable here, so the
+headless desktop smoke/usability tests require the Windows owner environment or
+CI. Superdesign generation was not run because its CLI's separate analytics
+telemetry was blocked by the execution policy; implementation used the approved
+existing Studio/Minimal system directly.
+
+Release state: source-only. Merge the branch, deploy Online `2026.09.16.3`, then
+rebuild the clickable Windows EXE from current `main`. No Android rebuild is
+needed for this desktop/account change.
+
+---
+
 ## Unified languages and desktop Studio — September 16, 2026
 
 Branch `codex/unified-languages-desktop` starts from published `main` commit

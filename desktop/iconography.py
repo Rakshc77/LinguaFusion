@@ -73,6 +73,10 @@ def _paint_icon(name: str, color: str, size: int) -> QPixmap:
         line(8, 19, 4, 19); line(4, 19, 4, 15)
         rect(7, 8, 10, 8, 1.2)
         line(9, 11, 15, 11); line(9, 14, 13, 14)
+    elif name == "layers":
+        path = QPainterPath(QPointF(12, 3)); path.lineTo(21, 8); path.lineTo(12, 13); path.lineTo(3, 8); path.closeSubpath(); painter.drawPath(path)
+        line(3, 12, 12, 17); line(12, 17, 21, 12)
+        line(3, 16, 12, 21); line(12, 21, 21, 16)
     elif name == "notes":
         rect(5, 3, 14, 18, 1.5)
         line(8, 8, 16, 8); line(8, 12, 16, 12); line(8, 16, 13, 16)
