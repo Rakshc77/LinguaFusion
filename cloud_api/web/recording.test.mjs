@@ -14,7 +14,12 @@ function harness(rate = 48000) {
   const events = {};
   const requests = [];
   const $ = id => {
-    if (!elements.has(id)) elements.set(id, { checked: true, textContent: '', hidden: true, value: '', addEventListener(type, fn) { this[type] = fn; } });
+    if (!elements.has(id)) elements.set(id, {
+      checked: true, textContent: '', hidden: true, value: '',
+      classList: { add() {}, remove() {}, toggle() {} },
+      setAttribute() {},
+      addEventListener(type, fn) { this[type] = fn; },
+    });
     return elements.get(id);
   };
   const node = () => ({ connect() {}, disconnect() {} });
@@ -40,7 +45,9 @@ function harness(rate = 48000) {
     crypto: { randomUUID: () => 'test-request' }, buildWav, MAX_SECONDS,
     readAloud: { stop() {} },
     api: { async request(path, body) { requests.push({ path, body }); return { text: 'Test' }; } },
-    showSpending() {}, microphoneProblem: error => error.name, isIosStandalone: () => false, clearTimeout });
+    showSpending() {}, revealResult() {}, setProcessing() {},
+    microphoneProblem: error => error.name, isIosDevice: () => false,
+    isIosStandalone: () => false, clearTimeout });
   const stop = source.slice(source.indexOf('function stopCapture()'), source.indexOf('function clearPrivateText()'));
   const recording = source.slice(source.indexOf('async function openMicrophone()'), source.indexOf('// --- picture reading'));
   vm.runInContext(`let capture=null,captureStarting=false,captureGeneration=0,transcribing=false,nativeRecording=null,epoch=0;
@@ -112,7 +119,7 @@ test('native APK starts no browser microphone; cancellation permits retry', asyn
   assert.equal(h.$('speechStatus').textContent, 'Recording cancelled.');
   await h.click(); assert.match(h.$('speechStatus').textContent, /phone recording dialog/);
 });
-test('native result uploads WAV with consent and rejects stale callbacks', async () => {
+test('native result uploads WAV with the compatibility guard and rejects stale callbacks', async () => {
   const h = harness(); h.sandbox.window.LFNativeCloudRecording = true;
   await h.click();
   const data = Buffer.from(buildWav([new Float32Array(16000)],16000)).toString('base64');

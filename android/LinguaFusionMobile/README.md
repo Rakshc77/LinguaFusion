@@ -50,6 +50,13 @@ voice. Read Aloud now prefers an installed local voice, retries Online playback
 once through the phone's preferred system voice, and opens voice settings only
 if both attempts fail. Offline playback remains strictly local.
 
+Android 1.22 streamlines the bundled Offline interface without changing its
+phone-only privacy boundary or language scope. It shares the Online motion
+system: Lively is the default, the Settings switch selects Balanced transitions,
+and Android's reduced-motion accessibility preference wins. Result cards animate
+in, processing and recording have clear states, and long explanatory copy is
+kept behind concise labels or removed where the action is self-explanatory.
+
 The app validates language, speed, request id and a 12,000-character limit in
 both JavaScript and Java. Longer results are split below Android's native TTS
 input ceiling. LinguaFusion makes no AI-provider request for playback and does

@@ -6,6 +6,8 @@
   --text: var(--lf-text, #172338); --muted: var(--lf-text-muted, #526079);
   --line:#c8d2e3; --accent: var(--lf-accent, #1155cf); --notice:#eaf1ff;
   --warn:#fff4e2; --warn-line:#b4650a;
+  --motion-fast:160ms; --motion-base:260ms; --motion-slow:420ms;
+  --motion-distance:12px; --motion-ease:cubic-bezier(.22,1,.36,1);
   --radius: var(--lf-surface-radius, 12px); }
 * { box-sizing:border-box; }
 body { margin:0; background:var(--bg); color:var(--text); line-height:1.6; font-size:16px;
@@ -89,9 +91,6 @@ a.download { display: inline-block; background: var(--accent); color: #fff; text
             padding:4px 0 12px; border-bottom:1px solid var(--line); margin-bottom:12px; }
 .account-chip { font-size:13px; color:var(--muted); overflow-wrap:anywhere; text-align:right; }
 #workspace { padding-bottom:96px; }          /* clear the fixed navigation bar */
-.view { animation:lf-fade .18s ease-out; }
-@keyframes lf-fade { from { opacity:0; transform:translateY(4px); } to { opacity:1; transform:none; } }
-@media (prefers-reduced-motion:reduce) { .view { animation:none; } }
 
 /* The bar must fully occlude what scrolls beneath it, so it CANNOT use --panel:
    several looks define that as a translucent overlay meant to sit on a blurred
@@ -176,7 +175,6 @@ main { padding-top:max(24px,env(safe-area-inset-top)); }
   border-radius:var(--radius); box-shadow:var(--lf-surface-shadow);
 }
 input:not([type=checkbox]),select,textarea { border-radius:var(--radius); }
-[data-theme="minimal"] .view { animation:none; }
 [data-theme="minimal"] aside { background:transparent; border-left:2px solid var(--line); border-radius:0; }
 [data-theme="minimal"] .person { box-shadow:none; }
 [data-theme="minimal"] .bottom-nav { backdrop-filter:none; -webkit-backdrop-filter:none; }
@@ -218,8 +216,8 @@ input:not([type=checkbox]),select,textarea { border-radius:var(--radius); }
    never lands between them on a narrow phone. */
 .head-pills { display:inline-flex; align-items:center; gap:8px; }
 
-/* The Windows app embeds only Say it or Settings/account. Firebase, paid-use
-   consent and owner APIs stay here while the native shell supplies navigation. */
+/* The Windows app embeds only Say it or Settings/account. Firebase and owner
+   APIs stay here while the native shell supplies navigation. */
 html[data-embed="desktop"] main { width:100%; max-width:none; padding:18px 22px 28px; }
 html[data-embed="desktop"] .bottom-nav { display:none; }
 html[data-embed="desktop"] #workspace { padding-bottom:24px; }
@@ -231,3 +229,80 @@ html[data-embed="desktop"] #pageFooter { display:none; }
    they leave the app, and spaced enough to hit on a phone. */
 .console-link { color:var(--accent); text-decoration:underline; font-size:13px;
                 min-height:36px; display:inline-flex; align-items:center; }
+
+/* Motion is a product preference independent of Studio/Minimal. Lively is the
+   default; the Settings checkbox selects Balanced. The operating system's
+   reduced-motion preference always wins below. */
+html[data-motion="balanced"] {
+  --motion-fast:100ms; --motion-base:160ms; --motion-slow:220ms;
+  --motion-distance:5px;
+}
+.view.view-enter { animation:lf-view-in var(--motion-base) var(--motion-ease) both; }
+.result-reveal { animation:lf-result-in var(--motion-slow) var(--motion-ease) both; }
+@keyframes lf-view-in {
+  from { opacity:0; transform:translateY(var(--motion-distance)); }
+  to { opacity:1; transform:none; }
+}
+@keyframes lf-result-in {
+  from { opacity:.35; transform:translateY(calc(var(--motion-distance) * .65)); }
+  to { opacity:1; transform:none; }
+}
+button,.button-link,a.download,.nav-item,input,select,textarea {
+  transition:transform var(--motion-fast) var(--motion-ease),
+             background-color var(--motion-fast) ease,
+             border-color var(--motion-fast) ease,
+             box-shadow var(--motion-fast) ease,
+             opacity var(--motion-fast) ease;
+}
+button:not(:disabled):active,.button-link:active,a.download:active { transform:scale(.975); }
+@media (hover:hover) {
+  button:not(:disabled):hover,.button-link:hover,a.download:hover { transform:translateY(-1px); }
+  .nav-item:hover { background:var(--lf-chip-bg, var(--notice)); }
+}
+.nav-item::before {
+  content:""; position:absolute; top:3px; left:50%; width:20px; height:3px;
+  border-radius:999px; background:var(--accent); opacity:0;
+  transform:translate(-50%,-5px) scaleX(.45);
+  transition:opacity var(--motion-fast) ease, transform var(--motion-base) var(--motion-ease);
+}
+.nav-item.active::before { opacity:1; transform:translate(-50%,0) scaleX(1); }
+button.is-processing { position:relative; overflow:hidden; }
+button.is-processing::after {
+  content:""; position:absolute; inset:0; pointer-events:none;
+  background:linear-gradient(105deg,transparent 20%,rgba(255,255,255,.34) 48%,transparent 76%);
+  transform:translateX(-115%); animation:lf-processing 1.05s ease-in-out infinite;
+}
+@keyframes lf-processing { to { transform:translateX(115%); } }
+#recordToggle.is-recording,#record.is-recording {
+  animation:lf-recording 1.65s ease-in-out infinite;
+  box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 34%,transparent);
+}
+@keyframes lf-recording {
+  55% { box-shadow:0 0 0 10px color-mix(in srgb,var(--accent) 0%,transparent); }
+}
+.ios-account-advisory {
+  margin:18px 0 0; padding:10px 14px; color:var(--text); background:var(--notice);
+  border-left:3px solid var(--accent); border-radius:var(--radius); font-size:14px;
+}
+.compact-details {
+  margin:12px 0; padding:10px 0; color:var(--muted); border-top:1px solid var(--line);
+  border-bottom:1px solid var(--line); font-size:13px;
+}
+.compact-details summary { color:var(--text); font-weight:650; cursor:pointer; }
+.compact-details[open] summary { margin-bottom:8px; }
+.settings-card {
+  margin:18px 0; padding:18px; background:var(--panel);
+  border:var(--lf-surface-border,1px solid var(--line)); border-radius:var(--radius);
+  box-shadow:var(--lf-surface-shadow);
+}
+.settings-card > h3:first-child { margin-top:0; }
+.motion-setting { justify-content:space-between; flex-wrap:wrap; }
+.motion-setting span { margin-left:auto; color:var(--muted); font-size:12px; font-weight:400; }
+.result-actions { margin-top:12px; }
+
+@media (prefers-reduced-motion:reduce) {
+  :root { --motion-fast:1ms; --motion-base:1ms; --motion-slow:1ms; --motion-distance:0px; }
+  .view.view-enter,.result-reveal { animation-duration:1ms; }
+  button.is-processing::after,#recordToggle.is-recording,#record.is-recording { animation:none; }
+  *,*::before,*::after { scroll-behavior:auto!important; }
+}

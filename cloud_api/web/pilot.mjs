@@ -3,7 +3,8 @@ import { createCloudAuth } from './cloud-auth.mjs';
 import { createCloudClient } from './cloud-client.mjs';
 import { PRONUNCIATION_LANGUAGES, pronunciationView, validateRequest } from './pronunciation.mjs';
 import { buildWav, MAX_SECONDS } from './wav.mjs';
-import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, getFont, getTheme, applyMode, initAppearance } from './themes.mjs';
+import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, getFont, getTheme,
+         applyMode, applyMotion, getMotion, initAppearance } from './themes.mjs';
 import { createReadAloudController } from './read-aloud.mjs';
 
 const $ = id => document.getElementById(id);
@@ -14,6 +15,12 @@ const desktopEmbed = shellParams.get('embed') === 'desktop';
 const embeddedViews = { account:'viewAccount', say:'viewSay' };
 const embeddedView = desktopEmbed ? (embeddedViews[shellParams.get('view')] || '') : '';
 if (desktopEmbed) document.documentElement.dataset.embed = 'desktop';
+
+function isIosDevice() {
+  return /iPad|iPhone|iPod/.test(navigator.userAgent)
+    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+}
+$('iosAccountAdvisory').hidden = !isIosDevice();
 
 let epoch = 0;
 let signedIn = false;
@@ -158,6 +165,13 @@ for (const theme of CLOUD_THEMES) $('themeChoice').add(new Option(theme.name, th
 for (const font of LF_FONTS) $('fontChoice').add(new Option(font.name, font.id));
 $('themeChoice').value = getTheme();
 $('fontChoice').value = getFont();
+$('reduceMotion').checked = getMotion() === 'balanced';
+function syncMotionControl() {
+  const balanced = getMotion() === 'balanced';
+  $('reduceMotion').checked = balanced;
+  $('motionStatus').textContent = balanced ? 'Balanced motion' : 'Lively motion';
+}
+syncMotionControl();
 function syncModeControl() {
   const mode = document.documentElement.dataset.mode;
   $('modeToggle').textContent = mode === 'dark' ? 'Night' : 'Day';
@@ -170,6 +184,10 @@ $('modeToggle').addEventListener('click', () => {
 });
 $('themeChoice').addEventListener('change', () => applyTheme($('themeChoice').value));
 $('fontChoice').addEventListener('change', () => applyFont($('fontChoice').value));
+$('reduceMotion').addEventListener('change', () => {
+  applyMotion($('reduceMotion').checked ? 'balanced' : 'lively');
+  syncMotionControl();
+});
 
 // The full Offline Android app marks the hosted page after it has loaded. The
 // small Online-only wrapper never sets this flag, so it is never offered a mode
@@ -212,7 +230,19 @@ function status(message) {
 // --- navigation --------------------------------------------------------------
 
 function showView(id) {
-  for (const view of document.querySelectorAll('.view')) view.hidden = view.id !== id;
+  readAloud.stop({ quiet:true });
+  for (const view of document.querySelectorAll('.view')) {
+    const active = view.id === id;
+    view.hidden = !active;
+    view.classList.remove('view-enter');
+    if (active) {
+      // Restart the entrance after hidden is removed. The CSS motion contract
+      // decides whether this is Lively, Balanced or effectively instant for an
+      // operating-system accessibility preference.
+      void view.offsetWidth;
+      view.classList.add('view-enter');
+    }
+  }
   for (const item of document.querySelectorAll('.nav-item')) {
     const active = item.dataset.view === id;
     item.classList.toggle('active', active);
@@ -273,9 +303,21 @@ async function copyText(value, label, target) {
   }
 }
 
+function revealResult(element) {
+  element.classList.remove('result-reveal');
+  void element.offsetWidth;
+  element.classList.add('result-reveal');
+}
+
+function setProcessing(button, active) {
+  button.classList.toggle('is-processing', Boolean(active));
+  button.setAttribute('aria-busy', String(Boolean(active)));
+}
+
 function stopCapture() {
   $('recordingFeedback').hidden = true;
   $('microphoneLevel').value = 0;
+  $('recordToggle').classList.remove('is-recording');
   captureGeneration++;
   nativeRecording = null;
   if (!capture) return;
@@ -292,12 +334,11 @@ function clearPrivateText() {
   $('password').value = ''; $('newPassword').value = '';
   $('text').value = ''; $('result').textContent = 'Your translation will appear here.';
   delete $('result').dataset.readLanguage;
-  $('paidConsent').checked = false;
-  $('pronounceText').value = ''; $('pronounceConsent').checked = false;
+  $('pronounceText').value = '';
   $('pronounceResult').hidden = true; $('pronounceStatus').textContent = '';
   $('pronounceNative').textContent = ''; $('pronounceRoman').textContent = '';
-  $('transcript').textContent = ''; $('speechStatus').textContent = ''; $('speechConsent').checked = false;
-  $('ocrResult').textContent = ''; $('ocrStatus').textContent = ''; $('ocrConsent').checked = false;
+  $('transcript').textContent = ''; $('speechStatus').textContent = '';
+  $('ocrResult').textContent = ''; $('ocrStatus').textContent = '';
   for (const id of ['transcriptReadStatus', 'translationReadStatus', 'ocrReadStatus']) $(id).textContent = '';
   $('ocrFile').value = '';
   $('reqName').value = ''; $('reqOrg').value = ''; $('accessStatus').textContent = '';
@@ -324,14 +365,10 @@ function applyReadiness() {
     $(pane).hidden = !ready[capability];
     $(notice).hidden = ready[capability];
   }
-  // The consent boxes live OUTSIDE the fieldsets they gate. Gating a fieldset on
-  // a checkbox inside it disables that checkbox, which cannot then be ticked.
-  $('translationFields').disabled = translating || !ready.translate || !$('paidConsent').checked;
+  $('translationFields').disabled = translating || !ready.translate;
   $('pronounceFields').disabled = pronouncing || !ready.pronounce;
-  $('pronounce').disabled = pronouncing || !ready.pronounce || !$('pronounceConsent').checked;
+  $('pronounce').disabled = pronouncing || !ready.pronounce;
 }
-$('paidConsent').addEventListener('change', applyReadiness);
-$('pronounceConsent').addEventListener('change', applyReadiness);
 
 // --- owner -------------------------------------------------------------------
 
@@ -1047,8 +1084,11 @@ $('translateForm').addEventListener('submit', async event => {
   body.set('text', $('text').value);
   body.set('target_lang', $('target').value);
   body.set('model', chosenModel);
-  body.set('paid_consent', String($('paidConsent').checked));
+  // Kept as an API compatibility guard. The signed-in person deliberately
+  // submitted this request; budgets and access policy remain server-enforced.
+  body.set('paid_consent', 'true');
   translating = true; applyReadiness();
+  setProcessing($('translate'), true);
   readAloud.stop();
   delete $('result').dataset.readLanguage;
   $('result').textContent = 'Translating…'; status('Translating…');
@@ -1059,11 +1099,16 @@ $('translateForm').addEventListener('submit', async event => {
     $('result').textContent = result.translated_text;
     $('result').dataset.readLanguage = result.target_lang || $('target').value;
     $('result').lang = $('result').dataset.readLanguage;
+    revealResult($('result'));
     status('Translation complete.');
     if (result.spending) showSpending(result.spending);
   } catch (error) {
     if (current === epoch) { $('result').textContent = 'No translation returned.'; status(error.message); }
-  } finally { translating = false; if (current === epoch) applyReadiness(); }
+  } finally {
+    translating = false;
+    setProcessing($('translate'), false);
+    if (current === epoch) applyReadiness();
+  }
 });
 
 // --- pronunciation -----------------------------------------------------------
@@ -1080,8 +1125,9 @@ $('pronounceForm').addEventListener('submit', async event => {
   const current = epoch;
   const body = new FormData();
   body.set('text', check.text); body.set('language', language);
-  body.set('paid_consent', String($('pronounceConsent').checked));
+  body.set('paid_consent', 'true');
   pronouncing = true; applyReadiness();
+  setProcessing($('pronounce'), true);
   $('pronounceResult').hidden = true;
   $('pronounceStatus').textContent = 'Requesting a pronunciation guide…';
   try {
@@ -1094,10 +1140,15 @@ $('pronounceForm').addEventListener('submit', async event => {
     $('pronounceNative').lang = view.language;
     $('pronounceRoman').textContent = view.romanized;
     $('pronounceResult').hidden = false;
+    revealResult($('pronounceResult'));
     $('pronounceStatus').textContent = `Approximate ${view.languageName} pronunciation. The original is unchanged.`;
     if (result.spending) showSpending(result.spending);
   } catch (error) { if (current === epoch) $('pronounceStatus').textContent = error.message; }
-  finally { pronouncing = false; if (current === epoch) applyReadiness(); }
+  finally {
+    pronouncing = false;
+    setProcessing($('pronounce'), false);
+    if (current === epoch) applyReadiness();
+  }
 });
 
 // --- speech ------------------------------------------------------------------
@@ -1111,9 +1162,7 @@ $('copyTranscript').addEventListener('click', () => void copyText($('transcript'
    across launches. The failure is below this page, so offer an explicit retry,
    Safari and saved-audio routes instead of leaving the app looking broken. */
 function isIosStandalone() {
-  const ios = /iPad|iPhone|iPod/.test(navigator.userAgent)
-    || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  return ios && window.navigator.standalone === true;
+  return isIosDevice() && window.navigator.standalone === true;
 }
 
 function microphoneProblem(error) {
@@ -1211,11 +1260,6 @@ $('chooseRecording').addEventListener('click', () => $('speechAudioFile').click(
 $('speechAudioFile').addEventListener('change', async () => {
   const file = $('speechAudioFile').files?.[0];
   if (!file) return;
-  if (!$('speechConsent').checked) {
-    $('speechStatus').textContent = 'Confirm paid API use before choosing a recording.';
-    $('speechAudioFile').value = '';
-    return;
-  }
   try {
     readAloud.stop();
     $('speechStatus').textContent = 'Preparing the saved recording on this device…';
@@ -1237,12 +1281,12 @@ $('recordToggle').addEventListener('click', async () => {
   if (captureStarting || transcribing || nativeRecording) return;
   if (capture) { await finishRecording(); return; }
   if (!ready.transcribe) return;
-  if (!$('speechConsent').checked) { $('speechStatus').textContent = 'Confirm paid API use before recording.'; return; }
   readAloud.stop();
 
   if (window.LFNativeCloudRecording === true) {
     const id = crypto.randomUUID();
     nativeRecording = { id, epoch };
+    $('recordToggle').classList.add('is-recording');
     $('speechStatus').textContent = 'Use the phone recording dialog. Cancel discards the audio.';
     window.location.href = `linguafusion-record://capture?id=${id}`;
     return;
@@ -1329,6 +1373,7 @@ $('recordToggle').addEventListener('click', async () => {
     }
     $('recordingFeedback').hidden = false;
     $('recordToggle').textContent = 'Stop and transcribe';
+    $('recordToggle').classList.add('is-recording');
     $('speechStatus').textContent = 'Recording…';
   } catch (error) {
     // The microphone opened but the audio graph did not. Release it rather than
@@ -1343,6 +1388,7 @@ window.addEventListener('lf-native-recording', async event => {
   const pending = nativeRecording;
   if (!pending || pending.id !== event.detail?.id || pending.epoch !== epoch) return;
   nativeRecording = null;
+  $('recordToggle').classList.remove('is-recording');
   const { kind, data } = event.detail;
   if (kind === 'cancel') { $('speechStatus').textContent = 'Recording cancelled.'; return; }
   if (kind !== 'audio') { $('speechStatus').textContent = String(data || 'Recording failed.'); return; }
@@ -1378,24 +1424,26 @@ async function finishRecording() {
 }
 
 async function transcribeRecording(audio) {
-  if (transcribing || !ready.transcribe || !$('speechConsent').checked) return;
+  if (transcribing || !ready.transcribe) return;
   const current = epoch;
   transcribing = true;
+  setProcessing($('recordToggle'), true);
 
   $('speechStatus').textContent = 'Transcribing…';
   $('transcript').textContent = '';
   const body = new FormData();
   body.set('audio', new Blob([audio], { type: 'audio/wav' }), 'recording.wav');
-  body.set('paid_consent', String($('speechConsent').checked));
+  body.set('paid_consent', 'true');
   try {
     const result = await api.request('/api/transcribe', body);
     if (current !== epoch) return;
     // Empty text is a legitimate result for silence, never "corrected".
     $('transcript').textContent = result.text || '';
+    if (result.text) revealResult($('transcript'));
     $('speechStatus').textContent = result.text ? 'Done.' : 'No speech was detected in that recording.';
     if (result.spending) showSpending(result.spending);
   } catch (error) { if (current === epoch) $('speechStatus').textContent = error.message; }
-  finally { transcribing = false; }
+  finally { transcribing = false; setProcessing($('recordToggle'), false); }
 }
 
 // --- picture reading ---------------------------------------------------------
@@ -1408,18 +1456,19 @@ $('runOcr').addEventListener('click', async () => {
   if (!file) { $('ocrStatus').textContent = 'Choose a picture first.'; return; }
   if (!['image/png', 'image/jpeg'].includes(file.type)) { $('ocrStatus').textContent = 'Use a PNG or JPEG image.'; return; }
   if (file.size > 4_000_000) { $('ocrStatus').textContent = 'That image is larger than 4 MB.'; return; }
-  if (!$('ocrConsent').checked) { $('ocrStatus').textContent = 'Confirm paid API use first.'; return; }
   const current = epoch;
   $('runOcr').disabled = true;
+  setProcessing($('runOcr'), true);
   $('ocrStatus').textContent = 'Reading…';
   $('ocrResult').textContent = '';
   const body = new FormData();
   body.set('image', file, file.name || 'image');
-  body.set('paid_consent', String($('ocrConsent').checked));
+  body.set('paid_consent', 'true');
   try {
     const result = await api.request('/api/ocr', body);
     if (current !== epoch) return;
     $('ocrResult').textContent = result.text || '';
+    if (result.text) revealResult($('ocrResult'));
     const layout = result.layout || {};
     // Offer CSV only when columns were actually detected: a CSV of prose is one
     // quoted cell per line, which is worse than the text.
@@ -1431,7 +1480,10 @@ $('runOcr').addEventListener('click', async () => {
     $('ocrStatus').textContent = result.text ? 'Done.' : 'No text was found in that picture.';
     if (result.spending) showSpending(result.spending);
   } catch (error) { if (current === epoch) $('ocrStatus').textContent = error.message; }
-  finally { if (current === epoch) $('runOcr').disabled = false; }
+  finally {
+    setProcessing($('runOcr'), false);
+    if (current === epoch) $('runOcr').disabled = false;
+  }
 });
 
 
@@ -1503,7 +1555,7 @@ function sendToTranslate(text) {
   showView('viewTranslate');
   status(text.length > translationLimit
     ? `Sent the first ${translationLimit} characters; the rest did not fit.`
-    : 'Sent to Translate. Confirm paid use, then translate.');
+    : 'Sent to Translate. Choose the languages, then translate.');
 }
 
 function sendToPronounce(text, language) {
@@ -1512,7 +1564,7 @@ function sendToPronounce(text, language) {
   $('pronounceText').value = text.slice(0, pronunciationLimit);
   if (language && PRONOUNCEABLE.has(language)) $('pronounceLanguage').value = language;
   showView('viewSay');
-  status('Sent to Say it. Choose the language, confirm paid use, then continue.');
+  status('Sent to Say it. Choose the language, then continue.');
 }
 
 function updateTextCount() {

@@ -1,5 +1,62 @@
 # LinguaFusion — current Codex handover
 
+## Streamlined interface and cohesive motion — September 18, 2026
+
+Branch `codex/streamlined-motion` starts from published `main` commit `c67b966`
+(Online `2026.09.16.3`, Android 1.21/versionCode 22). It prepares Online
+`2026.09.18.1`, Android 1.22/versionCode 23 and Windows desktop
+`1.0-rc2.17-streamlined-motion`.
+
+The Online and bundled Android Offline interfaces now use concise page headings,
+shorter guidance, compact result actions and collapsible technical/owner detail.
+The Online landing page shows iPhone visitors a clear instruction to scroll down
+and create an account. Per-action paid-use checkboxes were removed because this
+private app is not commercial. Each deliberate signed-in action still sends
+`paid_consent=true` for API compatibility; Firebase approval, owner policy,
+monthly budgets, provider allowlists and request limits remain server-enforced.
+
+Motion is independent of Studio/Minimal and day/night. **Lively** is the default;
+the Settings **Reduce motion** switch selects the quieter **Balanced** profile.
+Operating-system reduced-motion always takes precedence. Views and successful
+results enter once, buttons have restrained tactile feedback, processing uses a
+contained sweep, recording pulses and bottom navigation has a compact active
+indicator. The Windows desktop retains its established internal preference IDs
+for compatibility but presents them as Lively, Balanced and Off.
+
+Validation in this workspace: all 73 browser tests pass; all 51 cloud
+route tests pass; 34 of 37 combined Android/static desktop contracts pass. The
+three remaining checks are environment-only here: the private Android signing
+keystore is intentionally absent and PySide6 is unavailable for the two headless
+desktop runtime tests. Re-run the complete Android contract and desktop smoke
+suite on the owner PC before publishing. Do not replace the signing key. The APK
+asset and `android-app.json` remain at published Android 1.21 until that rebuild.
+
+Release state: source-only. Merge, deploy Online `2026.09.18.1`, build/publish
+Android 1.22 from the owner PC, and rebuild the Windows EXE. No Cloud Run, APK or
+desktop binary was published from this branch.
+
+### Remaining to-do checklist
+
+1. Review and merge `codex/streamlined-motion` into `main`.
+2. In Cloud Shell, pull `main`, build Online `2026.09.18.1`, wait for `SUCCESS`,
+   promote it and verify the new Cloud Run revision is ready.
+3. On the owner PC, pull merged `main` and run the complete Android contract with
+   the private `debug.keystore` present. Build Android 1.22/versionCode 23 with
+   the existing key; never generate a replacement.
+4. Run `scripts\publish_android_apk.py`, verify `android-app.json` reports 1.22,
+   commit the regenerated APK and metadata, push them, then deploy that commit so
+   **Check for updates** offers Android 1.22.
+5. On the owner PC, run the two PySide6 desktop smoke/usability tests and rebuild
+   the clickable Windows EXE from merged `main`.
+6. Physical-device checks: iPhone landing advisory and account creation; Android
+   Online/Offline Lively default; Reduce motion → Balanced; operating-system
+   reduced motion; recording pulse; result reveals; Read Aloud; owner requests.
+7. Verify the live UI no longer shows per-action paid-use consent checkboxes and
+   that server-side account approval, budgets and request limits still reject an
+   unauthorized or over-limit request.
+
+---
+
 ## Android Read Aloud voice fallback — September 16, 2026
 
 Android 1.21/versionCode 22 fixes a physical-device failure where Android

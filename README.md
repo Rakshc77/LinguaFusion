@@ -15,9 +15,9 @@ Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 
 ## Current release and next source
 
-- Published baseline: Online `2026.09.16.2`; Android `1.20` / versionCode `21`.
-- Current source: Online `2026.09.16.3`; Android `1.20` / versionCode `21`;
-  Windows desktop `1.0-rc2.16-phone-shell-owner`.
+- Published baseline: Online `2026.09.16.3`; Android `1.21` / versionCode `22`.
+- Current source: Online `2026.09.18.1`; Android `1.22` / versionCode `23`;
+  Windows desktop `1.0-rc2.17-streamlined-motion`.
 - Android provides phone-only Offline translation and transcription for English,
   German, Arabic, Spanish and French.
 - Android selected-text translation works from WhatsApp and other apps through
@@ -38,9 +38,10 @@ mislabeling the old desktop document Reader.
 The existing private Android signing key must be preserved. Never generate a
 replacement key: a differently signed APK cannot update existing installations.
 
-The five-minute Online recording/saved-audio limit is retained. Online
-`2026.09.16.3` and the desktop account embed are source-only until the cloud
-interface is deployed and the Windows app is rebuilt.
+The five-minute Online recording/saved-audio limit is retained. The streamlined
+Online UI, Android Offline shell and desktop motion labels are source-only until
+Online `2026.09.18.1` is deployed, Android 1.22 is rebuilt with the existing
+signing key and the Windows app is rebuilt.
 
 ## Language support
 
@@ -68,7 +69,17 @@ and Night modes controlled by the same top-bar pill. Studio day uses Warm
 Editorial parchment and terracotta; Studio night uses Sunset rose on plum.
 Minimal is monochrome. Typeface selection is
 independent; “Match the look” uses editorial headings for Studio and sans-serif
-for Minimal. Previously selected typefaces are preserved.
+for Minimal. Previously selected typefaces are preserved. Motion is also
+independent: **Lively** is the default and **Reduce motion** selects the quieter
+Balanced profile. A device-level reduced-motion accessibility preference always
+takes priority and makes transitions effectively immediate.
+
+The phone and browser surfaces use shorter headings, progressive disclosure for
+technical details and compact result actions. Per-action paid-use checkboxes were
+removed because this is a private, non-commercial app; deliberate signed-in
+actions still send the existing compatibility flag while server-side approval,
+budgets and provider limits remain unchanged. The landing page now gives iPhone
+visitors a visible prompt to scroll down and create an account.
 
 ## Read Aloud
 

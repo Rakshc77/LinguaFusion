@@ -15,7 +15,7 @@
 // day/night and typeface therefore behave identically in both modes and a
 // choice made in one is the choice the other starts from.
 import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, applyMode,
-         getFont, getMode, getTheme, initAppearance } from './themes.mjs';
+         applyMotion, getFont, getMode, getMotion, getTheme, initAppearance } from './themes.mjs';
 import { createReadAloudController } from './read-aloud.mjs';
 
 const native = window.LinguaFusionOffline;
@@ -130,6 +130,17 @@ function say(element, message) {
   $(element).textContent = message || '';
 }
 
+function revealResult(element) {
+  element.classList.remove('result-reveal');
+  void element.offsetWidth;
+  element.classList.add('result-reveal');
+}
+
+function setProcessing(button, active) {
+  button.classList.toggle('is-processing', Boolean(active));
+  button.setAttribute('aria-busy', String(Boolean(active)));
+}
+
 function copy(text, status) {
   if (!text) { say(status, 'There is nothing to copy yet.'); return; }
   // A WebView over file:// has no clipboard API, so fall back to the old way.
@@ -155,12 +166,15 @@ async function toggleRecording() {
     if (failure) { say('speakStatus', failure); return; }
     recording = true;
     $('record').textContent = 'Stop and transcribe';
+    $('record').classList.add('is-recording');
     say('speakStatus', 'Recording… speak now.');
     return;
   }
 
   recording = false;
   busy = true;
+  $('record').classList.remove('is-recording');
+  setProcessing($('record'), true);
   readAloud.stop();
   $('record').disabled = true;
   $('record').textContent = 'Working…';
@@ -174,10 +188,12 @@ async function toggleRecording() {
   busy = false;
   $('record').disabled = false;
   $('record').textContent = 'Start recording';
+  setProcessing($('record'), false);
 
   if (result.error) { say('speakStatus', result.error); return; }
 
   $('transcript').textContent = result.transcript || '';
+  if (result.transcript) revealResult($('transcript'));
   $('transcript').dataset.readLanguage = result.spokenLanguage || result.detected || '';
   const detected = result.detected
     ? ` Heard ${nameOf(result.detected) || result.detected}.` : '';
@@ -187,6 +203,7 @@ async function toggleRecording() {
     $('translationWrap').hidden = false;
     $('translation').textContent = result.translation;
     $('translation').lang = $('toLang').value;
+    revealResult($('translation'));
   } else if (result.translationError) {
     say('speakStatus', `${result.error || 'Transcribed.'} ${result.translationError}`);
   }
@@ -203,13 +220,16 @@ async function translateTyped() {
   const text = $('sourceText').value.trim();
   if (!text) { say('translateStatus', 'Type something to translate.'); return; }
   $('translate').disabled = true;
+  setProcessing($('translate'), true);
   readAloud.stop();
   say('translateStatus', 'Translating on this phone…');
   const result = await ask('translateText', null, text, $('textFrom').value, $('textTo').value);
   $('translate').disabled = false;
+  setProcessing($('translate'), false);
   if (result.error) { say('translateStatus', result.error); $('textResult').textContent = ''; return; }
   $('textResult').textContent = result.translation || '';
   $('textResult').lang = $('textTo').value;
+  if (result.translation) revealResult($('textResult'));
   say('translateStatus', result.pivoted
     ? 'Done. This pair goes through English, so it is rougher than usual.'
     : 'Done.');
@@ -219,13 +239,16 @@ async function translateTyped() {
 
 async function readPicture() {
   $('readPicture').disabled = true;
+  setProcessing($('readPicture'), true);
   readAloud.stop();
   say('readStatus', 'Choose a picture…');
   const result = await ask('readPicture', null);
   $('readPicture').disabled = false;
+  setProcessing($('readPicture'), false);
   if (result.cancelled) { say('readStatus', ''); return; }
   if (result.error) { say('readStatus', result.error); $('readResult').textContent = ''; return; }
   $('readResult').textContent = result.text || '';
+  if (result.text) revealResult($('readResult'));
   say('readStatus', 'Read on this phone.');
 }
 
@@ -243,11 +266,14 @@ async function romanize() {
   const text = $('sayText').value.trim();
   if (!text) { say('sayStatus', 'Paste some text first.'); return; }
   $('romanize').disabled = true;
+  setProcessing($('romanize'), true);
   say('sayStatus', 'Working…');
   const result = await ask('romanize', null, text, $('sayLang').value);
   $('romanize').disabled = false;
+  setProcessing($('romanize'), false);
   if (result.error) { say('sayStatus', result.error); $('sayResult').textContent = ''; return; }
   $('sayResult').textContent = result.romanized || '';
+  if (result.romanized) revealResult($('sayResult'));
   say('sayStatus', 'Done.');
 }
 
@@ -442,7 +468,7 @@ async function refresh() {
   if (readable.length) {
     $('readLimits').textContent =
       `Offline this reads Latin letters only, so ${readable.join(', ')}. `
-      + 'Arabic script needs the cloud.';
+      + 'Arabic script needs the Online app.';
   }
   renderModels();
   updatePivotWarning();
@@ -455,7 +481,14 @@ async function refresh() {
 function show(view) {
   readAloud.stop({ quiet:true });
   for (const section of ['viewSpeak', 'viewTranslate', 'viewRead', 'viewSay', 'viewStorage']) {
-    $(section).hidden = section !== view;
+    const element = $(section);
+    const active = section === view;
+    element.hidden = !active;
+    element.classList.remove('view-enter');
+    if (active) {
+      void element.offsetWidth;
+      element.classList.add('view-enter');
+    }
   }
   for (const button of document.querySelectorAll('nav button')) {
     const here = button.dataset.view === view;
@@ -471,8 +504,15 @@ function start() {
   for (const font of LF_FONTS) $('fontChoice').add(new Option(font.name, font.id));
   $('themeChoice').value = getTheme();
   $('fontChoice').value = getFont();
+  $('reduceMotion').checked = getMotion() === 'balanced';
+  $('motionStatus').textContent = $('reduceMotion').checked ? 'Balanced motion' : 'Lively motion';
   $('themeChoice').onchange = () => applyTheme($('themeChoice').value);
   $('fontChoice').onchange = () => applyFont($('fontChoice').value);
+  $('reduceMotion').onchange = () => {
+    const balanced = $('reduceMotion').checked;
+    applyMotion(balanced ? 'balanced' : 'lively');
+    $('motionStatus').textContent = balanced ? 'Balanced motion' : 'Lively motion';
+  };
   $('modeToggle').onclick = () => showMode(getMode() === 'dark' ? 'light' : 'dark');
   $('leave').onclick = () => native.leaveOfflineMode();
 

@@ -32,11 +32,11 @@
         <button id="leave" type="button" class="mode-toggle secondary" aria-label="Return to online mode">Online</button>
       </span>
     </header>
-    <p id="status" role="status" aria-live="polite">Everything here runs on this phone. No network, no account, no cost.</p>
+    <p id="status" role="status" aria-live="polite">On-device. No account or connection.</p>
 
     <section class="view" id="viewSpeak" aria-labelledby="speakTitle">
-      <h2 id="speakTitle">Speak naturally.</h2>
-      <p class="view-intro">Turn your voice into words, on this phone.</p>
+      <h2 id="speakTitle">Speak</h2>
+      <p class="view-intro">Transcribe and translate on this phone.</p>
       <div class="languages">
         <div>
           <label for="fromLang">Spoken language</label>
@@ -58,7 +58,7 @@
         <h3>Translation</h3>
         <div class="out" id="translation" dir="auto"></div>
       </div>
-      <div class="actions">
+      <div class="actions result-actions">
         <button id="copyTranscript" class="secondary" type="button">Copy transcript</button>
         <button id="copyTranslation" class="secondary" type="button">Copy translation</button>
         <button id="readTranscript" class="secondary" type="button" aria-pressed="false">Read transcript aloud</button>
@@ -69,8 +69,8 @@
     </section>
 
     <section class="view" id="viewTranslate" hidden aria-labelledby="translateTitle">
-      <h2 id="translateTitle">Say it their way.</h2>
-      <p class="view-intro">Translate text without leaving this phone.</p>
+      <h2 id="translateTitle">Translate</h2>
+      <p class="view-intro">Type, paste or use extracted text.</p>
       <div class="languages">
         <div>
           <label for="textFrom">From</label>
@@ -86,7 +86,7 @@
       <button id="translate" type="button">Translate</button>
       <p class="hint" id="translateStatus" role="status" aria-live="polite"></p>
       <div class="out" id="textResult" dir="auto"></div>
-      <div class="actions">
+      <div class="actions result-actions">
         <button id="copyText" class="secondary" type="button">Copy</button>
         <button id="readTextResult" class="secondary" type="button" aria-pressed="false">Read aloud</button>
         <select id="textReadRate" class="read-rate" aria-label="Translation reading speed"></select>
@@ -95,14 +95,14 @@
     </section>
 
     <section class="view" id="viewRead" hidden aria-labelledby="readTitle">
-      <h2 id="readTitle">Read a picture.</h2>
-      <p class="view-intro">Pull the words out of a photo.</p>
+      <h2 id="readTitle">Read</h2>
+      <p class="view-intro">Choose a picture.</p>
       <p class="warn" id="readLimits">Offline this reads Latin letters only. Arabic
         script needs the online app.</p>
       <button id="readPicture" type="button">Choose a picture</button>
       <p class="hint" id="readStatus" role="status" aria-live="polite"></p>
       <div class="out" id="readResult" dir="auto"></div>
-      <div class="actions">
+      <div class="actions result-actions">
         <button id="copyRead" class="secondary" type="button">Copy</button>
         <button id="sendReadToTranslate" class="secondary" type="button">Translate this</button>
         <button id="readPictureResult" class="secondary" type="button" aria-pressed="false">Read aloud</button>
@@ -113,27 +113,27 @@
     </section>
 
     <section class="view" id="viewSay" hidden aria-labelledby="sayTitle">
-      <h2 id="sayTitle">Say it out loud.</h2>
-      <p class="view-intro">Arabic, Hindi or Odia written in Latin letters.</p>
+      <h2 id="sayTitle">Say it</h2>
+      <p class="view-intro">Write Arabic, Hindi or Odia in Latin letters.</p>
       <p class="warn" id="sayLimits" hidden>This phone is too old to do that
         offline; it needs Android 10 or newer.</p>
       <label for="sayLang">Language of the text</label>
       <select id="sayLang"></select>
       <label for="sayText">Text in that language</label>
       <textarea id="sayText" rows="4" dir="auto" placeholder="Paste Arabic, Hindi or Odia text"></textarea>
-      <button id="romanize" type="button">Write it in Latin letters</button>
+      <button id="romanize" type="button">Generate guide</button>
       <p class="hint" id="sayStatus" role="status" aria-live="polite"></p>
       <div class="out" id="sayResult" dir="ltr"></div>
       <p class="hint">Offline this maps letter to letter, so it shows which letters
         are there rather than how a speaker would say them. Short vowels missing
         from written Arabic stay missing. The online guide reads better.</p>
-      <div class="actions"><button id="copySay" class="secondary" type="button">Copy</button></div>
+      <div class="actions result-actions"><button id="copySay" class="secondary" type="button">Copy</button></div>
     </section>
 
     <section class="view" id="viewStorage" hidden aria-labelledby="storageTitle">
-      <h2 id="storageTitle">On this phone.</h2>
-      <p class="view-intro">What is downloaded, and what it takes up.</p>
-      <p class="hint">Download these once, over Wi-Fi, and they keep working with no signal.</p>
+      <h2 id="storageTitle">Storage</h2>
+      <p class="view-intro">Models, language packs and app settings.</p>
+      <p class="hint">Download once over Wi-Fi, then use without a signal.</p>
 
       <h3>Speech model</h3>
       <p class="hint">One model covers every language below, so adding a language
@@ -145,18 +145,23 @@
       <div id="packs"></div>
       <p class="hint" id="storageStatus" role="status" aria-live="polite"></p>
 
-      <h3>Appearance</h3>
-      <p class="hint">The same looks as the online app. The top pill switches day and night.</p>
-      <label for="themeChoice">Look</label>
-      <select id="themeChoice"></select>
-      <label for="fontChoice">Typeface</label>
-      <select id="fontChoice"></select>
+      <div class="settings-card">
+        <h3>Appearance</h3>
+        <p class="hint">The top pill switches day and night.</p>
+        <label for="themeChoice">Look</label>
+        <select id="themeChoice"></select>
+        <label for="fontChoice">Typeface</label>
+        <select id="fontChoice"></select>
+        <label class="check motion-setting"><input id="reduceMotion" type="checkbox"> Reduce motion <span>Balanced transitions</span></label>
+        <p id="motionStatus" class="hint" role="status">Lively motion</p>
+      </div>
 
-      <h3>App updates</h3>
-      <p class="hint">Checking needs a connection. Nothing is downloaded or installed
-        until you say so.</p>
-      <button id="checkUpdate" class="secondary" type="button">Check for updates</button>
-      <p class="hint" id="updateStatus" role="status" aria-live="polite"></p>
+      <div class="settings-card">
+        <h3>App updates</h3>
+        <p class="hint">Checking needs a connection.</p>
+        <button id="checkUpdate" class="secondary" type="button">Check for updates</button>
+        <p class="hint" id="updateStatus" role="status" aria-live="polite"></p>
+      </div>
     </section>
 
     <nav class="bottom-nav" aria-label="Main features">

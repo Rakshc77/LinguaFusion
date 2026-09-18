@@ -18,6 +18,7 @@ export const LF_FONTS = [
 const THEME_KEY = 'lf-theme';
 const FONT_KEY = 'lf-font';
 const MODE_KEY = 'lf-mode';
+const MOTION_KEY = 'lf-motion';
 const LEGACY_DARK = ['glass-dark', 'neon-arcade', 'aurora-glass', 'gallery', 'zen', 'blueprint'];
 function stored(key) {
   try { return localStorage.getItem(key) || ''; } catch { return ''; }
@@ -41,6 +42,17 @@ export function getMode() {
 export function getFont() {
   const saved = stored(FONT_KEY);
   return LF_FONTS.some(font => font.id === saved) ? saved : 'theme';
+}
+export function getMotion() {
+  const saved = stored(MOTION_KEY);
+  if (['lively', 'balanced'].includes(saved)) return saved;
+  // Migrate the desktop/web prototype names without making old preferences
+  // fail open. Full becomes the new expressive default; every reduced form
+  // becomes Balanced. The OS accessibility preference is handled in CSS and
+  // always takes precedence over this product preference.
+  if (saved === 'full') return 'lively';
+  if (['reduced', 'off'].includes(saved)) return 'balanced';
+  return 'lively';
 }
 export function applyMode(mode) {
   const selected = mode === 'dark' ? 'dark' : 'light';
@@ -67,8 +79,19 @@ export function applyFont(id) {
   persist(FONT_KEY, selected);
   return selected;
 }
+export function applyMotion(id) {
+  const selected = id === 'balanced' ? 'balanced' : 'lively';
+  document.documentElement.dataset.motion = selected;
+  persist(MOTION_KEY, selected);
+  return selected;
+}
 export function initAppearance() {
   const mode = getMode();
   const theme = applyTheme(getTheme());
-  return { theme, mode: applyMode(mode), font: applyFont(getFont()) };
+  return {
+    theme,
+    mode: applyMode(mode),
+    font: applyFont(getFont()),
+    motion: applyMotion(getMotion()),
+  };
 }

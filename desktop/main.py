@@ -1712,7 +1712,7 @@ class LinguaFusionWindow(QMainWindow):
                 self.motion_combo.setCurrentIndex(index)
                 self.motion_combo.blockSignals(False)
         if hasattr(self, "motion_status_label"):
-            label = {"full": "Full motion", "reduced": "Reduced motion", "off": "Motion off"}[motion_id]
+            label = {"full": "Lively", "reduced": "Balanced", "off": "Off"}[motion_id]
             self.motion_status_label.setText(f"Active Motion: {label}")
 
     def motion_duration(self, milliseconds: int) -> int:
@@ -6282,8 +6282,8 @@ class LinguaFusionWindow(QMainWindow):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(10)
         layout.addLayout(self.page_title(
-            "Models on this desktop.",
-            "See what is ready for every language and install only what is missing.",
+            "Models",
+            "Manage local language support.",
         ))
 
         languages_card = Card("Card")
@@ -6296,7 +6296,7 @@ class LinguaFusionWindow(QMainWindow):
         languages_layout.addWidget(languages_title)
         languages_note = QLabel(
             "One catalogue powers local Speak, Translate, Read and Read Aloud. "
-            "Installed packs stay on this PC and work without the cloud."
+            "Installed packs stay on this PC and work offline."
         )
         languages_note.setObjectName("Muted")
         languages_note.setWordWrap(True)
@@ -6347,7 +6347,7 @@ class LinguaFusionWindow(QMainWindow):
         ai_title.setObjectName("CardTitle")
         ai_layout.addWidget(ai_title)
         ai_desc = QLabel(
-            "Ollama can clean up speech and OCR locally. No account, cloud key or upload is required."
+            "Ollama can clean up speech and OCR locally. No account, provider key or upload is required."
         )
         ai_desc.setObjectName("Muted")
         ai_desc.setWordWrap(True)
@@ -6374,7 +6374,7 @@ class LinguaFusionWindow(QMainWindow):
         layout.setSpacing(10)
         layout.addLayout(self.page_title(
             "Say it",
-            "Get the same approximate pronunciation guide used by the phone app.",
+            "Create a pronunciation guide.",
         ))
 
         notice = Card("Card")
@@ -6382,8 +6382,7 @@ class LinguaFusionWindow(QMainWindow):
         notice_layout = QHBoxLayout(notice)
         notice_layout.setContentsMargins(16, 12, 16, 12)
         notice_text = QLabel(
-            "Online feature · sign-in and owner approval are required. Text is sent only after "
-            "you confirm paid use in the embedded phone interface."
+            "Online feature · sign-in and owner approval are required."
         )
         notice_text.setObjectName("Muted")
         notice_text.setWordWrap(True)
@@ -6437,8 +6436,7 @@ class LinguaFusionWindow(QMainWindow):
         notice_layout = QHBoxLayout(notice)
         notice_layout.setContentsMargins(16, 12, 16, 12)
         notice_text = QLabel(
-            "Your Online account uses the same secure Firebase sign-in as the phone app. "
-            "Owner tools appear automatically for the configured owner account."
+            "Sign in with the same account as the phone app. Owner tools appear automatically."
         )
         notice_text.setObjectName("Muted")
         notice_text.setWordWrap(True)
@@ -6653,9 +6651,9 @@ class LinguaFusionWindow(QMainWindow):
         self.motion_combo = WheelSafeComboBox()
         self.motion_combo.setMinimumHeight(38)
         self.motion_combo.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Fixed)
-        self.motion_combo.addItem("Full motion", "full")
-        self.motion_combo.addItem("Reduced motion", "reduced")
-        self.motion_combo.addItem("Motion off", "off")
+        self.motion_combo.addItem("Lively", "full")
+        self.motion_combo.addItem("Balanced", "reduced")
+        self.motion_combo.addItem("Off", "off")
         motion_index = self.motion_combo.findData(getattr(self, "current_motion", "full"))
         if motion_index >= 0:
             self.motion_combo.setCurrentIndex(motion_index)
@@ -6665,9 +6663,9 @@ class LinguaFusionWindow(QMainWindow):
         motion_row.addWidget(self.motion_combo, 1)
         appearance_layout.addLayout(motion_row)
 
-        motion_names = {"full": "Full motion", "reduced": "Reduced motion", "off": "Motion off"}
+        motion_names = {"full": "Lively", "reduced": "Balanced", "off": "Off"}
         self.motion_status_label = QLabel(
-            f"Active Motion: {motion_names.get(getattr(self, 'current_motion', 'full'), 'Full motion')}"
+            f"Active Motion: {motion_names.get(getattr(self, 'current_motion', 'full'), 'Lively')}"
         )
         self.motion_status_label.setObjectName("Muted")
         appearance_layout.addWidget(self.motion_status_label)

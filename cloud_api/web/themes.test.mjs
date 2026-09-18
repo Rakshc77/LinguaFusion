@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {initAppearance,applyTheme,applyMode,applyFont} from './themes.mjs';
+import {initAppearance,applyTheme,applyMode,applyFont,applyMotion,getMotion} from './themes.mjs';
 function setup(saved={},blocked=false) {
   const values=new Map(Object.entries(saved));
   globalThis.localStorage={getItem(key){if(blocked)throw Error('blocked');return values.get(key);},setItem(key,value){if(blocked)throw Error('blocked');values.set(key,value);}};
@@ -10,7 +10,7 @@ function setup(saved={},blocked=false) {
 }
 test('legacy dark selection migrates while retaining mode and independent font',()=>{
   const {values}=setup({'lf-theme':'glass-dark','lf-font':'technical'});
-  assert.deepEqual(initAppearance(),{theme:'studio',mode:'dark',font:'technical'});
+  assert.deepEqual(initAppearance(),{theme:'studio',mode:'dark',font:'technical',motion:'lively'});
   applyTheme('minimal');
   assert.equal(document.documentElement.dataset.mode,'dark');
   assert.equal(document.documentElement.dataset.font,'technical');
@@ -27,4 +27,14 @@ test('storage blocked still permits switching looks while retaining night mode',
   setup({},true);initAppearance();applyMode('dark');applyTheme('minimal');
   assert.equal(document.documentElement.dataset.mode,'dark');
   assert.equal(document.documentElement.dataset.theme,'minimal');
+});
+test('lively is the default and reduced preferences migrate to balanced',()=>{
+  const {values}=setup();
+  assert.equal(getMotion(),'lively');
+  assert.equal(initAppearance().motion,'lively');
+  assert.equal(document.documentElement.dataset.motion,'lively');
+  applyMotion('balanced');
+  assert.equal(values.get('lf-motion'),'balanced');
+  setup({'lf-motion':'reduced'});
+  assert.equal(getMotion(),'balanced');
 });

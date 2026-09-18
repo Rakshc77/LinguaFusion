@@ -280,7 +280,7 @@ def test_pilot_page_and_controller_agree_on_every_element_id():
     page_ids = set(re.findall(r'id="([^"]+)"', (web / 'index.html').read_text(encoding='utf-8')))
     used_ids = set(re.findall(r"\$\('([^']+)'\)", (web / 'pilot.mjs').read_text(encoding='utf-8')))
     assert not used_ids - page_ids, f'pilot.mjs references missing element ids: {sorted(used_ids - page_ids)}'
-    for required in ['pronunciationPane', 'pronounceText', 'pronounceLanguage', 'pronounceConsent',
+    for required in ['pronunciationPane', 'pronounceText', 'pronounceLanguage',
                      'pronounceNative', 'pronounceRoman', 'pronounceNotice', 'copyNative', 'copyRoman']:
         assert required in page_ids, f'the pronunciation pane lost #{required}'
 
@@ -331,26 +331,19 @@ def test_container_never_ships_ledgers_or_credentials():
         assert forbidden not in dockerfile, f'the image must never contain {forbidden}'
 
 
-def test_a_consent_checkbox_is_never_disabled_by_its_own_fieldset():
-    # The consent box sits inside #pronounceFields. Gating that fieldset on the
-    # checkbox disables the control the user needs to proceed -- an unescapable
-    # deadlock that looks like a dead pane. Gate the submit button instead.
+def test_paid_use_is_not_reconfirmed_for_each_action():
+    # This is a private, non-commercial app. A deliberate signed-in action is
+    # the UI consent; the legacy field stays in requests for server compatibility
+    # while owner policy and budgets remain authoritative.
     import pathlib
-    import re
     web = pathlib.Path(__file__).parent / 'web'
     page = (web / 'index.html').read_text(encoding='utf-8')
     script = (web / 'pilot.mjs').read_text(encoding='utf-8')
-
-    fieldset = re.search(r'<fieldset id="pronounceFields".*?</fieldset>', page, re.S)
-    assert fieldset, 'the pronunciation fieldset moved; re-check this guard'
-    assert 'pronounceConsent' in fieldset.group(0), 'guard assumes the checkbox is inside the fieldset'
-
-    for line in script.splitlines():
-        if "$('pronounceFields').disabled" in line and '=' in line:
-            assert 'pronounceConsent' not in line, (
-                'the fieldset containing the consent checkbox must not be gated on that checkbox')
-    assert re.search(r"\$\('pronounce'\)\.disabled\s*=.*pronounceConsent", script), \
-        'the submit button should be what consent gates'
+    for element_id in ['paidConsent', 'pronounceConsent', 'speechConsent', 'ocrConsent']:
+        assert f'id="{element_id}"' not in page
+        assert f"$('{element_id}')" not in script
+    assert 'confirm paid' not in (page + script).lower()
+    assert script.count("body.set('paid_consent', 'true')") >= 4
 
 
 def test_the_raw_uid_form_is_hidden_behind_a_toggle():
@@ -721,10 +714,13 @@ def test_the_iphone_microphone_quirk_has_recovery_routes():
     module = (web / 'pilot.mjs').read_text(encoding='utf-8')
     html = (web / 'index.html').read_text(encoding='utf-8')
     assert 'isIosStandalone' in module
+    detector = module[module.index('function isIosDevice'):]
+    detector = detector[:detector.index('\n}')]
     guard = module[module.index('function isIosStandalone'):]
     guard = guard[:guard.index('\n}')]
     assert 'navigator.standalone' in guard, 'must detect the Home Screen case specifically'
-    assert 'iPad|iPhone|iPod' in guard
+    assert 'isIosDevice()' in guard
+    assert 'iPad|iPhone|iPod' in detector
     problem = module[module.index('function microphoneProblem'):]
     problem = problem[:problem.index('\n}')]
     assert 'isIosStandalone()' in problem, 'the advice must reach the person who sees the failure'
