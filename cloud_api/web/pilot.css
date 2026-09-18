@@ -301,7 +301,8 @@ button.is-processing::after {
 .result-actions { margin-top:12px; }
 
 @media (prefers-reduced-motion:reduce) {
-  :root { --motion-fast:1ms; --motion-base:1ms; --motion-slow:1ms; --motion-distance:0px; }
+  /* html[data-motion] outranks "balanced" so the OS preference always wins. */
+  :root,html[data-motion] { --motion-fast:1ms; --motion-base:1ms; --motion-slow:1ms; --motion-distance:0px; }
   .view.view-enter,.result-reveal { animation-duration:1ms; }
   button.is-processing::after,#recordToggle.is-recording,#record.is-recording { animation:none; }
   *,*::before,*::after { scroll-behavior:auto!important; }
