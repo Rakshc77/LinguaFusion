@@ -15,9 +15,9 @@ Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 
 ## Current release and next source
 
-- Published baseline: Online `2026.09.16.1`; Android `1.19` / versionCode `20`.
-- Current source: Online `2026.09.16.2`; Android `1.20` / versionCode `21`;
-  Windows desktop `1.0-rc2.15-unified-languages`.
+- Published baseline: Online `2026.09.16.2`; Android `1.20` / versionCode `21`.
+- Current source: Online `2026.09.16.3`; Android `1.20` / versionCode `21`;
+  Windows desktop `1.0-rc2.16-phone-shell-owner`.
 - Android provides phone-only Offline translation and transcription for English,
   German, Arabic, Spanish and French.
 - Android selected-text translation works from WhatsApp and other apps through
@@ -25,12 +25,22 @@ Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 - Owner controls provide single-use join links and QR codes, request badges and
   native Android request notifications.
 
+The Windows app now mirrors the phone's six-section structure: **Speak,
+Translate, Read, Say it, Model and Settings**. Notes, Tasks and the old PC
+Remote Access console are no longer primary navigation. Settings embeds the
+same Firebase account and owner console as the phone, so password recovery,
+access requests, one-time invites/QR codes, user limits, spend and diagnostics
+keep one cloud-backed security implementation. Desktop preferences remain a
+separate Settings section; local pack readiness lives under Model. **Say it**
+uses the same signed-in Online pronunciation guide as the phone rather than
+mislabeling the old desktop document Reader.
+
 The existing private Android signing key must be preserved. Never generate a
 replacement key: a differently signed APK cannot update existing installations.
 
-The five-minute Online recording/saved-audio limit is retained. The new source
-is not live until the cloud interface is deployed and Android is rebuilt and
-published with the existing owner key.
+The five-minute Online recording/saved-audio limit is retained. Online
+`2026.09.16.3` and the desktop account embed are source-only until the cloud
+interface is deployed and the Windows app is rebuilt.
 
 ## Language support
 
