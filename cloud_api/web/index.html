@@ -41,8 +41,8 @@
         <p><a id="androidDownload" class="download" href="/pilot/linguafusion-android.apk" download>Download for Android</a></p>
         <details class="compact-details"><summary>Installation safety details</summary>
           <p>Your phone warns about apps outside the Play Store. Verify this fingerprint before installing:</p>
+          <p><code id="androidFingerprint" class="fingerprint">…</code></p>
         </details>
-        <p><code id="androidFingerprint" class="fingerprint">…</code></p>
       </section>
 
       <p id="setupStatus" role="status" aria-live="polite">Loading secure sign-in…</p>
@@ -148,10 +148,15 @@
             <button id="transcriptToTranslate" class="secondary" type="button">Translate this</button>
             <button id="readTranscript" class="secondary" type="button" aria-pressed="false">Read aloud</button>
             <select id="transcriptReadLanguage" aria-label="Transcript reading language"></select>
+          </div>
+          <details class="compact-details result-options">
+            <summary>More options</summary>
+            <div class="actions">
             <select id="transcriptReadRate" class="read-rate" aria-label="Transcript reading speed"></select>
             <select id="transcriptFormat" aria-label="Transcript download format"></select>
             <button id="downloadTranscript" class="secondary" type="button">Download</button>
-          </div>
+            </div>
+          </details>
           <p id="transcriptReadStatus" class="hint read-aloud-status" role="status" aria-live="polite"></p>
         </div>
         <p class="hint unavailable" id="speechUnavailable" hidden>Speech is not switched on for this account.</p>
@@ -181,10 +186,15 @@
             <button id="copyTranslation" class="secondary" type="button">Copy</button>
             <button id="translationToSay" class="secondary" type="button">Say it</button>
             <button id="readTranslation" class="secondary" type="button" aria-pressed="false">Read aloud</button>
+          </div>
+          <details class="compact-details result-options">
+            <summary>More options</summary>
+            <div class="actions">
             <select id="translationReadRate" class="read-rate" aria-label="Translation reading speed"></select>
             <select id="translationFormat" aria-label="Translation download format"></select>
             <button id="downloadTranslation" class="secondary" type="button">Download</button>
-          </div>
+            </div>
+          </details>
           <p id="translationReadStatus" class="hint read-aloud-status" role="status" aria-live="polite"></p>
         </div>
         <p class="hint unavailable" id="translateUnavailable" hidden>Translation is not switched on for this account.</p>
@@ -208,10 +218,15 @@
             <button id="ocrToSay" class="secondary" type="button">Say it</button>
             <button id="readOcr" class="secondary" type="button" aria-pressed="false">Read aloud</button>
             <select id="ocrReadLanguage" aria-label="Picture text reading language"></select>
+          </div>
+          <details class="compact-details result-options">
+            <summary>More options</summary>
+            <div class="actions">
             <select id="ocrReadRate" class="read-rate" aria-label="Picture text reading speed"></select>
             <select id="ocrFormat" aria-label="Text download format"></select>
             <button id="downloadOcr" class="secondary" type="button">Download</button>
-          </div>
+            </div>
+          </details>
           <p id="ocrReadStatus" class="hint read-aloud-status" role="status" aria-live="polite"></p>
         </div>
         <p class="hint unavailable" id="ocrUnavailable" hidden>Picture reading is not switched on for this account.</p>
@@ -240,9 +255,14 @@
             <div id="pronounceRoman" role="region" aria-labelledby="romanHeading" dir="ltr" lang="en"></div>
             <div class="actions result-actions">
             <button id="copyRoman" class="secondary" type="button">Copy pronunciation</button>
+            </div>
+            <details class="compact-details result-options">
+              <summary>Download guide</summary>
+              <div class="actions">
             <select id="pronounceFormat" aria-label="Pronunciation download format"></select>
             <button id="downloadPronounce" class="secondary" type="button">Download</button>
-          </div>
+              </div>
+            </details>
           </div>
           <p id="pronounceStatus" role="status" aria-live="polite"></p>
         </div>
