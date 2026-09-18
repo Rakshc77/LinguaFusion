@@ -45,6 +45,11 @@ missing, opens Android's trusted voice-data installer/settings after the user
 taps Read Aloud. The native recorder still stops automatically at the limit and
 keeps the existing explicit native Start/Stop-and-send confirmation flow.
 
+Android 1.21 fixes engines that advertise an unavailable high-quality/network
+voice. Read Aloud now prefers an installed local voice, retries Online playback
+once through the phone's preferred system voice, and opens voice settings only
+if both attempts fail. Offline playback remains strictly local.
+
 The app validates language, speed, request id and a 12,000-character limit in
 both JavaScript and Java. Longer results are split below Android's native TTS
 input ceiling. LinguaFusion makes no AI-provider request for playback and does

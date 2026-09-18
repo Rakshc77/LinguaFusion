@@ -1,5 +1,17 @@
 # LinguaFusion — current Codex handover
 
+## Android Read Aloud voice fallback — September 16, 2026
+
+Android 1.21/versionCode 22 fixes a physical-device failure where Android
+advertised a high-quality German network voice, accepted it, then failed after
+playback began. Native Read Aloud now prefers an installed local voice in both
+modes, retries Online once using the phone's preferred system voice, and opens
+Android voice settings with an actionable message only if both attempts fail.
+Offline remains strictly local. Source is not published until the owner-PC APK
+is rebuilt with the existing signing key and the updated APK asset is deployed.
+
+---
+
 ## Desktop phone shell and owner account — September 16, 2026
 
 Branch `codex/desktop-phone-owner` starts from published `main` commit
