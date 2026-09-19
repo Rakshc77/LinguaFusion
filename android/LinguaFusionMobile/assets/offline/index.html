@@ -63,8 +63,10 @@
         <button id="copyTranslation" class="secondary" type="button">Copy translation</button>
         <button id="readTranscript" class="secondary" type="button" aria-pressed="false">Read transcript aloud</button>
         <button id="readSpeechTranslation" class="secondary" type="button" aria-pressed="false">Read translation aloud</button>
-        <select id="speechReadRate" class="read-rate" aria-label="Speech result reading speed"></select>
       </div>
+      <details class="compact-details result-options"><summary>Reading speed</summary>
+        <div class="actions"><select id="speechReadRate" class="read-rate" aria-label="Speech result reading speed"></select></div>
+      </details>
       <p id="speakReadStatus" class="hint read-aloud-status" role="status" aria-live="polite"></p>
     </section>
 
@@ -89,8 +91,10 @@
       <div class="actions result-actions">
         <button id="copyText" class="secondary" type="button">Copy</button>
         <button id="readTextResult" class="secondary" type="button" aria-pressed="false">Read aloud</button>
-        <select id="textReadRate" class="read-rate" aria-label="Translation reading speed"></select>
       </div>
+      <details class="compact-details result-options"><summary>Reading speed</summary>
+        <div class="actions"><select id="textReadRate" class="read-rate" aria-label="Translation reading speed"></select></div>
+      </details>
       <p id="translateReadStatus" class="hint read-aloud-status" role="status" aria-live="polite"></p>
     </section>
 
@@ -107,8 +111,10 @@
         <button id="sendReadToTranslate" class="secondary" type="button">Translate this</button>
         <button id="readPictureResult" class="secondary" type="button" aria-pressed="false">Read aloud</button>
         <select id="pictureReadLanguage" aria-label="Picture text reading language"></select>
-        <select id="pictureReadRate" class="read-rate" aria-label="Picture text reading speed"></select>
       </div>
+      <details class="compact-details result-options"><summary>Reading speed</summary>
+        <div class="actions"><select id="pictureReadRate" class="read-rate" aria-label="Picture text reading speed"></select></div>
+      </details>
       <p id="pictureReadStatus" class="hint read-aloud-status" role="status" aria-live="polite"></p>
     </section>
 
@@ -124,9 +130,11 @@
       <button id="romanize" type="button">Generate guide</button>
       <p class="hint" id="sayStatus" role="status" aria-live="polite"></p>
       <div class="out" id="sayResult" dir="ltr"></div>
+      <details class="compact-details"><summary>About this guide</summary>
       <p class="hint">Offline this maps letter to letter, so it shows which letters
         are there rather than how a speaker would say them. Short vowels missing
         from written Arabic stay missing. The online guide reads better.</p>
+      </details>
       <div class="actions result-actions"><button id="copySay" class="secondary" type="button">Copy</button></div>
     </section>
 

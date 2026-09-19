@@ -46,6 +46,10 @@ export function getFont() {
 export function getMotion() {
   const saved = stored(MOTION_KEY);
   if (['lively', 'balanced'].includes(saved)) return saved;
+  // Storage can be blocked in private browsing. Keep the current session's
+  // selection so the checkbox and the rendered motion profile still agree.
+  const current = document.documentElement.dataset.motion;
+  if (!saved && ['lively', 'balanced'].includes(current)) return current;
   // Migrate the desktop/web prototype names without making old preferences
   // fail open. Full becomes the new expressive default; every reduced form
   // becomes Balanced. The OS accessibility preference is handled in CSS and

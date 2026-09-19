@@ -237,6 +237,19 @@ html[data-motion="balanced"] {
   --motion-fast:100ms; --motion-base:160ms; --motion-slow:220ms;
   --motion-distance:5px;
 }
+/* Balanced keeps short transitions but avoids repeated decorative movement. */
+html[data-motion="balanced"] button.is-processing::after,
+html[data-motion="balanced"] #recordToggle.is-recording,
+html[data-motion="balanced"] #record.is-recording { animation:none; }
+html[data-motion="balanced"] button:not(:disabled):hover,
+html[data-motion="balanced"] button:not(:disabled):active { transform:none; }
+#onboarding > header,#onboarding > h1,#onboarding > .intro,
+#onboarding > form:not([hidden]) {
+  animation:lf-view-in var(--motion-slow) var(--motion-ease) backwards;
+}
+html[data-motion="lively"] #onboarding > h1 { animation-delay:40ms; }
+html[data-motion="lively"] #onboarding > .intro { animation-delay:80ms; }
+html[data-motion="lively"] #onboarding > form { animation-delay:120ms; }
 .view.view-enter { animation:lf-view-in var(--motion-base) var(--motion-ease) both; }
 .result-reveal { animation:lf-result-in var(--motion-slow) var(--motion-ease) both; }
 @keyframes lf-view-in {
@@ -299,6 +312,11 @@ button.is-processing::after {
 .motion-setting { justify-content:space-between; flex-wrap:wrap; }
 .motion-setting span { margin-left:auto; color:var(--muted); font-size:12px; font-weight:400; }
 .result-actions { margin-top:12px; }
+.result-actions button { flex:1 1 auto; padding:9px 12px; }
+.result-actions select { flex:1 1 100%; }
+.result-options summary { min-height:44px; display:list-item; align-content:center; }
+.result-options { padding:0; border-top:0; }
+.compact-details summary:focus-visible { outline:3px solid var(--accent); outline-offset:3px; }
 
 @media (prefers-reduced-motion:reduce) {
   /* html[data-motion] outranks "balanced" so the OS preference always wins. */
@@ -306,4 +324,8 @@ button.is-processing::after {
   .view.view-enter,.result-reveal { animation-duration:1ms; }
   button.is-processing::after,#recordToggle.is-recording,#record.is-recording { animation:none; }
   *,*::before,*::after { scroll-behavior:auto!important; }
+  #onboarding > header,#onboarding > h1,#onboarding > .intro,
+  #onboarding > form:not([hidden]) { animation:none; }
+  button:not(:disabled):hover,button:not(:disabled):active,
+  .button-link:hover,.button-link:active,a.download:hover,a.download:active { transform:none; }
 }

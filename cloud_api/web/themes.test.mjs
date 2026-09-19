@@ -38,3 +38,13 @@ test('lively is the default and reduced preferences migrate to balanced',()=>{
   setup({'lf-motion':'reduced'});
   assert.equal(getMotion(),'balanced');
 });
+test('motion selection survives within a session when storage is blocked',()=>{
+  setup({},true);
+  initAppearance();
+  applyMotion('balanced');
+  assert.equal(getMotion(),'balanced');
+  applyTheme('minimal');
+  assert.equal(getMotion(),'balanced');
+  applyMotion('lively');
+  assert.equal(getMotion(),'lively');
+});
