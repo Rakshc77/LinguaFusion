@@ -327,6 +327,7 @@ function stopCapture() {
   void capture.context.close().catch(() => {});
   capture = null;
   $('recordToggle').textContent = 'Start recording';
+  $('recordCaption').textContent = 'Tap to start · up to 5 minutes';
 }
 
 function clearPrivateText() {
@@ -1287,6 +1288,7 @@ $('recordToggle').addEventListener('click', async () => {
     const id = crypto.randomUUID();
     nativeRecording = { id, epoch };
     $('recordToggle').classList.add('is-recording');
+    $('recordCaption').textContent = 'Recording · tap the phone control to finish';
     $('speechStatus').textContent = 'Use the phone recording dialog. Cancel discards the audio.';
     window.location.href = `linguafusion-record://capture?id=${id}`;
     return;
@@ -1374,6 +1376,7 @@ $('recordToggle').addEventListener('click', async () => {
     $('recordingFeedback').hidden = false;
     $('recordToggle').textContent = 'Stop and transcribe';
     $('recordToggle').classList.add('is-recording');
+    $('recordCaption').textContent = 'Listening · tap to finish';
     $('speechStatus').textContent = 'Recording…';
   } catch (error) {
     // The microphone opened but the audio graph did not. Release it rather than
@@ -1389,6 +1392,7 @@ window.addEventListener('lf-native-recording', async event => {
   if (!pending || pending.id !== event.detail?.id || pending.epoch !== epoch) return;
   nativeRecording = null;
   $('recordToggle').classList.remove('is-recording');
+  $('recordCaption').textContent = 'Tap to start · up to 5 minutes';
   const { kind, data } = event.detail;
   if (kind === 'cancel') { $('speechStatus').textContent = 'Recording cancelled.'; return; }
   if (kind !== 'audio') { $('speechStatus').textContent = String(data || 'Recording failed.'); return; }
@@ -1428,6 +1432,7 @@ async function transcribeRecording(audio) {
   const current = epoch;
   transcribing = true;
   setProcessing($('recordToggle'), true);
+  $('recordCaption').textContent = 'Turning speech into text…';
 
   $('speechStatus').textContent = 'Transcribing…';
   $('transcript').textContent = '';
@@ -1443,7 +1448,11 @@ async function transcribeRecording(audio) {
     $('speechStatus').textContent = result.text ? 'Done.' : 'No speech was detected in that recording.';
     if (result.spending) showSpending(result.spending);
   } catch (error) { if (current === epoch) $('speechStatus').textContent = error.message; }
-  finally { transcribing = false; setProcessing($('recordToggle'), false); }
+  finally {
+    transcribing = false;
+    setProcessing($('recordToggle'), false);
+    $('recordCaption').textContent = 'Tap to start · up to 5 minutes';
+  }
 }
 
 // --- picture reading ---------------------------------------------------------

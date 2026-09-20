@@ -167,6 +167,7 @@ async function toggleRecording() {
     recording = true;
     $('record').textContent = 'Stop and transcribe';
     $('record').classList.add('is-recording');
+    document.querySelector('.record-caption').textContent = 'Listening · tap to finish';
     say('speakStatus', 'Recording… speak now.');
     return;
   }
@@ -178,6 +179,7 @@ async function toggleRecording() {
   readAloud.stop();
   $('record').disabled = true;
   $('record').textContent = 'Working…';
+  document.querySelector('.record-caption').textContent = 'Turning speech into text…';
   say('speakStatus', 'Transcribing on this phone. This can take a while.');
   $('transcript').textContent = '';
   $('translationWrap').hidden = true;
@@ -188,6 +190,7 @@ async function toggleRecording() {
   busy = false;
   $('record').disabled = false;
   $('record').textContent = 'Start recording';
+  document.querySelector('.record-caption').textContent = 'Tap to start recording';
   setProcessing($('record'), false);
 
   if (result.error) { say('speakStatus', result.error); return; }

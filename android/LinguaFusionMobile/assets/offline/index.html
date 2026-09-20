@@ -26,7 +26,7 @@
 <main>
   <div id="workspace">
     <header class="app-head">
-      <span class="brand">Lingua<span class="brand-accent">Fusion</span></span>
+      <span class="brand"><span class="brand-mark" aria-hidden="true">L</span><span>Lingua<span class="brand-accent">Fusion</span></span></span>
       <span class="head-pills">
         <button id="modeToggle" type="button" class="mode-toggle secondary" aria-label="Switch to night mode">Day</button>
         <button id="leave" type="button" class="mode-toggle secondary" aria-label="Return to online mode">Online</button>
@@ -35,8 +35,9 @@
     <p id="status" role="status" aria-live="polite">On-device. No account or connection.</p>
 
     <section class="view" id="viewSpeak" aria-labelledby="speakTitle">
+      <p class="page-kicker">Private and on-device</p>
       <h2 id="speakTitle">Speak</h2>
-      <p class="view-intro">Transcribe and translate on this phone.</p>
+      <p class="view-intro">Capture and translate without sending audio away.</p>
       <div class="languages">
         <div>
           <label for="fromLang">Spoken language</label>
@@ -48,7 +49,10 @@
         </div>
       </div>
       <label class="check"><input id="alsoTranslate" type="checkbox" checked> Translate what I say</label>
-      <button id="record" type="button">Start recording</button>
+      <div class="record-stage">
+        <button id="record" type="button">Start recording</button>
+        <p class="record-caption">Tap to start recording</p>
+      </div>
       <p class="hint" id="speakStatus" role="status" aria-live="polite"></p>
       <p id="pivotWarn" class="warn" hidden>Neither language is English, so this is
         translated through English on the way. Expect it to be rougher.</p>
@@ -71,6 +75,7 @@
     </section>
 
     <section class="view" id="viewTranslate" hidden aria-labelledby="translateTitle">
+      <p class="page-kicker">Across languages</p>
       <h2 id="translateTitle">Translate</h2>
       <p class="view-intro">Type, paste or use extracted text.</p>
       <div class="languages">
@@ -99,6 +104,7 @@
     </section>
 
     <section class="view" id="viewRead" hidden aria-labelledby="readTitle">
+      <p class="page-kicker">From image to text</p>
       <h2 id="readTitle">Read</h2>
       <p class="view-intro">Choose a picture.</p>
       <p class="warn" id="readLimits">Offline this reads Latin letters only. Arabic
@@ -119,6 +125,7 @@
     </section>
 
     <section class="view" id="viewSay" hidden aria-labelledby="sayTitle">
+      <p class="page-kicker">Pronunciation</p>
       <h2 id="sayTitle">Say it</h2>
       <p class="view-intro">Write Arabic, Hindi or Odia in Latin letters.</p>
       <p class="warn" id="sayLimits" hidden>This phone is too old to do that
@@ -139,6 +146,7 @@
     </section>
 
     <section class="view" id="viewStorage" hidden aria-labelledby="storageTitle">
+      <p class="page-kicker">Make it yours</p>
       <h2 id="storageTitle">Storage</h2>
       <p class="view-intro">Models, language packs and app settings.</p>
       <p class="hint">Download once over Wi-Fi, then use without a signal.</p>
