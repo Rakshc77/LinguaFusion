@@ -109,7 +109,7 @@
     <!-- The app proper: one view at a time, chosen from the bar at the bottom. -->
     <div id="workspace" hidden>
       <header class="app-head">
-        <span class="brand">Lingua<span class="brand-accent">Fusion</span></span>
+        <span class="brand"><span class="brand-mark" aria-hidden="true">L</span><span>Lingua<span class="brand-accent">Fusion</span></span></span>
         <span class="head-pills">
           <button id="modeToggle" type="button" class="mode-toggle secondary" aria-label="Switch to night mode">Day</button>
           <!-- Only the full offline app sets LFNativeOfflineMode, so browsers
@@ -122,10 +122,14 @@
       <p id="status" role="status" aria-live="polite"></p>
 
       <section class="view" id="viewSpeech" aria-labelledby="speechTitle">
+        <p class="page-kicker">Ready when you are</p>
         <h2 id="speechTitle">Speak</h2>
-        <p class="view-intro">Record up to 5 minutes.</p>
+        <p class="view-intro">Capture a thought, conversation or voice note.</p>
         <div id="speechPane">
-          <button id="recordToggle" type="button">Start recording</button>
+          <div class="record-stage">
+            <button id="recordToggle" type="button">Start recording</button>
+            <p id="recordCaption" class="record-caption">Tap to start · up to 5 minutes</p>
+          </div>
           <div id="recordingFeedback" hidden>
             <label for="microphoneLevel">Microphone level</label>
             <meter id="microphoneLevel" min="0" max="1" value="0">0</meter>
@@ -163,8 +167,9 @@
       </section>
 
       <section class="view" id="viewTranslate" hidden aria-labelledby="translateTitle">
+        <p class="page-kicker">Across languages</p>
         <h2 id="translateTitle">Translate</h2>
-        <p class="view-intro">Type, paste or use a transcript.</p>
+        <p class="view-intro">Write naturally. LinguaFusion handles the rest.</p>
         <div id="translatePane">
           <form id="translateForm">
             <fieldset id="translationFields" disabled>
@@ -201,8 +206,9 @@
       </section>
 
       <section class="view" id="viewRead" hidden aria-labelledby="ocrTitle">
+        <p class="page-kicker">From image to text</p>
         <h2 id="ocrTitle">Read</h2>
-        <p class="view-intro">Choose or take a photo.</p>
+        <p class="view-intro">Photograph a page, sign or document.</p>
         <div id="ocrPane">
           <label for="ocrFile">Choose or take a photo</label>
           <input id="ocrFile" type="file" accept="image/png,image/jpeg" capture="environment">
@@ -233,8 +239,9 @@
       </section>
 
       <section class="view" id="viewSay" hidden aria-labelledby="pronunciationTitle">
+        <p class="page-kicker">Pronunciation</p>
         <h2 id="pronunciationTitle">Say it</h2>
-        <p class="view-intro">Turn unfamiliar scripts into a simple speaking guide.</p>
+        <p class="view-intro">Turn an unfamiliar script into a clear speaking guide.</p>
         <div id="pronunciationPane">
           <form id="pronounceForm">
             <fieldset id="pronounceFields" disabled>
@@ -270,6 +277,7 @@
       </section>
 
       <section class="view" id="viewModels" hidden aria-labelledby="modelsTitle">
+        <p class="page-kicker">Choose your engine</p>
         <h2 id="modelsTitle">Model</h2>
         <p class="view-intro">Choose the balance of speed and nuance.</p>
         <div id="modelList"></div>
@@ -280,6 +288,7 @@
       </section>
 
       <section class="view" id="viewAccount" hidden aria-labelledby="accountTitle">
+        <p class="page-kicker">Make it yours</p>
         <h2 id="accountTitle">Settings</h2>
         <section class="settings-card account-settings-card">
           <p id="accountEmail" class="hint"></p>
