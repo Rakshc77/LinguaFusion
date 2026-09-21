@@ -39,11 +39,12 @@ not exposed through a general-purpose JavaScript interface. The bundled Offline
 page uses its existing private bridge and refuses any voice whose Android
 `Voice.isNetworkConnectionRequired()` value is true.
 
-Android 1.19 raised the paid Online recording limit from 60 seconds to five
-minutes. Android 1.20 keeps that limit and, when a requested language voice is
-missing, opens Android's trusted voice-data installer/settings after the user
-taps Read Aloud. The native recorder still stops automatically at the limit and
-keeps the existing explicit native Start/Stop-and-send confirmation flow.
+Android 1.26 supports recording sessions up to 20 minutes in Online and Offline
+mode, and finishes after one continuous minute without detected speech. Online
+recording is controlled entirely by the animated round microphone; the former
+native Start/Stop-and-send dialog is removed. Completed Online audio is split
+into five-minute WAV parts and streamed to the exact cloud origin through a
+bounded AndroidX WebMessage bridge before transcription.
 
 Android 1.21 fixes engines that advertise an unavailable high-quality/network
 voice. Read Aloud now prefers an installed local voice, retries Online playback

@@ -731,7 +731,7 @@ def test_the_iphone_microphone_quirk_has_recovery_routes():
                     'openRecordingInSafari', 'speechAudioFile']:
         assert f'id="{control}"' in html, f'missing iPhone recovery control: {control}'
     assert 'prepareSavedRecording' in module and 'decodeAudioData' in module
-    assert 'buildWav(channels, decoded.sampleRate)' in module
+    assert 'segmentPcm16([toPcm16(toMono(channels), decoded.sampleRate)], TARGET_SAMPLE_RATE)' in module
 
 
 def test_reading_the_bill_does_not_reserve_budget():

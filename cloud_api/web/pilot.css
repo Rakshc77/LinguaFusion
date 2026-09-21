@@ -287,11 +287,12 @@ button.is-processing::after {
 }
 @keyframes lf-processing { to { transform:translateX(115%); } }
 #recordToggle.is-recording,#record.is-recording {
-  animation:lf-recording 1.65s ease-in-out infinite;
+  animation:lf-recording 1.45s var(--motion-ease) infinite;
   box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 34%,transparent);
 }
 @keyframes lf-recording {
-  55% { box-shadow:0 0 0 10px color-mix(in srgb,var(--accent) 0%,transparent); }
+  0%,100% { transform:scale(1); box-shadow:0 0 0 0 color-mix(in srgb,var(--accent) 34%,transparent); }
+  52% { transform:scale(1.055); box-shadow:0 0 0 15px color-mix(in srgb,var(--accent) 0%,transparent); }
 }
 .ios-account-advisory {
   margin:18px 0 0; padding:10px 14px; color:var(--text); background:var(--notice);

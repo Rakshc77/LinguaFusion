@@ -235,15 +235,27 @@ def test_read_aloud_is_origin_scoped_and_offline_rejects_network_voices():
     assert 'android.intent.action.TTS_SERVICE' in manifest
 
 
-def test_cloud_recording_is_capped_at_five_minutes_in_native_code():
-    recorder = MAIN[MAIN.index('private void showCloudRecorder'):
-                    MAIN.index('private void sendCloudRecording')]
-    assert 'CLOUD_RECORDING_SECONDS = 300' in MAIN
+def test_cloud_recording_is_inline_capped_and_chunked_in_native_code():
+    recorder = MAIN[MAIN.index('private void handleCloudRecorderAction'):
+                    MAIN.index('private void showCloudUnavailable')]
+    assert 'CLOUD_RECORDING_SECONDS = 1200' in MAIN
+    assert 'CLOUD_UPLOAD_SECONDS = 300' in MAIN
     assert 'CLOUD_RECORDING_SECONDS*1000L' in recorder
-    assert 'Up to 5 minutes' in recorder and 'automatically stops at 5 minutes' in recorder
+    assert 'AlertDialog' not in recorder, 'recording must stay on the round microphone, not a screen overlay'
+    assert '"capture".equals(action)' in recorder and '"stop".equals(action)' in recorder
+    assert 'cloudRecordingFiles.put' in recorder and '"ready"' in recorder
     writer = MAIN[MAIN.index('private void writeNativePcm'):
                   MAIN.index('private byte[] stopNativeAudioRecordingToPcm')]
     assert 'NATIVE_SAMPLE_RATE*2*CLOUD_RECORDING_SECONDS' in writer
+    assert 'RECORDING_SILENCE_SECONDS' in writer and 'containsVoice' in writer
+
+
+def test_cloud_audio_bridge_is_origin_scoped_and_packet_bounded():
+    start = MAIN.index('private void installCloudAudioBridge')
+    bridge = MAIN[start:MAIN.index('private ReadAloudEngine readAloud', start)]
+    assert 'WEB_MESSAGE_LISTENER' in bridge and 'Collections.singleton(CLOUD_BASE)' in bridge
+    assert '!isMainFrame' in bridge and '!isCloudOrigin(sourceOrigin)' in bridge
+    assert 'NATIVE_AUDIO_PACKET_BYTES' in bridge and 'RandomAccessFile' in bridge
 
 
 def test_offline_read_aloud_uses_only_the_bundled_page_bridge():
@@ -294,15 +306,15 @@ def test_a_denied_microphone_is_not_reported_as_a_started_recording():
 
 def test_offline_recordings_are_length_capped():
     # Transcription turns each 2-byte sample into a 4-byte float, so an
-    # uncapped recording is an uncapped allocation. The cloud path is capped by
-    # its dialog; the offline path needs its own.
+    # uncapped recording is an uncapped allocation. Cloud and Offline each need
+    # an explicit native cap even though neither uses a dialog.
     import re
     writer = MAIN[MAIN.index('private void writeNativePcm'):]
     writer = writer[:writer.index('\n    }')]
     assert 'Integer.MAX_VALUE' in writer, 'the PC path is unchanged and still unbounded'
     assert 'OFFLINE_RECORDING_SECONDS' in writer, 'offline recordings must be capped'
     seconds = int(re.search(r'OFFLINE_RECORDING_SECONDS = (\d+)', MAIN).group(1))
-    assert 0 < seconds <= 600, seconds
+    assert seconds == 1200, seconds
 
 
 def test_the_offline_page_ships_in_the_apk():

@@ -2,7 +2,8 @@ import { APP_VERSION, checkForUpdate, activateUpdate } from './updates.mjs';
 import { createCloudAuth } from './cloud-auth.mjs';
 import { createCloudClient } from './cloud-client.mjs';
 import { PRONUNCIATION_LANGUAGES, pronunciationView, validateRequest } from './pronunciation.mjs';
-import { buildWav, MAX_SECONDS } from './wav.mjs';
+import { MAX_RECORDING_SECONDS, SILENCE_SECONDS, TARGET_SAMPLE_RATE,
+         VOICE_RMS_THRESHOLD, segmentPcm16, toMono, toPcm16 } from './wav.mjs';
 import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, getFont, getTheme,
          applyMode, applyMotion, getMotion, initAppearance } from './themes.mjs';
 import { createReadAloudController } from './read-aloud.mjs';
@@ -346,7 +347,7 @@ function haptic(pattern) {
 }
 
 function formatClock(seconds) {
-  const safe = Math.max(0, Math.min(MAX_SECONDS, Math.floor(seconds)));
+  const safe = Math.max(0, Math.min(MAX_RECORDING_SECONDS, Math.floor(seconds)));
   return `${String(Math.floor(safe / 60)).padStart(2,'0')}:${String(safe % 60).padStart(2,'0')}`;
 }
 
@@ -434,7 +435,7 @@ function stopCapture() {
   void capture.context.close().catch(() => {});
   capture = null;
   $('recordToggle').textContent = 'Start recording';
-  $('recordCaption').textContent = 'Tap to start · up to 5 minutes';
+  $('recordCaption').textContent = 'Tap to start · up to 20 minutes';
 }
 
 function clearPrivateText() {
@@ -1333,7 +1334,7 @@ async function openMicrophone() {
   throw failure;
 }
 
-const MAX_SAVED_AUDIO_BYTES = 25_000_000;
+const MAX_SAVED_AUDIO_BYTES = 100_000_000;
 
 function showRecordingRecovery(message) {
   $('recordingRecovery').hidden = false;
@@ -1344,7 +1345,7 @@ function showRecordingRecovery(message) {
 /** Decode a browser-supported recording and rebuild it as the strict WAV the API accepts. */
 async function prepareSavedRecording(file) {
   if (!file || file.size <= 0) throw new Error('Choose a recording first.');
-  if (file.size > MAX_SAVED_AUDIO_BYTES) throw new Error('That recording is too large to prepare. Choose a file under 25 MB.');
+  if (file.size > MAX_SAVED_AUDIO_BYTES) throw new Error('That recording is too large to prepare. Choose a file under 100 MB.');
   const AudioContextClass = window.AudioContext || window.webkitAudioContext;
   if (!AudioContextClass) throw new Error('This browser cannot prepare saved audio. Open LinguaFusion in Safari.');
   const context = new AudioContextClass();
@@ -1352,9 +1353,9 @@ async function prepareSavedRecording(file) {
     const encoded = await file.arrayBuffer();
     const decoded = await context.decodeAudioData(encoded.slice(0));
     if (!Number.isFinite(decoded.duration) || decoded.duration <= 0) throw new Error('There is no audio in that file.');
-    if (decoded.duration > MAX_SECONDS + 0.05) throw new Error(`Saved recordings are limited to ${MAX_SECONDS} seconds.`);
+    if (decoded.duration > MAX_RECORDING_SECONDS + 0.05) throw new Error('Saved recordings are limited to 20 minutes.');
     const channels = Array.from({ length: decoded.numberOfChannels }, (_, index) => decoded.getChannelData(index));
-    return buildWav(channels, decoded.sampleRate);
+    return segmentPcm16([toPcm16(toMono(channels), decoded.sampleRate)], TARGET_SAMPLE_RATE);
   } catch (error) {
     if (error?.message?.includes('recording') || error?.message?.includes('audio')) throw error;
     throw new Error('That audio format could not be read on this iPhone. Try a Voice Memo saved as M4A or WAV.');
@@ -1387,23 +1388,36 @@ $('speechAudioFile').addEventListener('change', async () => {
 });
 
 $('cancelRecording').addEventListener('click', () => {
+  if (nativeRecording) {
+    window.location.href = `linguafusion-record://cancel?id=${nativeRecording.id}`;
+    return;
+  }
   if (!capture) return;
   stopCapture();
   $('speechStatus').textContent = 'Recording cancelled. No audio was sent.';
 });
 $('recordToggle').addEventListener('click', async () => {
-  if (captureStarting || transcribing || nativeRecording) return;
+  if (captureStarting || transcribing) return;
+  if (nativeRecording) {
+    if (nativeRecording.stopping) return;
+    nativeRecording.stopping = true;
+    $('recordCaption').textContent = 'Finishing recording…';
+    $('speechStatus').textContent = 'Preparing the recording on this phone…';
+    window.location.href = `linguafusion-record://stop?id=${nativeRecording.id}`;
+    return;
+  }
   if (capture) { await finishRecording(); return; }
   if (!ready.transcribe) return;
   readAloud.stop();
 
   if (window.LFNativeCloudRecording === true) {
     const id = crypto.randomUUID();
-    nativeRecording = { id, epoch };
+    nativeRecording = { id, epoch, stopping:false };
     $('recordToggle').classList.add('is-recording');
-    $('recordCaption').textContent = 'Recording · tap the phone control to finish';
+    $('recordToggle').textContent = 'Stop and transcribe';
+    $('recordCaption').textContent = 'Listening · tap the microphone to finish';
     haptic(30);
-    $('speechStatus').textContent = 'Use the phone recording dialog. Cancel discards the audio.';
+    $('speechStatus').textContent = 'Recording… silence for one minute stops automatically.';
     window.location.href = `linguafusion-record://capture?id=${id}`;
     return;
   }
@@ -1447,20 +1461,28 @@ $('recordToggle').addEventListener('click', async () => {
     const processor = context.createScriptProcessor(4096, 1, 1);
     const chunks = [];
     let frames = 0;
+    let sourceFrames = 0;
+    let lastVoiceSourceFrame = 0;
     processor.onaudioprocess = event => {
       const input = event.inputBuffer.getChannelData(0);
-      const remaining = Math.max(0, Math.floor(MAX_SECONDS * context.sampleRate) - frames);
-      const chunk = Float32Array.from(input.subarray(0, remaining));
+      sourceFrames += input.length;
+      const converted = toPcm16(input, context.sampleRate);
+      const remaining = Math.max(0, MAX_RECORDING_SECONDS * TARGET_SAMPLE_RATE - frames);
+      const chunk = Int16Array.from(converted.subarray(0, remaining));
       chunks.push(chunk);
       frames += chunk.length;
-      const energy = chunk.reduce((sum, sample) => sum + sample * sample, 0);
-      const level = Math.min(1, 4 * Math.sqrt(energy / Math.max(1, chunk.length)));
+      const energy = input.reduce((sum, sample) => sum + sample * sample, 0);
+      const rms = Math.sqrt(energy / Math.max(1, input.length));
+      const level = Math.min(1, 4 * rms);
+      if (rms >= VOICE_RMS_THRESHOLD) lastVoiceSourceFrame = sourceFrames;
       $('microphoneLevel').value = level;
       $('recordToggle').closest('.record-stage')?.style.setProperty('--record-level', `${Math.round(level * 100)}%`);
-      const seconds = frames / context.sampleRate;
-      $('speechStatus').textContent = `Recording… ${seconds.toFixed(0)}s of ${MAX_SECONDS}s`;
-      $('recordCaption').textContent = `Listening · ${formatClock(seconds)} / ${formatClock(MAX_SECONDS)}`;
-      if (seconds >= MAX_SECONDS) void finishRecording();
+      const seconds = sourceFrames / context.sampleRate;
+      const silentSeconds = (sourceFrames - lastVoiceSourceFrame) / context.sampleRate;
+      $('speechStatus').textContent = `Recording… ${formatClock(seconds)} of 20:00`;
+      $('recordCaption').textContent = `Listening · ${formatClock(seconds)} / 20:00`;
+      if (silentSeconds >= SILENCE_SECONDS) void finishRecording('silence');
+      else if (seconds >= MAX_RECORDING_SECONDS) void finishRecording('limit');
     };
     source.connect(processor);
     // Route into a muted gain node: some browsers never fire the callback for a
@@ -1505,43 +1527,100 @@ $('recordToggle').addEventListener('click', async () => {
   } finally { captureStarting = false; }
 });
 
+const nativeAudioBridge = window.LinguaFusionNativeAudio;
+const nativeAudioReplies = new Map();
+if (nativeAudioBridge && typeof nativeAudioBridge.postMessage === 'function') {
+  nativeAudioBridge.onmessage = event => {
+    let reply;
+    try { reply = JSON.parse(String(event?.data || '')); } catch { return; }
+    const key = `${reply.id}:${reply.part}:${reply.offset}`;
+    const pending = nativeAudioReplies.get(key);
+    if (!pending) return;
+    nativeAudioReplies.delete(key);
+    clearTimeout(pending.timer);
+    if (reply.error) pending.reject(new Error(reply.error)); else pending.resolve(reply);
+  };
+}
+
+function requestNativeAudioPacket(id, part, offset) {
+  if (!nativeAudioBridge || typeof nativeAudioBridge.postMessage !== 'function') {
+    return Promise.reject(new Error('The phone audio bridge is unavailable.'));
+  }
+  const key = `${id}:${part}:${offset}`;
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => { nativeAudioReplies.delete(key); reject(new Error('The phone took too long to prepare the recording.')); }, 10000);
+    nativeAudioReplies.set(key, { resolve, reject, timer });
+    nativeAudioBridge.postMessage(JSON.stringify({ type:'read', id, part, offset }));
+  });
+}
+
+async function readNativeAudioPart(id, part) {
+  const packets = [];
+  let total = 0;
+  let offset = 0;
+  while (true) {
+    const reply = await requestNativeAudioPacket(id, part, offset);
+    const packet = Uint8Array.from(atob(String(reply.data || '')), char => char.charCodeAt(0));
+    packets.push(packet); total += packet.length;
+    if (reply.done) break;
+    if (!(reply.nextOffset > offset)) throw new Error('The phone returned an invalid audio packet.');
+    offset = reply.nextOffset;
+  }
+  const audio = new Uint8Array(total);
+  let write = 0;
+  for (const packet of packets) { audio.set(packet, write); write += packet.length; }
+  return audio;
+}
+
+async function readNativeRecording(id, total) {
+  const parts = [];
+  for (let part = 0; part < total; part++) {
+    $('speechStatus').textContent = `Preparing recording part ${part + 1} of ${total}…`;
+    parts.push(await readNativeAudioPart(id, part));
+  }
+  return parts;
+}
+
 window.addEventListener('lf-native-recording', async event => {
   const pending = nativeRecording;
   if (!pending || pending.id !== event.detail?.id || pending.epoch !== epoch) return;
+  const { kind, data, total } = event.detail;
+  if (kind === 'started') {
+    pending.stopping = false;
+    $('speechStatus').textContent = 'Recording… silence for one minute stops automatically.';
+    return;
+  }
   nativeRecording = null;
   $('recordToggle').classList.remove('is-recording');
-  $('recordCaption').textContent = 'Tap to start · up to 5 minutes';
+  $('recordToggle').textContent = 'Start recording';
+  $('recordCaption').textContent = 'Tap to start · up to 20 minutes';
   haptic([20,40,20]);
-  const { kind, data } = event.detail;
   if (kind === 'cancel') { $('speechStatus').textContent = 'Recording cancelled.'; return; }
-  if (kind !== 'audio') { $('speechStatus').textContent = String(data || 'Recording failed.'); return; }
+  if (kind !== 'ready') { $('speechStatus').textContent = String(data || 'Recording failed.'); return; }
   try {
-    if (typeof data !== 'string' || data.length > 2_600_100) throw new Error('Recording is too large.');
-    const bytes = Uint8Array.from(atob(data), char => char.charCodeAt(0));
-    await transcribeRecording(bytes);
-  } catch { $('speechStatus').textContent = 'Could not read the phone recording. Please try again.'; }
+    if (!Number.isInteger(total) || total < 1 || total > 4) throw new Error('The phone returned an invalid recording.');
+    await transcribeRecording(await readNativeRecording(pending.id, total));
+  } catch (error) { $('speechStatus').textContent = error?.message || 'Could not read the phone recording. Please try again.'; }
 });
 window.addEventListener('pagehide', () => { stopCapture(); readAloud.stop({ quiet:true }); });
 document.addEventListener('visibilitychange', () => {
-  // Native permission/dialog lifecycle is managed by Android itself.
+  // Native permission lifecycle is managed by Android itself.
   if (document.hidden) readAloud.stop({ quiet:true });
   if (document.hidden && !nativeRecording) stopCapture();
   if (!document.hidden && ownerActive) void loadRequests(true);
 });
 
-async function finishRecording() {
+async function finishRecording(reason = 'manual') {
   if (!capture) return;
-  const { chunks, context } = capture;
-  const rate = context.sampleRate;
-  const merged = new Float32Array(chunks.reduce((total, chunk) => total + chunk.length, 0));
-  let offset = 0;
-  for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
+  const { chunks } = capture;
   stopCapture();
   haptic([20,40,20]);
-  if (!merged.length) { $('speechStatus').textContent = 'Nothing was recorded.'; return; }
+  if (!chunks.length) { $('speechStatus').textContent = 'Nothing was recorded.'; return; }
+  if (reason === 'silence') $('speechStatus').textContent = 'One minute of silence detected. Preparing the recording…';
+  else if (reason === 'limit') $('speechStatus').textContent = 'Twenty-minute limit reached. Preparing the recording…';
 
   let audio;
-  try { audio = buildWav([merged], rate); }
+  try { audio = segmentPcm16(chunks, TARGET_SAMPLE_RATE); }
   catch (error) { $('speechStatus').textContent = error.message; return; }
 
   await transcribeRecording(audio);
@@ -1556,23 +1635,30 @@ async function transcribeRecording(audio) {
 
   $('speechStatus').textContent = 'Transcribing…';
   $('transcript').textContent = '';
-  const body = new FormData();
-  body.set('audio', new Blob([audio], { type: 'audio/wav' }), 'recording.wav');
-  body.set('paid_consent', 'true');
+  const parts = Array.isArray(audio) ? audio : [audio];
   try {
-    const result = await api.request('/api/transcribe', body);
-    if (current !== epoch) return;
-    // Empty text is a legitimate result for silence, never "corrected".
-    $('transcript').textContent = result.text || '';
-    if (result.text) revealResult($('transcript'));
-    if (result.text) rememberResult({kind:'transcript',title:'Transcript',output:result.text});
-    $('speechStatus').textContent = result.text ? 'Done.' : 'No speech was detected in that recording.';
-    if (result.spending) showSpending(result.spending);
+    const texts = [];
+    for (let index = 0; index < parts.length; index++) {
+      $('speechStatus').textContent = parts.length > 1
+        ? `Transcribing part ${index + 1} of ${parts.length}…` : 'Transcribing…';
+      const body = new FormData();
+      body.set('audio', new Blob([parts[index]], { type: 'audio/wav' }), `recording-${index + 1}.wav`);
+      body.set('paid_consent', 'true');
+      const result = await api.request('/api/transcribe', body);
+      if (current !== epoch) return;
+      if (result.text?.trim()) texts.push(result.text.trim());
+      if (result.spending) showSpending(result.spending);
+    }
+    const text = texts.join('\n\n');
+    $('transcript').textContent = text;
+    if (text) revealResult($('transcript'));
+    if (text) rememberResult({kind:'transcript',title:'Transcript',output:text});
+    $('speechStatus').textContent = text ? 'Done.' : 'No speech was detected in that recording.';
   } catch (error) { if (current === epoch) $('speechStatus').textContent = error.message; }
   finally {
     transcribing = false;
     setProcessing($('recordToggle'), false);
-    $('recordCaption').textContent = 'Tap to start · up to 5 minutes';
+    $('recordCaption').textContent = 'Tap to start · up to 20 minutes';
   }
 }
 

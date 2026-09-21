@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { buildWav, describeWav, encodeWav, resample, toMono, MAX_SECONDS, TARGET_SAMPLE_RATE } from './wav.mjs';
+import { buildWav, describeWav, encodeWav, resample, segmentPcm16, toMono,
+         MAX_RECORDING_SECONDS, MAX_SECONDS, TARGET_SAMPLE_RATE } from './wav.mjs';
 
 function tone(seconds, rate, frequency = 440) {
   const samples = new Float32Array(Math.round(seconds * rate));
@@ -62,6 +63,18 @@ test('a full-length recording stays inside the upload limit', () => {
   const wav = buildWav([tone(MAX_SECONDS, 48000)], 48000);
   assert.ok(wav.length <= 10_000_000, `${MAX_SECONDS}s produced ${wav.length} bytes`);
   assert.equal(describeWav(wav).dataBytes, MAX_SECONDS * TARGET_SAMPLE_RATE * 2);
+});
+
+test('a twenty-minute session becomes four provider-safe WAV parts', () => {
+  const pcm = new Int16Array(MAX_RECORDING_SECONDS * TARGET_SAMPLE_RATE);
+  const parts = segmentPcm16([pcm], TARGET_SAMPLE_RATE);
+  assert.equal(parts.length, 4);
+  assert.ok(parts.every(part => part.length <= 10_000_000));
+  assert.deepEqual(parts.map(part => describeWav(part).dataBytes),
+    Array(4).fill(MAX_SECONDS * TARGET_SAMPLE_RATE * 2));
+  assert.throws(() => segmentPcm16([
+    new Int16Array((MAX_RECORDING_SECONDS + 1) * TARGET_SAMPLE_RATE),
+  ], TARGET_SAMPLE_RATE), /1200 seconds/);
 });
 
 test('resampling preserves duration and rejects nonsense rates', () => {

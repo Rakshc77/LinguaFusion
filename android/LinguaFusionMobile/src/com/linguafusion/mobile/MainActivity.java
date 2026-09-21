@@ -9,6 +9,7 @@ import android.app.NotificationManager;
 import android.app.PendingIntent;
 import android.os.Handler;
 import android.os.Looper;
+import android.os.SystemClock;
 import android.content.Context;
 import android.content.Intent;
 import android.content.SharedPreferences;
@@ -58,12 +59,17 @@ import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.InputStreamReader;
+import java.io.RandomAccessFile;
 import java.net.HttpURLConnection;
 import java.net.URL;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.util.Collections;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
 import java.util.Objects;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -83,7 +89,10 @@ public final class MainActivity extends Activity {
     private boolean darkSystemBars;
     private ValueCallback<Uri[]> fileCallback;
     private PermissionRequest pendingAudioRequest;
-    private AlertDialog cloudRecorderDialog;
+    private String cloudRecordingRequestId;
+    private WebView cloudRecordingOwner;
+    private boolean cloudRecordingAwaitingPermission;
+    private final Map<String,List<File>> cloudRecordingFiles = new ConcurrentHashMap<>();
     private final Handler recordingHandler = new Handler(Looper.getMainLooper());
     private Runnable cloudRecordingTimeout;
     private boolean pendingOwnerRequestOpen;
@@ -94,8 +103,14 @@ public final class MainActivity extends Activity {
     private AudioRecord nativeAudioRecord;
     private Thread nativeAudioThread;
     private File nativeAudioFile;
+    private volatile long nativeLastVoiceAt;
+    private volatile boolean nativeAutoStopPosted;
     private static final int NATIVE_SAMPLE_RATE = 16000;
-    private static final int CLOUD_RECORDING_SECONDS = 300;
+    private static final int CLOUD_RECORDING_SECONDS = 1200;
+    private static final int CLOUD_UPLOAD_SECONDS = 300;
+    private static final int RECORDING_SILENCE_SECONDS = 60;
+    private static final int NATIVE_VOICE_RMS_THRESHOLD = 260;
+    private static final int NATIVE_AUDIO_PACKET_BYTES = 512 * 1024;
     // Owner-hosted cloud service. Unlike PC mode this needs no pairing key:
     // the page signs in with Firebase and the owner approves each account.
     private static final String CLOUD_BASE = "https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app";
@@ -103,9 +118,8 @@ public final class MainActivity extends Activity {
     // assets; nothing leaves the device and no network is involved.
     private static final String OFFLINE_ORIGIN = "https://appassets.androidplatform.net";
     private static final String OFFLINE_PAGE = OFFLINE_ORIGIN + "/assets/offline/index.html";
-    /** Five minutes. Long enough for anything spoken in one go, short
-     *  enough that the float array it becomes still fits in memory. */
-    private static final int OFFLINE_RECORDING_SECONDS = 300;
+    /** Twenty minutes, with one minute of continuous silence ending earlier. */
+    private static final int OFFLINE_RECORDING_SECONDS = 1200;
     private OfflineSpeech offlineSpeech;
     private OfflineTranslation offlineTranslation;
     private OfflineVision offlineVision;
@@ -626,22 +640,22 @@ public final class MainActivity extends Activity {
     }
 
     /** The owner-hosted cloud service.
-     *  Deliberately WITHOUT addJavascriptInterface: the native bridge can wipe
-     *  saved settings and drive the microphone directly, and a remotely served
-     *  page has no business holding that. Cloud recording uses an explicit
-     *  native confirmation dialog, not a JavaScript interface. */
+     *  Deliberately WITHOUT addJavascriptInterface: recording starts only from
+     *  a real tap routed through the checked custom scheme. Completed audio is
+     *  read through a narrow, exact-origin WebMessage bridge. */
     private void showCloudApp(){
         applySystemBarTheme(false);
         releaseWebView();
         webView=newWebViewWithMediaSupport();
         installCloudReadAloudBridge(webView);
+        installCloudAudioBridge(webView);
         webView.setWebViewClient(new WebViewClient(){
             @Override public boolean shouldOverrideUrlLoading(WebView view,WebResourceRequest request){
                 Uri target=request.getUrl();
                 if("linguafusion-record".equals(target.getScheme())){
                     if(request.isForMainFrame() && request.hasGesture()
                             && isCloudOrigin(Uri.parse(view.getUrl()==null?"":view.getUrl()))) {
-                        showCloudRecorder(view, target.getQueryParameter("id"));
+                        handleCloudRecorderAction(view,target.getQueryParameter("id"),target.getHost());
                     }
                     return true;
                 }
@@ -735,6 +749,66 @@ public final class MainActivity extends Activity {
                     // Malformed remote data never reaches Android TTS.
                 }
             });
+    }
+
+    /**
+     * Streams completed native WAV parts to the exact hosted main frame in
+     * bounded packets. The page can read only a random recording id created by
+     * a user gesture; no path, setting or arbitrary device file is exposed.
+     */
+    private void installCloudAudioBridge(WebView owner){
+        if(!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))return;
+        WebViewCompat.addWebMessageListener(owner,"LinguaFusionNativeAudio",Collections.singleton(CLOUD_BASE),
+            (view,message,sourceOrigin,isMainFrame,reply) -> {
+                if(view!=webView || !isMainFrame || !isCloudOrigin(sourceOrigin))return;
+                try{
+                    JSONObject request=new JSONObject(message.getData()==null?"":message.getData());
+                    String id=request.optString("id","");
+                    int part=request.optInt("part",-1),offset=request.optInt("offset",-1);
+                    if(!"read".equals(request.optString("type",""))
+                            || !id.matches("[a-zA-Z0-9-]{1,80}") || part<0 || offset<0)return;
+                    executor.execute(() -> {
+                        JSONObject result=readCloudAudioPacket(id,part,offset);
+                        owner.post(() -> {
+                            if(owner!=webView)return;
+                            try{reply.postMessage(result.toString());}catch(Exception ignored){}
+                        });
+                    });
+                }catch(Exception ignored){
+                    // Malformed remote data cannot name or read a local file.
+                }
+            });
+    }
+
+    private JSONObject readCloudAudioPacket(String id,int part,int offset){
+        JSONObject result=new JSONObject();
+        try{
+            result.put("id",id).put("part",part).put("offset",offset);
+            List<File> files=cloudRecordingFiles.get(id);
+            if(files==null || part>=files.size())return result.put("error","Recording audio is no longer available.");
+            File file=files.get(part);
+            if(!file.isFile() || offset>file.length())return result.put("error","Recording audio is unavailable.");
+            int count=(int)Math.min(NATIVE_AUDIO_PACKET_BYTES,file.length()-offset);
+            byte[] packet=new byte[count];
+            try(RandomAccessFile input=new RandomAccessFile(file,"r")){
+                input.seek(offset);
+                if(count>0)input.readFully(packet);
+            }
+            int next=offset+count;
+            boolean done=next>=file.length();
+            result.put("data",Base64.encodeToString(packet,Base64.NO_WRAP))
+                .put("nextOffset",next).put("done",done);
+            if(done){
+                file.delete();
+                boolean any=false;
+                for(File candidate:files)if(candidate.exists()){any=true;break;}
+                if(!any)cloudRecordingFiles.remove(id);
+            }
+            return result;
+        }catch(Exception error){
+            try{return result.put("error","The phone could not read the recording.");}
+            catch(Exception impossible){return new JSONObject();}
+        }
     }
 
     private ReadAloudEngine readAloud(){
@@ -898,52 +972,89 @@ public final class MainActivity extends Activity {
             && effectivePort(base)==effectivePort(target);
     }
 
-    // A page may REQUEST the dialog, but recording only starts on a native tap.
-    // No native settings, credentials or arbitrary files are exposed to the page.
-    private void showCloudRecorder(WebView owner,String requestId){
-        if(cloudRecorderDialog!=null || requestId==null || !requestId.matches("[a-zA-Z0-9-]{1,80}"))return;
-        AlertDialog dialog=new AlertDialog.Builder(this)
-            .setTitle("Record speech")
-            .setMessage("Up to 5 minutes. Stop and send uploads audio for paid online transcription. Cancel discards it.")
-            .setPositiveButton("Start",null).setNegativeButton("Cancel",null).create();
-        cloudRecorderDialog=dialog;
-        final boolean[] delivered={false};
-        Runnable finish=() -> {
-            if(cloudRecorderDialog!=dialog)return;
-            if(cloudRecordingTimeout!=null)recordingHandler.removeCallbacks(cloudRecordingTimeout);
-            String result=stopNativeAudioRecording();
-            delivered[0]=true;
-            sendCloudRecording(owner,requestId,result.startsWith("ERROR:")?"error":"audio",result);
-            dialog.dismiss();
-        };
-        dialog.setOnDismissListener(ignored -> {
-            if(cloudRecordingTimeout!=null)recordingHandler.removeCallbacks(cloudRecordingTimeout);
-            cloudRecordingTimeout=null;
-            cancelNativeAudioRecording();
-            cloudRecorderDialog=null;
-            if(!delivered[0])sendCloudRecording(owner,requestId,"cancel","");
-        });
-        dialog.setOnShowListener(ignored -> dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener(button -> {
-            if(nativeAudioRecording){finish.run();return;}
-            String result=startNativeAudioRecording();
-            if("PERMISSION_REQUIRED".equals(result)){
-                dialog.setMessage("Allow microphone access, then tap Start again.");
-            }else if(!"OK".equals(result)){
-                dialog.setMessage(result+" You can also use the Online app in Chrome.");
-            }else{
-                dialog.setMessage("Recording. Stop and send when ready; automatically stops at 5 minutes.");
-                dialog.getButton(AlertDialog.BUTTON_POSITIVE).setText("Stop and send");
-                cloudRecordingTimeout=finish;
-                recordingHandler.postDelayed(finish,CLOUD_RECORDING_SECONDS*1000L);
+    // The checked custom scheme is reached only from a real tap in the trusted
+    // main frame. The visible round microphone remains the sole start/stop UI.
+    private void handleCloudRecorderAction(WebView owner,String requestId,String action){
+        if(requestId==null || !requestId.matches("[a-zA-Z0-9-]{1,80}"))return;
+        if("capture".equals(action)){
+            if(cloudRecordingRequestId!=null){
+                if(!requestId.equals(cloudRecordingRequestId))sendCloudRecording(owner,requestId,"error","Another recording is already active.",0);
+                return;
             }
-        }));
-        dialog.show();
+            if(!WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)){
+                sendCloudRecording(owner,requestId,"error","This Android WebView cannot transfer a long recording safely.",0);
+                return;
+            }
+            cloudRecordingOwner=owner;cloudRecordingRequestId=requestId;
+            beginCloudRecording();
+            return;
+        }
+        if(!requestId.equals(cloudRecordingRequestId) || owner!=cloudRecordingOwner)return;
+        if("stop".equals(action)){finishCloudRecording("manual");return;}
+        if("cancel".equals(action))cancelCloudRecording(true);
     }
 
-    private void sendCloudRecording(WebView owner,String id,String kind,String data){
+    private void beginCloudRecording(){
+        WebView owner=cloudRecordingOwner;String id=cloudRecordingRequestId;
+        if(owner==null || id==null)return;
+        String result=startNativeAudioRecording();
+        if("PERMISSION_REQUIRED".equals(result)){cloudRecordingAwaitingPermission=true;return;}
+        cloudRecordingAwaitingPermission=false;
+        if(!"OK".equals(result)){
+            clearCloudRecordingState();
+            sendCloudRecording(owner,id,"error",result.startsWith("ERROR: ")?result.substring(7):result,0);
+            return;
+        }
+        sendCloudRecording(owner,id,"started","",0);
+        cloudRecordingTimeout=() -> finishCloudRecording("limit");
+        recordingHandler.postDelayed(cloudRecordingTimeout,CLOUD_RECORDING_SECONDS*1000L);
+    }
+
+    private void finishCloudRecording(String reason){
+        WebView owner=cloudRecordingOwner;String id=cloudRecordingRequestId;
+        if(owner==null || id==null)return;
+        if(cloudRecordingTimeout!=null)recordingHandler.removeCallbacks(cloudRecordingTimeout);
+        cloudRecordingTimeout=null;cloudRecordingOwner=null;cloudRecordingRequestId=null;cloudRecordingAwaitingPermission=false;
+        executor.execute(() -> {
+            byte[] pcm=stopNativeAudioRecordingToPcm();
+            if(pcm==null || pcm.length<2){
+                owner.post(() -> sendCloudRecording(owner,id,"error","No speech was recorded.",0));
+                return;
+            }
+            List<File> files=new ArrayList<>();
+            try{
+                int partBytes=NATIVE_SAMPLE_RATE*2*CLOUD_UPLOAD_SECONDS;
+                for(int offset=0;offset<pcm.length;offset+=partBytes){
+                    int count=Math.min(partBytes,pcm.length-offset);
+                    byte[] part=new byte[count];System.arraycopy(pcm,offset,part,0,count);
+                    File file=File.createTempFile("linguafusion-cloud-",".wav",getCacheDir());
+                    try(FileOutputStream output=new FileOutputStream(file)){output.write(wavFromPcm(part));}
+                    files.add(file);
+                }
+                cloudRecordingFiles.put(id,files);
+                owner.post(() -> sendCloudRecording(owner,id,"ready",reason,files.size()));
+            }catch(Exception error){
+                for(File file:files)file.delete();
+                owner.post(() -> sendCloudRecording(owner,id,"error","The phone could not prepare the recording.",0));
+            }
+        });
+    }
+
+    private void cancelCloudRecording(boolean notify){
+        WebView owner=cloudRecordingOwner;String id=cloudRecordingRequestId;
+        if(cloudRecordingTimeout!=null)recordingHandler.removeCallbacks(cloudRecordingTimeout);
+        cloudRecordingTimeout=null;clearCloudRecordingState();cancelNativeAudioRecording();
+        if(notify && owner!=null && id!=null)sendCloudRecording(owner,id,"cancel","",0);
+    }
+
+    private void clearCloudRecordingState(){
+        cloudRecordingOwner=null;cloudRecordingRequestId=null;cloudRecordingAwaitingPermission=false;
+    }
+
+    private void sendCloudRecording(WebView owner,String id,String kind,String data,int total){
         if(owner!=webView || !isCloudOrigin(Uri.parse(owner.getUrl()==null?"":owner.getUrl())))return;
         owner.evaluateJavascript("window.dispatchEvent(new CustomEvent('lf-native-recording',{detail:{id:"
-            +jsQuote(id)+",kind:"+jsQuote(kind)+",data:"+jsQuote(data)+"}}));",null);
+            +jsQuote(id)+",kind:"+jsQuote(kind)+",data:"+jsQuote(data)+",total:"+total+"}}));",null);
     }
 
     private void showCloudUnavailable(String detail){
@@ -961,13 +1072,16 @@ public final class MainActivity extends Activity {
         setInsetContentView(scroll);
     }
     private void releaseWebView(){
-        if(cloudRecorderDialog!=null)cloudRecorderDialog.dismiss();
+        cancelCloudRecording(false);
+        for(List<File> files:cloudRecordingFiles.values())for(File file:files)file.delete();
+        cloudRecordingFiles.clear();
         if(pendingAudioRequest!=null){pendingAudioRequest.deny();pendingAudioRequest=null;}
-        cancelNativeAudioRecording();
         if(readAloud!=null)readAloud.stop();
         if(webView==null)return;
-        if(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER))
+        if(WebViewFeature.isFeatureSupported(WebViewFeature.WEB_MESSAGE_LISTENER)){
             WebViewCompat.removeWebMessageListener(webView,"LinguaFusionReadAloud");
+            WebViewCompat.removeWebMessageListener(webView,"LinguaFusionNativeAudio");
+        }
         webView.stopLoading();webView.removeJavascriptInterface("LinguaFusionNative");webView.removeJavascriptInterface("LinguaFusionOffline");webView.setWebChromeClient(null);webView.setWebViewClient(null);webView.destroy();webView=null;
     }
     private String jsQuote(String value){
@@ -1013,6 +1127,7 @@ public final class MainActivity extends Activity {
                 if(recorder.getState()!=AudioRecord.STATE_INITIALIZED){recorder.release();throw new java.io.IOException("The phone microphone could not be initialized.");}
                 File pcmFile=new File(getCacheDir(),"linguafusion-recording.pcm");
                 nativeAudioRecord=recorder;nativeAudioFile=pcmFile;nativeAudioRecording=true;
+                nativeLastVoiceAt=SystemClock.elapsedRealtime();nativeAutoStopPosted=false;
                 recorder.startRecording();
                 nativeAudioThread=new Thread(() -> writeNativePcm(recorder,pcmFile,bufferSize),"LinguaFusionAudio");
                 nativeAudioThread.start();
@@ -1029,15 +1144,49 @@ public final class MainActivity extends Activity {
         byte[] buffer=new byte[bufferSize];
         // Cloud and Offline recordings are capped independently. Transcription
         // turns every sample into a 4-byte float, so neither may be unbounded.
-        int remaining=cloudRecorderDialog!=null?NATIVE_SAMPLE_RATE*2*CLOUD_RECORDING_SECONDS
-            :("offline".equals(preferences.getString("mode",""))?NATIVE_SAMPLE_RATE*2*OFFLINE_RECORDING_SECONDS:Integer.MAX_VALUE);
+        boolean cloud=cloudRecordingRequestId!=null;
+        boolean offline="offline".equals(preferences.getString("mode",""));
+        boolean managed=cloud||offline;
+        int remaining=cloud?NATIVE_SAMPLE_RATE*2*CLOUD_RECORDING_SECONDS
+            :(offline?NATIVE_SAMPLE_RATE*2*OFFLINE_RECORDING_SECONDS:Integer.MAX_VALUE);
         try(FileOutputStream output=new FileOutputStream(outputFile,false)){
             while(nativeAudioRecording && remaining>0){
                 int count=recorder.read(buffer,0,Math.min(buffer.length,remaining));
-                if(count>0){output.write(buffer,0,count);remaining-=count;}
+                if(count>0){
+                    output.write(buffer,0,count);remaining-=count;
+                    if(managed){
+                        long now=SystemClock.elapsedRealtime();
+                        if(containsVoice(buffer,count))nativeLastVoiceAt=now;
+                        else if(now-nativeLastVoiceAt>=RECORDING_SILENCE_SECONDS*1000L)
+                            requestNativeRecordingStop("silence");
+                    }
+                }
                 else if(count<0)break;
             }
+            if(managed && remaining<=0)requestNativeRecordingStop("limit");
         }catch(Exception ignored){}
+    }
+
+    private boolean containsVoice(byte[] pcm,int count){
+        long energy=0;int samples=count/2;
+        for(int index=0;index+1<count;index+=2){
+            int sample=(short)((pcm[index]&0xff)|(pcm[index+1]<<8));
+            energy+=(long)sample*sample;
+        }
+        return samples>0 && energy/(double)samples >= (double)NATIVE_VOICE_RMS_THRESHOLD*NATIVE_VOICE_RMS_THRESHOLD;
+    }
+
+    private void requestNativeRecordingStop(String reason){
+        if(nativeAutoStopPosted)return;
+        nativeAutoStopPosted=true;
+        recordingHandler.post(() -> {
+            if(!nativeAudioRecording)return;
+            if(cloudRecordingRequestId!=null){finishCloudRecording(reason);return;}
+            if("offline".equals(preferences.getString("mode","")) && webView!=null){
+                webView.evaluateJavascript("window.dispatchEvent(new CustomEvent('lf-native-recording-stop',{detail:{reason:"
+                    +jsQuote(reason)+"}}));",null);
+            }
+        });
     }
 
     /** Stops the recorder and returns the raw 16 kHz mono PCM it captured.
@@ -1054,6 +1203,7 @@ public final class MainActivity extends Activity {
         try{recorder.stop();}catch(Exception ignored){}
         try{if(thread!=null)thread.join(2500);}catch(InterruptedException error){Thread.currentThread().interrupt();}
         recorder.release();
+        nativeAutoStopPosted=false;
         try{
             byte[] pcm=Files.readAllBytes(pcmFile.toPath());
             pcmFile.delete();
@@ -1085,6 +1235,7 @@ public final class MainActivity extends Activity {
         if(recorder!=null){try{recorder.stop();}catch(Exception ignored){}recorder.release();}
         try{if(thread!=null)thread.join(600);}catch(InterruptedException error){Thread.currentThread().interrupt();}
         if(pcmFile!=null)pcmFile.delete();
+        nativeAutoStopPosted=false;
     }
 
     private byte[] wavFromPcm(byte[] pcm)throws Exception{
@@ -1134,6 +1285,13 @@ public final class MainActivity extends Activity {
                 pendingAudioRequest.grant(new String[]{PermissionRequest.RESOURCE_AUDIO_CAPTURE});
             }else pendingAudioRequest.deny();
             pendingAudioRequest=null;
+        }else if(cloudRecordingAwaitingPermission && cloudRecordingRequestId!=null){
+            if(granted)beginCloudRecording();
+            else{
+                WebView owner=cloudRecordingOwner;String id=cloudRecordingRequestId;
+                clearCloudRecordingState();
+                sendCloudRecording(owner,id,"error","Microphone permission was not granted.",0);
+            }
         }else if(webView!=null){
             String callback="if(window.LFNativeAudioPermissionResult){window.LFNativeAudioPermissionResult("+(granted?"true":"false")+");}";
             webView.post(() -> {if(webView!=null)webView.evaluateJavascript(callback,null);});
@@ -1148,7 +1306,7 @@ public final class MainActivity extends Activity {
     }
     @Override public void onBackPressed(){if(webView!=null&&webView.canGoBack())webView.goBack();else super.onBackPressed();}
     @Override protected void onPause(){
-        if(cloudRecorderDialog!=null && nativeAudioRecording)cloudRecorderDialog.dismiss();
+        if(cloudRecordingRequestId!=null && nativeAudioRecording)cancelCloudRecording(true);
         if(readAloud!=null)readAloud.stop();
         super.onPause();
     }
