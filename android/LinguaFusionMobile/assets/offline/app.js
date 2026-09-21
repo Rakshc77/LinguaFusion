@@ -79,6 +79,7 @@ let state = { languages: [], models: [], installedPacks: new Set() };
 let recording = false;
 let busy = false;
 let recordingTimer = null;
+const MAX_RECORDING_SECONDS = 1200;
 let readRate = (() => {
   try {
     const value = Number(localStorage.getItem('lf-read-aloud-rate'));
@@ -202,7 +203,7 @@ function updatePivotWarning() {
 
 /* ---------- Speak ---------- */
 
-async function toggleRecording() {
+async function toggleRecording(reason = 'manual') {
   if (busy) return;
   if (!recording) {
     readAloud.stop();
@@ -216,8 +217,9 @@ async function toggleRecording() {
     const started=Date.now();
     recordingTimer=setInterval(()=>{
       const seconds=Math.floor((Date.now()-started)/1000);
-      document.querySelector('.record-caption').textContent=`Listening · ${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
-      document.querySelector('.record-stage').style.setProperty('--record-level',`${Math.min(100,(seconds/300)*100)}%`);
+      document.querySelector('.record-caption').textContent=`Listening · ${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')} / 20:00`;
+      document.querySelector('.record-stage').style.setProperty('--record-level',`${Math.min(100,(seconds/MAX_RECORDING_SECONDS)*100)}%`);
+      if (seconds >= MAX_RECORDING_SECONDS) void toggleRecording('limit');
     },1000);
     say('speakStatus', 'Recording… speak now.');
     return;
@@ -234,7 +236,11 @@ async function toggleRecording() {
   $('record').disabled = true;
   $('record').textContent = 'Working…';
   document.querySelector('.record-caption').textContent = 'Turning speech into text…';
-  say('speakStatus', 'Transcribing on this phone. This can take a while.');
+  say('speakStatus', reason === 'silence'
+    ? 'One minute of silence detected. Transcribing on this phone…'
+    : reason === 'limit'
+      ? 'Twenty-minute limit reached. Transcribing on this phone…'
+      : 'Transcribing on this phone. This can take a while.');
   $('transcript').textContent = '';
   $('translationWrap').hidden = true;
 
@@ -244,7 +250,7 @@ async function toggleRecording() {
   busy = false;
   $('record').disabled = false;
   $('record').textContent = 'Start recording';
-  document.querySelector('.record-caption').textContent = 'Tap to start recording';
+  document.querySelector('.record-caption').textContent = 'Tap to start · up to 20 minutes';
   setProcessing($('record'), false);
 
   if (result.error) { say('speakStatus', result.error); return; }
@@ -644,6 +650,9 @@ function start() {
   }
 
   window.addEventListener('pagehide', () => readAloud.stop({ quiet:true }));
+  window.addEventListener('lf-native-recording-stop', event => {
+    if (recording && !busy) void toggleRecording(event.detail?.reason || 'limit');
+  });
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) readAloud.stop({ quiet:true });
   });

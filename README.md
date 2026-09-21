@@ -38,10 +38,13 @@ mislabeling the old desktop document Reader.
 The existing private Android signing key must be preserved. Never generate a
 replacement key: a differently signed APK cannot update existing installations.
 
-The five-minute Online recording/saved-audio limit is retained. The streamlined
-Online UI, Android Offline shell and desktop motion labels are source-only until
-Online `2026.09.18.1` is deployed, Android 1.22 is rebuilt with the existing
-signing key and the Windows app is rebuilt.
+Online and Android recording sessions support up to 20 minutes. One continuous
+minute without detected speech finishes the recording automatically. The hosted
+Android app records from the animated round microphone without a native screen
+overlay; long sessions are divided on-device into independently validated
+five-minute WAV uploads so Cloud Run and the transcription provider never
+receive an oversized request. Source versions are Online `2026.09.21.2` and
+Android 1.26/versionCode 27.
 
 ## Language support
 

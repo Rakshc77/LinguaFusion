@@ -2,11 +2,12 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import vm from 'node:vm';
-import { buildWav, MAX_SECONDS } from './wav.mjs';
+import { buildWav, segmentPcm16, toMono, toPcm16, MAX_RECORDING_SECONDS,
+         MAX_SECONDS, SILENCE_SECONDS, TARGET_SAMPLE_RATE, VOICE_RMS_THRESHOLD } from './wav.mjs';
 
 // Execute the shipped recording handlers, not a duplicate implementation.
 const source = readFileSync(new URL('./pilot.mjs', import.meta.url), 'utf8');
-function harness(rate = 48000) {
+function harness(rate = 48000, native = false) {
   const elements = new Map();
   const pending = [];
   const streams = [];
@@ -35,7 +36,15 @@ function harness(rate = 48000) {
     }
     async close() { this.closed = true; }
   }
-  const sandbox = vm.createContext({ $, window: { AudioContext, location: {}, addEventListener: (type, fn) => events[type] = fn },
+  const nativeWav = buildWav([new Float32Array(16000).fill(0.1)],16000);
+  const nativeAudio = native ? { onmessage:null, postMessage(value) {
+    const request = JSON.parse(value);
+    const packet = nativeWav.subarray(request.offset);
+    this.onmessage?.({ data:JSON.stringify({ id:request.id, part:request.part, offset:request.offset,
+      data:Buffer.from(packet).toString('base64'), nextOffset:nativeWav.length, done:true }) });
+  } } : undefined;
+  const sandbox = vm.createContext({ $, window: { AudioContext, location: {}, LinguaFusionNativeAudio:nativeAudio,
+      addEventListener: (type, fn) => events[type] = fn },
     document: { addEventListener() {} }, navigator: { mediaDevices: { getUserMedia() {
       return new Promise(resolve => pending.push(() => {
         const track = { stopped: false, muted:false, listeners:{}, stop() { this.stopped = true; },
@@ -43,10 +52,11 @@ function harness(rate = 48000) {
         streams.push(track); resolve({ getTracks: () => [track] });
       }));
     } } }, Float32Array, Uint8Array, Blob, FormData, setTimeout, atob,
-    crypto: { randomUUID: () => 'test-request' }, buildWav, MAX_SECONDS,
+    crypto: { randomUUID: () => 'test-request' }, buildWav, segmentPcm16, toMono, toPcm16,
+    MAX_RECORDING_SECONDS, MAX_SECONDS, SILENCE_SECONDS, TARGET_SAMPLE_RATE, VOICE_RMS_THRESHOLD,
     readAloud: { stop() {} },
     api: { async request(path, body) { requests.push({ path, body }); return { text: 'Test' }; } },
-    showSpending() {}, revealResult() {}, setProcessing() {}, haptic() {}, formatClock:value => String(value),
+    showSpending() {}, revealResult() {}, rememberResult() {}, setProcessing() {}, haptic() {}, formatClock:value => String(value),
     microphoneProblem: error => error.name, isIosDevice: () => false,
     isIosStandalone: () => false, clearTimeout });
   const stop = source.slice(source.indexOf('function stopCapture()'), source.indexOf('function clearPrivateText()'));
@@ -99,34 +109,45 @@ test('a saved Voice Memo is decoded locally and uploaded as strict WAV', async (
   assert.equal(h.contexts[0].closed, true);
   assert.equal(h.$('speechAudioFile').value, '');
 });
-for (const rate of [44100, 48000]) test(`automatic cutoff produces exactly five minutes at ${rate}Hz`, async () => {
+for (const rate of [44100, 48000]) test(`automatic cutoff produces four safe parts from twenty minutes at ${rate}Hz`, async () => {
   const h = harness(rate); const first = h.click(); h.pending.shift()(); await first;
-  for (let count = 0; count < Math.ceil(rate * MAX_SECONDS / 4096); count++) {
-    h.contexts[0].processor.onaudioprocess({ inputBuffer: { getChannelData: () => new Float32Array(4096) } });
+  for (let count = 0; count < Math.ceil(rate * MAX_RECORDING_SECONDS / 4096); count++) {
+    h.contexts[0].processor.onaudioprocess({ inputBuffer: { getChannelData: () => new Float32Array(4096).fill(0.1) } });
   }
-  await Promise.resolve();
-  assert.equal(h.requests.length, 1);
-  const wav = h.requests[0].body.get('audio');
-  assert.equal(wav.size, 44 + 16000 * MAX_SECONDS * 2);
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(h.requests.length, 4);
+  const fullPartBytes = 44 + 16000 * MAX_SECONDS * 2;
+  for (const request of h.requests.slice(0, 3)) assert.equal(request.body.get('audio').size, fullPartBytes);
+  assert.ok(h.requests[3].body.get('audio').size > fullPartBytes * 0.99);
+  assert.ok(h.requests[3].body.get('audio').size <= fullPartBytes);
   assert.equal(h.streams[0].stopped, true);
 });
+test('one continuous minute without detected speech stops and sends what was captured', async () => {
+  const h = harness(48000); const first = h.click(); h.pending.shift()(); await first;
+  for (let count = 0; count < Math.ceil(48000 * SILENCE_SECONDS / 4096); count++) {
+    h.contexts[0].processor.onaudioprocess({ inputBuffer: { getChannelData: () => new Float32Array(4096) } });
+  }
+  await new Promise(resolve => setTimeout(resolve, 0));
+  assert.equal(h.requests.length, 1);
+  assert.equal(h.streams[0].stopped, true);
+  assert.match(h.$('speechStatus').textContent, /Done|No speech/);
+});
 test('native APK starts no browser microphone; cancellation permits retry', async () => {
-  const h = harness(); h.sandbox.window.LFNativeCloudRecording = true;
+  const h = harness(48000, true); h.sandbox.window.LFNativeCloudRecording = true;
   await h.click(); assert.equal(h.pending.length, 0);
   assert.match(h.sandbox.window.location.href, /^linguafusion-record:\/\/capture\?id=/);
+  await h.click(); assert.match(h.sandbox.window.location.href, /^linguafusion-record:\/\/stop\?id=/);
   await h.events['lf-native-recording']({ detail: { id: 'wrong-id', kind: 'cancel' } });
-  await h.click(); assert.equal(h.requests.length, 0);
   await h.events['lf-native-recording']({ detail: { id: 'test-request', kind: 'cancel' } });
   assert.equal(h.$('speechStatus').textContent, 'Recording cancelled.');
-  await h.click(); assert.match(h.$('speechStatus').textContent, /phone recording dialog/);
+  await h.click(); assert.match(h.$('speechStatus').textContent, /silence for one minute/);
 });
-test('native result uploads WAV with the compatibility guard and rejects stale callbacks', async () => {
-  const h = harness(); h.sandbox.window.LFNativeCloudRecording = true;
+test('native result streams through the origin-scoped bridge and rejects stale callbacks', async () => {
+  const h = harness(48000, true); h.sandbox.window.LFNativeCloudRecording = true;
   await h.click();
-  const data = Buffer.from(buildWav([new Float32Array(16000)],16000)).toString('base64');
-  await h.events['lf-native-recording']({ detail: { id: 'test-request', kind: 'audio', data } });
+  await h.events['lf-native-recording']({ detail: { id: 'test-request', kind: 'ready', total:1 } });
   assert.equal(h.requests.length, 1);
   assert.equal(h.requests[0].body.get('paid_consent'), 'true');
-  await h.events['lf-native-recording']({ detail: { id: 'test-request', kind: 'audio', data } });
+  await h.events['lf-native-recording']({ detail: { id: 'test-request', kind: 'ready', total:1 } });
   assert.equal(h.requests.length, 1);
 });
