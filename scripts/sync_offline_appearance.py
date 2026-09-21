@@ -22,7 +22,7 @@ TARGET = ROOT / 'android' / 'LinguaFusionMobile' / 'assets' / 'offline'
 # offline page uses a subset of it: taking part of a stylesheet is how the two
 # start to differ again. Read Aloud shares its validated one-active-result
 # state machine too; only the native transport differs.
-SHARED = ['linguafusion-themes.css', 'pilot.css', 'themes.mjs', 'read-aloud.mjs']
+SHARED = ['linguafusion-themes.css', 'pilot.css', 'themes.mjs', 'read-aloud.mjs', 'local-workflow.mjs']
 
 
 def main():

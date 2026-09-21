@@ -16,6 +16,7 @@ function harness(rate = 48000) {
   const $ = id => {
     if (!elements.has(id)) elements.set(id, {
       checked: true, textContent: '', hidden: true, value: '',
+      style: { setProperty() {} }, closest() { return this; },
       classList: { add() {}, remove() {}, toggle() {} },
       setAttribute() {},
       addEventListener(type, fn) { this[type] = fn; },
@@ -45,7 +46,7 @@ function harness(rate = 48000) {
     crypto: { randomUUID: () => 'test-request' }, buildWav, MAX_SECONDS,
     readAloud: { stop() {} },
     api: { async request(path, body) { requests.push({ path, body }); return { text: 'Test' }; } },
-    showSpending() {}, revealResult() {}, setProcessing() {},
+    showSpending() {}, revealResult() {}, setProcessing() {}, haptic() {}, formatClock:value => String(value),
     microphoneProblem: error => error.name, isIosDevice: () => false,
     isIosStandalone: () => false, clearTimeout });
   const stop = source.slice(source.indexOf('function stopCapture()'), source.indexOf('function clearPrivateText()'));

@@ -17,6 +17,9 @@
 import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, applyMode,
          applyMotion, getFont, getMode, getMotion, getTheme, initAppearance } from './themes.mjs';
 import { createReadAloudController } from './read-aloud.mjs';
+import { clearLocalHistory, historyEnabled, localHistory, recentPairs,
+         rememberRecentPair, removeHistoryEntry, saveHistoryEntry,
+         setHistoryEnabled } from './local-workflow.mjs';
 
 const native = window.LinguaFusionOffline;
 const $ = (id) => document.getElementById(id);
@@ -75,6 +78,7 @@ function ask(method, onProgress, ...args) {
 let state = { languages: [], models: [], installedPacks: new Set() };
 let recording = false;
 let busy = false;
+let recordingTimer = null;
 let readRate = (() => {
   try {
     const value = Number(localStorage.getItem('lf-read-aloud-rate'));
@@ -149,6 +153,46 @@ function copy(text, status) {
     () => say(status, 'This phone would not let the app copy that.'));
 }
 
+async function share(text, title, status) {
+  if (!text) { say(status, 'There is nothing to share yet.'); return; }
+  if (navigator.share) {
+    try { await navigator.share({title:`LinguaFusion · ${title}`,text}); say(status,'Shared.'); return; }
+    catch (error) { if (error?.name === 'AbortError') { say(status,'Sharing cancelled.'); return; } }
+  }
+  copy(text,status); say(status,'Sharing is unavailable here. Copied instead.');
+}
+
+function rememberOfflineResult(entry) {
+  saveHistoryEntry(localStorage,entry,Date.now(),`${Date.now()}-${Math.random().toString(36).slice(2,8)}`);
+  renderOfflineHistory();
+}
+
+function restoreOfflineHistory(entry) {
+  if (entry.kind === 'translation') {
+    $('sourceText').value=entry.input; $('textResult').textContent=entry.output;
+    if (entry.source) $('textFrom').value=entry.source; if (entry.target) $('textTo').value=entry.target;
+    show('viewTranslate');
+  } else if (entry.kind === 'transcript') { $('transcript').textContent=entry.output; show('viewSpeak'); }
+  else if (entry.kind === 'ocr') { $('readResult').textContent=entry.output; show('viewRead'); }
+  else if (entry.kind === 'pronunciation') { $('sayText').value=entry.input; $('sayResult').textContent=entry.output; show('viewSay'); }
+}
+
+function renderOfflineHistory() {
+  const entries=localHistory(localStorage); const list=$('offlineHistoryList'); list.replaceChildren();
+  for (const entry of entries) {
+    const card=document.createElement('article'); card.className='history-item';
+    const title=document.createElement('strong'); title.textContent=entry.title;
+    const preview=document.createElement('p'); preview.textContent=entry.output.slice(0,180);
+    const actions=document.createElement('div'); actions.className='actions';
+    for (const [label,action] of [['Open',()=>restoreOfflineHistory(entry)],['Copy',()=>copy(entry.output,'offlineHistoryStatus')],['Delete',()=>{removeHistoryEntry(localStorage,entry.id);renderOfflineHistory();}]]) {
+      const button=document.createElement('button'); button.type='button'; button.className='secondary'; button.textContent=label; button.onclick=action; actions.append(button);
+    }
+    card.append(title,preview,actions); list.append(card);
+  }
+  $('offlineClearHistory').disabled=!entries.length;
+  if (!entries.length) { const empty=document.createElement('p'); empty.className='hint'; empty.textContent=historyEnabled(localStorage)?'New results will appear here.':'History is off.'; list.append(empty); }
+}
+
 function updatePivotWarning() {
   const from = $('fromLang').value;
   const to = $('toLang').value;
@@ -168,11 +212,21 @@ async function toggleRecording() {
     $('record').textContent = 'Stop and transcribe';
     $('record').classList.add('is-recording');
     document.querySelector('.record-caption').textContent = 'Listening · tap to finish';
+    navigator.vibrate?.(30);
+    const started=Date.now();
+    recordingTimer=setInterval(()=>{
+      const seconds=Math.floor((Date.now()-started)/1000);
+      document.querySelector('.record-caption').textContent=`Listening · ${String(Math.floor(seconds/60)).padStart(2,'0')}:${String(seconds%60).padStart(2,'0')}`;
+      document.querySelector('.record-stage').style.setProperty('--record-level',`${Math.min(100,(seconds/300)*100)}%`);
+    },1000);
     say('speakStatus', 'Recording… speak now.');
     return;
   }
 
   recording = false;
+  clearInterval(recordingTimer); recordingTimer=null;
+  document.querySelector('.record-stage').style.setProperty('--record-level','0%');
+  navigator.vibrate?.([20,40,20]);
   busy = true;
   $('record').classList.remove('is-recording');
   setProcessing($('record'), true);
@@ -197,6 +251,7 @@ async function toggleRecording() {
 
   $('transcript').textContent = result.transcript || '';
   if (result.transcript) revealResult($('transcript'));
+  if (result.transcript) rememberOfflineResult({kind:'transcript',title:'Transcript',output:result.transcript});
   $('transcript').dataset.readLanguage = result.spokenLanguage || result.detected || '';
   const detected = result.detected
     ? ` Heard ${nameOf(result.detected) || result.detected}.` : '';
@@ -207,6 +262,7 @@ async function toggleRecording() {
     $('translation').textContent = result.translation;
     $('translation').lang = $('toLang').value;
     revealResult($('translation'));
+    rememberOfflineResult({kind:'translation',title:'Translation',input:result.transcript||'',output:result.translation,target:$('toLang').value});
   } else if (result.translationError) {
     say('speakStatus', `${result.error || 'Transcribed.'} ${result.translationError}`);
   }
@@ -233,6 +289,12 @@ async function translateTyped() {
   $('textResult').textContent = result.translation || '';
   $('textResult').lang = $('textTo').value;
   if (result.translation) revealResult($('textResult'));
+  if (result.translation) {
+    rememberRecentPair(localStorage,{source:$('textFrom').value,target:$('textTo').value},
+      state.languages.map(item=>item.code),state.languages.map(item=>item.code));
+    renderOfflinePairs();
+    rememberOfflineResult({kind:'translation',title:'Translation',input:text,output:result.translation,source:$('textFrom').value,target:$('textTo').value});
+  }
   say('translateStatus', result.pivoted
     ? 'Done. This pair goes through English, so it is rougher than usual.'
     : 'Done.');
@@ -252,6 +314,7 @@ async function readPicture() {
   if (result.error) { say('readStatus', result.error); $('readResult').textContent = ''; return; }
   $('readResult').textContent = result.text || '';
   if (result.text) revealResult($('readResult'));
+  if (result.text) rememberOfflineResult({kind:'ocr',title:'Picture text',output:result.text});
   say('readStatus', 'Read on this phone.');
 }
 
@@ -277,6 +340,7 @@ async function romanize() {
   if (result.error) { say('sayStatus', result.error); $('sayResult').textContent = ''; return; }
   $('sayResult').textContent = result.romanized || '';
   if (result.romanized) revealResult($('sayResult'));
+  if (result.romanized) rememberOfflineResult({kind:'pronunciation',title:'Pronunciation guide',input:text,output:result.romanized,language:$('sayLang').value});
   say('sayStatus', 'Done.');
 }
 
@@ -423,6 +487,17 @@ function renderPacks() {
   }
 }
 
+function renderOfflinePairs() {
+  const valid=state.languages.map(item=>item.code);
+  const pairs=recentPairs(localStorage,valid,valid); $('offlineRecentPairs').hidden=!pairs.length;
+  $('offlineRecentPairButtons').replaceChildren(...pairs.map(pair=>{
+    const button=document.createElement('button'); button.type='button'; button.className='recent-pair secondary';
+    button.textContent=`${nameOf(pair.source)} → ${nameOf(pair.target)}`;
+    button.onclick=()=>{ $('textFrom').value=pair.source; $('textTo').value=pair.target; };
+    return button;
+  }));
+}
+
 /* ---------- updates ---------- */
 
 async function checkForUpdate() {
@@ -475,6 +550,7 @@ async function refresh() {
   }
   renderModels();
   updatePivotWarning();
+  renderOfflinePairs();
 
   const packs = await ask('listTranslationLanguages', null);
   state.installedPacks = new Set(packs.installed || []);
@@ -533,13 +609,21 @@ function start() {
     };
   }
   $('copyTranscript').onclick = () => copy($('transcript').textContent, 'speakStatus');
+  $('shareTranscript').onclick = () => void share($('transcript').textContent,'Transcript','speakStatus');
   $('copyTranslation').onclick = () => copy($('translation').textContent, 'speakStatus');
   $('copyText').onclick = () => copy($('textResult').textContent, 'translateStatus');
+  $('shareText').onclick = () => void share($('textResult').textContent,'Translation','translateStatus');
   $('readPicture').onclick = readPicture;
   $('sendReadToTranslate').onclick = sendReadToTranslate;
   $('copyRead').onclick = () => copy($('readResult').textContent, 'readStatus');
+  $('shareRead').onclick = () => void share($('readResult').textContent,'Picture text','readStatus');
   $('romanize').onclick = romanize;
   $('copySay').onclick = () => copy($('sayResult').textContent, 'sayStatus');
+  $('shareSay').onclick = () => void share($('sayResult').textContent,'Pronunciation guide','sayStatus');
+  $('offlineSaveHistory').checked=historyEnabled(localStorage);
+  $('offlineSaveHistory').onchange=()=>{setHistoryEnabled(localStorage,$('offlineSaveHistory').checked);renderOfflineHistory();};
+  $('offlineClearHistory').onclick=()=>{clearLocalHistory(localStorage);renderOfflineHistory();say('offlineHistoryStatus','Private history cleared.');};
+  renderOfflineHistory();
   $('checkUpdate').onclick = checkForUpdate;
 
   for (const id of ['speechReadRate', 'textReadRate', 'pictureReadRate']) {
