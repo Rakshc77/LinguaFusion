@@ -7,12 +7,12 @@ const source = readFileSync(new URL('./pilot.mjs', import.meta.url), 'utf8');
 function harness(saved) {
   const elements = new Map();
   const $ = id => {
-    if (!elements.has(id)) elements.set(id, {value:'', addEventListener(event, fn) {this[event]=fn;}});
+    if (!elements.has(id)) elements.set(id, {value:'', hidden:false, replaceChildren(){}, addEventListener(event, fn) {this[event]=fn;}});
     return elements.get(id);
   };
   $('source').value = 'auto';
   let message = '';
-  const context = vm.createContext({$, languages:[['en','English'],['de','German']],
+  const context = vm.createContext({$, languages:[['en','English'],['de','German']], recentPairs:()=>[], document:{createElement(){return {}; }},
     translating:false, status: value => { message=value; },
     localStorage:{getItem:()=>saved, setItem:(_, value)=>{saved=value;}}});
   vm.runInContext(source.slice(source.indexOf("$('target').value = 'de';"),

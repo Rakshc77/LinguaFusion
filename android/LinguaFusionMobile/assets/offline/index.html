@@ -64,6 +64,7 @@
       </div>
       <div class="actions result-actions">
         <button id="copyTranscript" class="secondary" type="button">Copy transcript</button>
+        <button id="shareTranscript" class="secondary" type="button">Share</button>
         <button id="copyTranslation" class="secondary" type="button">Copy translation</button>
         <button id="readTranscript" class="secondary" type="button" aria-pressed="false">Read transcript aloud</button>
         <button id="readSpeechTranslation" class="secondary" type="button" aria-pressed="false">Read translation aloud</button>
@@ -88,6 +89,7 @@
           <select id="textTo"></select>
         </div>
       </div>
+      <div id="offlineRecentPairs" class="recent-pairs" hidden><span>Recent</span><div id="offlineRecentPairButtons"></div></div>
       <label for="sourceText">Text</label>
       <textarea id="sourceText" rows="4" dir="auto" placeholder="Type or paste text"></textarea>
       <button id="translate" type="button">Translate</button>
@@ -95,6 +97,7 @@
       <div class="out" id="textResult" dir="auto"></div>
       <div class="actions result-actions">
         <button id="copyText" class="secondary" type="button">Copy</button>
+        <button id="shareText" class="secondary" type="button">Share</button>
         <button id="readTextResult" class="secondary" type="button" aria-pressed="false">Read aloud</button>
       </div>
       <details class="compact-details result-options"><summary>Reading speed</summary>
@@ -114,6 +117,7 @@
       <div class="out" id="readResult" dir="auto"></div>
       <div class="actions result-actions">
         <button id="copyRead" class="secondary" type="button">Copy</button>
+        <button id="shareRead" class="secondary" type="button">Share</button>
         <button id="sendReadToTranslate" class="secondary" type="button">Translate this</button>
         <button id="readPictureResult" class="secondary" type="button" aria-pressed="false">Read aloud</button>
         <select id="pictureReadLanguage" aria-label="Picture text reading language"></select>
@@ -142,7 +146,7 @@
         are there rather than how a speaker would say them. Short vowels missing
         from written Arabic stay missing. The online guide reads better.</p>
       </details>
-      <div class="actions result-actions"><button id="copySay" class="secondary" type="button">Copy</button></div>
+      <div class="actions result-actions"><button id="copySay" class="secondary" type="button">Copy</button><button id="shareSay" class="secondary" type="button">Share</button></div>
     </section>
 
     <section class="view" id="viewStorage" hidden aria-labelledby="storageTitle">
@@ -177,6 +181,15 @@
         <p class="hint">Checking needs a connection.</p>
         <button id="checkUpdate" class="secondary" type="button">Check for updates</button>
         <p class="hint" id="updateStatus" role="status" aria-live="polite"></p>
+      </div>
+
+      <div class="settings-card history-settings">
+        <h3>Private history</h3>
+        <p class="hint">Optional. Saved only inside this app on this phone.</p>
+        <label class="check"><input id="offlineSaveHistory" type="checkbox"> Save my latest results</label>
+        <div id="offlineHistoryList" class="history-list"></div>
+        <button id="offlineClearHistory" class="secondary" type="button">Clear saved history</button>
+        <p id="offlineHistoryStatus" class="hint" role="status" aria-live="polite"></p>
       </div>
     </section>
 

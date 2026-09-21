@@ -383,8 +383,17 @@ main { width:min(100%,700px); padding-left:max(22px,env(safe-area-inset-left));
 .view-intro { max-width:510px; margin:13px 0 28px; font-size:16px; line-height:1.55; }
 
 .record-stage {
-  display:grid; justify-items:center; padding:16px 0 26px; text-align:center;
+  --record-level:0%; display:grid; justify-items:center; padding:16px 0 26px;
+  text-align:center; position:relative;
 }
+.record-stage::before {
+  content:""; position:absolute; top:8px; width:132px; height:132px; border-radius:50%;
+  background:conic-gradient(var(--accent) var(--record-level),var(--line) 0);
+  -webkit-mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 0);
+  mask:radial-gradient(farthest-side,transparent calc(100% - 5px),#000 0);
+  opacity:.75; transition:background var(--motion-fast) linear;
+}
+#recordToggle,#record { z-index:1; }
 #recordToggle,#record {
   width:116px; height:116px; min-height:116px; margin:0; padding:0;
   border-radius:50%; border:0; font-size:0; position:relative;
@@ -447,6 +456,20 @@ main { width:min(100%,700px); padding-left:max(22px,env(safe-area-inset-left));
 .result-actions select { min-height:40px; margin:3px; border:0; background:var(--lf-chip-bg); font-size:12px; }
 .result-options { margin:7px 3px 18px; border:0; }
 .result-options summary { color:var(--muted); font-size:12px; font-weight:650; }
+
+.recent-pairs { margin:9px 2px 2px; display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+.recent-pairs > span { color:var(--muted); font:800 10px/1 system-ui,sans-serif; letter-spacing:.1em; text-transform:uppercase; }
+.recent-pairs > div { display:flex; gap:6px; flex-wrap:wrap; }
+.recent-pair { min-height:34px; margin:0; padding:5px 10px; border-radius:999px; font-size:11px; }
+
+.history-list { display:grid; gap:10px; margin:14px 0; }
+.history-item { padding:14px; border:1px solid var(--line); border-radius:14px; background:var(--bg); }
+.history-item strong { display:block; font-family:var(--lf-font-display); font-size:17px; }
+.history-item time { display:block; color:var(--muted); font:500 11px/1.4 system-ui,sans-serif; }
+.history-item p { margin:8px 0; display:-webkit-box; -webkit-line-clamp:3; -webkit-box-orient:vertical; overflow:hidden; }
+.history-item .actions { margin-top:8px; }
+.history-item .actions button { min-height:36px; padding:6px 11px; font-size:12px; }
+.history-settings > #clearHistory { width:100%; }
 
 /* Photo choice becomes a calm drop-zone while retaining the native picker. */
 #ocrFile {

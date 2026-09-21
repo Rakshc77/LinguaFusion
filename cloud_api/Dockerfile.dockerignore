@@ -25,6 +25,7 @@
 !cloud_api/web/pronunciation.mjs
 !cloud_api/web/wav.mjs
 !cloud_api/web/read-aloud.mjs
+!cloud_api/web/local-workflow.mjs
 !cloud_api/web/manifest.webmanifest
 !cloud_api/web/icon.svg
 !cloud_api/web/apple-touch-icon.png

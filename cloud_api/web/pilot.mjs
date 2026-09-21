@@ -6,6 +6,9 @@ import { buildWav, MAX_SECONDS } from './wav.mjs';
 import { CLOUD_THEMES, LF_FONTS, applyFont, applyTheme, getFont, getTheme,
          applyMode, applyMotion, getMotion, initAppearance } from './themes.mjs';
 import { createReadAloudController } from './read-aloud.mjs';
+import { clearLocalHistory, historyEnabled, localHistory, recentPairs,
+         rememberRecentPair, removeHistoryEntry, saveHistoryEntry,
+         setHistoryEnabled } from './local-workflow.mjs';
 
 const $ = id => document.getElementById(id);
 const auth = createCloudAuth();
@@ -94,6 +97,25 @@ function rememberLanguages() {
 }
 $('source').addEventListener('change', rememberLanguages);
 $('target').addEventListener('change', rememberLanguages);
+
+const sourceCodes = ['auto', ...languages.map(([code]) => code)];
+const targetCodes = languages.map(([code]) => code);
+const languageName = code => code === 'auto' ? 'Detect' : languages.find(([value]) => value === code)?.[1] || code;
+function renderRecentPairs() {
+  const pairs = recentPairs(localStorage, sourceCodes, targetCodes);
+  $('recentPairs').hidden = pairs.length === 0;
+  $('recentPairButtons').replaceChildren(...pairs.map(pair => {
+    const button = document.createElement('button');
+    button.type = 'button'; button.className = 'recent-pair secondary';
+    button.textContent = `${languageName(pair.source)} → ${languageName(pair.target)}`;
+    button.addEventListener('click', () => {
+      $('source').value = pair.source; $('target').value = pair.target;
+      rememberLanguages(); status(`Ready for ${button.textContent}.`);
+    });
+    return button;
+  }));
+}
+renderRecentPairs();
 $('swapLanguages').addEventListener('click', () => {
   if (translating) return;
   if ($('source').value === 'auto') { status('Choose a source language before swapping.'); return; }
@@ -303,6 +325,90 @@ async function copyText(value, label, target) {
   }
 }
 
+async function shareText(value, title, target) {
+  const text = String(value || '').trim();
+  if (!text) { target.textContent = 'There is nothing to share yet.'; return; }
+  if (navigator.share) {
+    try {
+      await navigator.share({ title:`LinguaFusion · ${title}`, text });
+      target.textContent = `${title} shared.`;
+      return;
+    } catch (error) {
+      if (error?.name === 'AbortError') { target.textContent = 'Sharing cancelled.'; return; }
+    }
+  }
+  await copyText(text, title, target);
+  target.textContent = `Sharing is unavailable here. ${title} copied instead.`;
+}
+
+function haptic(pattern) {
+  try { navigator.vibrate?.(pattern); } catch { /* optional device feedback */ }
+}
+
+function formatClock(seconds) {
+  const safe = Math.max(0, Math.min(MAX_SECONDS, Math.floor(seconds)));
+  return `${String(Math.floor(safe / 60)).padStart(2,'0')}:${String(safe % 60).padStart(2,'0')}`;
+}
+
+function renderHistory() {
+  const entries = localHistory(localStorage);
+  $('historyList').replaceChildren(...entries.map(entry => {
+    const card = document.createElement('article'); card.className = 'history-item';
+    const heading = document.createElement('strong'); heading.textContent = entry.title;
+    const time = document.createElement('time'); time.dateTime = new Date(entry.createdAt).toISOString();
+    time.textContent = new Date(entry.createdAt).toLocaleString([], { dateStyle:'medium', timeStyle:'short' });
+    const preview = document.createElement('p'); preview.textContent = entry.output.slice(0, 180);
+    const actions = document.createElement('div'); actions.className = 'actions';
+    const restore = document.createElement('button'); restore.type = 'button'; restore.className = 'secondary'; restore.textContent = 'Open';
+    restore.addEventListener('click', () => restoreHistoryEntry(entry));
+    const copy = document.createElement('button'); copy.type = 'button'; copy.className = 'secondary'; copy.textContent = 'Copy';
+    copy.addEventListener('click', () => void copyText(entry.output, entry.title, $('historyStatus')));
+    const remove = document.createElement('button'); remove.type = 'button'; remove.className = 'secondary'; remove.textContent = 'Delete';
+    remove.addEventListener('click', () => { removeHistoryEntry(localStorage, entry.id); renderHistory(); $('historyStatus').textContent = 'Saved item deleted.'; });
+    actions.append(restore, copy, remove); card.append(heading, time, preview, actions); return card;
+  }));
+  $('clearHistory').disabled = entries.length === 0;
+  if (!entries.length) {
+    const empty = document.createElement('p'); empty.className = 'hint';
+    empty.textContent = historyEnabled(localStorage) ? 'New results will appear here.' : 'History is off.';
+    $('historyList').append(empty);
+  }
+}
+
+function restoreHistoryEntry(entry) {
+  if (entry.kind === 'translation') {
+    $('text').value = entry.input; $('result').textContent = entry.output;
+    if (sourceCodes.includes(entry.source)) $('source').value = entry.source;
+    if (targetCodes.includes(entry.target)) $('target').value = entry.target;
+    $('result').dataset.readLanguage = entry.target; updateTextCount(); showView('viewTranslate');
+  } else if (entry.kind === 'transcript') {
+    $('transcript').textContent = entry.output; showView('viewSpeech');
+  } else if (entry.kind === 'ocr') {
+    $('ocrResult').textContent = entry.output; showView('viewRead');
+  } else if (entry.kind === 'pronunciation') {
+    $('pronounceNative').textContent = entry.input; $('pronounceRoman').textContent = entry.output;
+    $('pronounceResult').hidden = false; showView('viewSay');
+  }
+  status('Opened from private on-device history.');
+}
+
+function rememberResult(entry) {
+  saveHistoryEntry(localStorage, entry, Date.now(), `${Date.now()}-${Math.random().toString(36).slice(2,8)}`);
+  renderHistory();
+}
+
+$('saveHistory').checked = historyEnabled(localStorage);
+$('saveHistory').addEventListener('change', () => {
+  setHistoryEnabled(localStorage, $('saveHistory').checked);
+  $('historyStatus').textContent = $('saveHistory').checked
+    ? 'Private history enabled on this device.' : 'Private history disabled. Existing saved items remain until cleared.';
+  renderHistory();
+});
+$('clearHistory').addEventListener('click', () => {
+  clearLocalHistory(localStorage); renderHistory(); $('historyStatus').textContent = 'Private history cleared.';
+});
+renderHistory();
+
 function revealResult(element) {
   element.classList.remove('result-reveal');
   void element.offsetWidth;
@@ -318,6 +424,7 @@ function stopCapture() {
   $('recordingFeedback').hidden = true;
   $('microphoneLevel').value = 0;
   $('recordToggle').classList.remove('is-recording');
+  $('recordToggle').closest('.record-stage')?.style.setProperty('--record-level','0%');
   captureGeneration++;
   nativeRecording = null;
   if (!capture) return;
@@ -1101,6 +1208,10 @@ $('translateForm').addEventListener('submit', async event => {
     $('result').dataset.readLanguage = result.target_lang || $('target').value;
     $('result').lang = $('result').dataset.readLanguage;
     revealResult($('result'));
+    rememberRecentPair(localStorage,{source:$('source').value,target:$('target').value},sourceCodes,targetCodes);
+    renderRecentPairs();
+    rememberResult({kind:'translation',title:'Translation',input:$('text').value,output:result.translated_text,
+      source:$('source').value,target:$('target').value});
     status('Translation complete.');
     if (result.spending) showSpending(result.spending);
   } catch (error) {
@@ -1142,6 +1253,7 @@ $('pronounceForm').addEventListener('submit', async event => {
     $('pronounceRoman').textContent = view.romanized;
     $('pronounceResult').hidden = false;
     revealResult($('pronounceResult'));
+    rememberResult({kind:'pronunciation',title:'Pronunciation guide',input:view.native,output:view.romanized,language:view.language});
     $('pronounceStatus').textContent = `Approximate ${view.languageName} pronunciation. The original is unchanged.`;
     if (result.spending) showSpending(result.spending);
   } catch (error) { if (current === epoch) $('pronounceStatus').textContent = error.message; }
@@ -1155,6 +1267,7 @@ $('pronounceForm').addEventListener('submit', async event => {
 // --- speech ------------------------------------------------------------------
 
 $('copyTranscript').addEventListener('click', () => void copyText($('transcript').textContent, 'Transcript', $('speechStatus')));
+$('shareTranscript').addEventListener('click', () => void shareText($('transcript').textContent, 'Transcript', $('speechStatus')));
 
 /** Say which microphone problem actually happened.
  *  One catch-all "Microphone unavailable" told someone who had already granted
@@ -1289,6 +1402,7 @@ $('recordToggle').addEventListener('click', async () => {
     nativeRecording = { id, epoch };
     $('recordToggle').classList.add('is-recording');
     $('recordCaption').textContent = 'Recording · tap the phone control to finish';
+    haptic(30);
     $('speechStatus').textContent = 'Use the phone recording dialog. Cancel discards the audio.';
     window.location.href = `linguafusion-record://capture?id=${id}`;
     return;
@@ -1340,9 +1454,12 @@ $('recordToggle').addEventListener('click', async () => {
       chunks.push(chunk);
       frames += chunk.length;
       const energy = chunk.reduce((sum, sample) => sum + sample * sample, 0);
-      $('microphoneLevel').value = Math.min(1, 4 * Math.sqrt(energy / Math.max(1, chunk.length)));
+      const level = Math.min(1, 4 * Math.sqrt(energy / Math.max(1, chunk.length)));
+      $('microphoneLevel').value = level;
+      $('recordToggle').closest('.record-stage')?.style.setProperty('--record-level', `${Math.round(level * 100)}%`);
       const seconds = frames / context.sampleRate;
       $('speechStatus').textContent = `Recording… ${seconds.toFixed(0)}s of ${MAX_SECONDS}s`;
+      $('recordCaption').textContent = `Listening · ${formatClock(seconds)} / ${formatClock(MAX_SECONDS)}`;
       if (seconds >= MAX_SECONDS) void finishRecording();
     };
     source.connect(processor);
@@ -1377,6 +1494,7 @@ $('recordToggle').addEventListener('click', async () => {
     $('recordToggle').textContent = 'Stop and transcribe';
     $('recordToggle').classList.add('is-recording');
     $('recordCaption').textContent = 'Listening · tap to finish';
+    haptic(30);
     $('speechStatus').textContent = 'Recording…';
   } catch (error) {
     // The microphone opened but the audio graph did not. Release it rather than
@@ -1393,6 +1511,7 @@ window.addEventListener('lf-native-recording', async event => {
   nativeRecording = null;
   $('recordToggle').classList.remove('is-recording');
   $('recordCaption').textContent = 'Tap to start · up to 5 minutes';
+  haptic([20,40,20]);
   const { kind, data } = event.detail;
   if (kind === 'cancel') { $('speechStatus').textContent = 'Recording cancelled.'; return; }
   if (kind !== 'audio') { $('speechStatus').textContent = String(data || 'Recording failed.'); return; }
@@ -1418,6 +1537,7 @@ async function finishRecording() {
   let offset = 0;
   for (const chunk of chunks) { merged.set(chunk, offset); offset += chunk.length; }
   stopCapture();
+  haptic([20,40,20]);
   if (!merged.length) { $('speechStatus').textContent = 'Nothing was recorded.'; return; }
 
   let audio;
@@ -1445,6 +1565,7 @@ async function transcribeRecording(audio) {
     // Empty text is a legitimate result for silence, never "corrected".
     $('transcript').textContent = result.text || '';
     if (result.text) revealResult($('transcript'));
+    if (result.text) rememberResult({kind:'transcript',title:'Transcript',output:result.text});
     $('speechStatus').textContent = result.text ? 'Done.' : 'No speech was detected in that recording.';
     if (result.spending) showSpending(result.spending);
   } catch (error) { if (current === epoch) $('speechStatus').textContent = error.message; }
@@ -1458,6 +1579,7 @@ async function transcribeRecording(audio) {
 // --- picture reading ---------------------------------------------------------
 
 $('copyOcr').addEventListener('click', () => void copyText($('ocrResult').textContent, 'Text', $('ocrStatus')));
+$('shareOcr').addEventListener('click', () => void shareText($('ocrResult').textContent, 'Picture text', $('ocrStatus')));
 
 $('runOcr').addEventListener('click', async () => {
   if (!ready.ocr) return;
@@ -1478,6 +1600,7 @@ $('runOcr').addEventListener('click', async () => {
     if (current !== epoch) return;
     $('ocrResult').textContent = result.text || '';
     if (result.text) revealResult($('ocrResult'));
+    if (result.text) rememberResult({kind:'ocr',title:'Picture text',output:result.text});
     const layout = result.layout || {};
     // Offer CSV only when columns were actually detected: a CSV of prose is one
     // quoted cell per line, which is worse than the text.
@@ -1591,6 +1714,9 @@ $('ocrToTranslate').addEventListener('click', () => sendToTranslate($('ocrResult
 $('ocrToSay').addEventListener('click', () => sendToPronounce($('ocrResult').textContent));
 $('translationToSay').addEventListener('click', () => sendToPronounce($('result').textContent, $('target').value));
 $('copyTranslation').addEventListener('click', () => void copyText($('result').textContent, 'Translation', $('status')));
+$('shareTranslation').addEventListener('click', () => void shareText($('result').textContent, 'Translation', $('status')));
+$('sharePronunciation').addEventListener('click', () => void shareText(
+  `${$('pronounceNative').textContent}\n\n${$('pronounceRoman').textContent}`, 'Pronunciation guide', $('pronounceStatus')));
 
 $('downloadTranscript').addEventListener('click',
   () => download('transcript', $('transcriptFormat').value, 'Transcript', $('transcript').textContent));

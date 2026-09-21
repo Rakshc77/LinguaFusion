@@ -149,6 +149,7 @@
           <div id="transcript" role="region" aria-labelledby="transcriptHeading" dir="auto"></div>
           <div class="actions result-actions">
             <button id="copyTranscript" class="secondary" type="button">Copy</button>
+            <button id="shareTranscript" class="secondary" type="button">Share</button>
             <button id="transcriptToTranslate" class="secondary" type="button">Translate this</button>
             <button id="readTranscript" class="secondary" type="button" aria-pressed="false">Read aloud</button>
             <select id="transcriptReadLanguage" aria-label="Transcript reading language"></select>
@@ -177,6 +178,7 @@
                 <div><label for="source">From</label><select id="source"><option value="auto">Detect language</option></select></div>
                 <div><label for="target">To</label><select id="target"></select></div>
               </div>
+              <div id="recentPairs" class="recent-pairs" hidden><span>Recent</span><div id="recentPairButtons"></div></div>
               <p class="hint" id="translateModelNote"></p>
               <button id="swapLanguages" class="secondary" type="button">Swap languages ⇄</button>
               <label for="text">Source text</label>
@@ -189,6 +191,7 @@
           <div id="result" role="region" aria-labelledby="resultHeading" aria-live="polite" dir="auto">Your translation will appear here.</div>
           <div class="actions result-actions">
             <button id="copyTranslation" class="secondary" type="button">Copy</button>
+            <button id="shareTranslation" class="secondary" type="button">Share</button>
             <button id="translationToSay" class="secondary" type="button">Say it</button>
             <button id="readTranslation" class="secondary" type="button" aria-pressed="false">Read aloud</button>
           </div>
@@ -220,6 +223,7 @@
           <p id="ocrLayoutNote" class="hint"></p>
           <div class="actions result-actions">
             <button id="copyOcr" class="secondary" type="button">Copy</button>
+            <button id="shareOcr" class="secondary" type="button">Share</button>
             <button id="ocrToTranslate" class="secondary" type="button">Translate this</button>
             <button id="ocrToSay" class="secondary" type="button">Say it</button>
             <button id="readOcr" class="secondary" type="button" aria-pressed="false">Read aloud</button>
@@ -262,6 +266,7 @@
             <div id="pronounceRoman" role="region" aria-labelledby="romanHeading" dir="ltr" lang="en"></div>
             <div class="actions result-actions">
             <button id="copyRoman" class="secondary" type="button">Copy pronunciation</button>
+            <button id="sharePronunciation" class="secondary" type="button">Share</button>
             </div>
             <details class="compact-details result-options">
               <summary>Download guide</summary>
@@ -304,6 +309,15 @@
           <select id="fontChoice"></select>
           <label class="check motion-setting"><input id="reduceMotion" type="checkbox"> Reduce motion <span>Balanced transitions</span></label>
           <p id="motionStatus" class="hint" role="status">Lively motion</p>
+        </section>
+
+        <section class="settings-card history-settings" aria-labelledby="historyTitle">
+          <h3 id="historyTitle">Private history</h3>
+          <p class="hint">Optional. Saved only on this device and never synced to the owner or cloud.</p>
+          <label class="check"><input id="saveHistory" type="checkbox"> Save my latest results on this device</label>
+          <div id="historyList" class="history-list"></div>
+          <button id="clearHistory" class="secondary" type="button">Clear saved history</button>
+          <p id="historyStatus" class="hint" role="status" aria-live="polite"></p>
         </section>
 
         <section class="update-panel settings-card" aria-labelledby="updatesTitle">
