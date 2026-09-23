@@ -43,12 +43,13 @@ minute without detected speech finishes the recording automatically. The hosted
 Android app records from the animated round microphone without a native screen
 overlay; long sessions are divided on-device into independently validated
 five-minute WAV uploads so Cloud Run and the transcription provider never
-receive an oversized request. Source versions are Online `2026.09.22.1` and
-Android 1.27/versionCode 28.
+receive an oversized request. Source versions are Online `2026.09.23.1` and
+Android 1.28/versionCode 29.
 
-The phone shell also has a pull-only tool handle above the navigation bar. It
-opens a reorderable two-by-two tray for Conversation, Import media, History and
-Saved. The order is kept locally. Conversation alternates between two selected
+The phone shell also has a pull handle above the navigation bar. Swipe up to
+open the tools tray, and swipe down on its header to close it. In Arrange mode,
+hold and drag any icon between the bar and the tray; dropping onto a bar slot
+swaps its previous tool into the tray. The layout is kept locally. Conversation alternates between two selected
 languages and renders each transcribed and translated turn as a private bubble;
 Offline performs the same workflow entirely on the phone. Offline language
 packs remain under Settings instead of becoming another primary destination.
