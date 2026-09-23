@@ -294,6 +294,24 @@ def test_pronunciation_module_is_served_but_tests_are_not():
         assert client.get('/pilot/read-aloud.test.mjs').status_code == 404
         assert client.get('/pilot/local-workflow.mjs').status_code == 200
         assert client.get('/pilot/local-workflow.test.mjs').status_code == 404
+        assert client.get('/pilot/tool-tray.mjs').status_code == 200
+        assert client.get('/pilot/tool-tray.test.mjs').status_code == 404
+
+
+def test_hybrid_tool_tray_and_conversation_are_real_controls():
+    import pathlib
+    import re
+    web = pathlib.Path(__file__).parent / 'web'
+    page = (web / 'index.html').read_text(encoding='utf-8')
+    script = (web / 'pilot.mjs').read_text(encoding='utf-8')
+    worker = (web / 'sw.js').read_text(encoding='utf-8')
+    tools = re.findall(r'data-tool="([^"]+)"', page)
+    assert tools == ['conversation', 'import', 'history', 'saved']
+    assert 'id="toolTrayHandle"' in page and 'aria-controls="toolTraySheet"' in page
+    assert 'id="viewConversation"' in page
+    assert "import { createToolTray } from './tool-tray.mjs'" in script
+    assert "api.request('/api/transcribe'" in script and "api.request('/api/translate'" in script
+    assert "'/pilot/tool-tray.mjs'" in worker, 'the installed PWA would otherwise lose the tray module offline'
 
 
 def test_container_build_copies_every_module_the_app_imports():

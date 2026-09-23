@@ -281,6 +281,26 @@
         <p class="hint unavailable" id="pronounceUnavailable" hidden>Pronunciation guides are not switched on for this account.</p>
       </section>
 
+      <section class="view conversation-view" id="viewConversation" hidden aria-labelledby="conversationTitle">
+        <p class="page-kicker">Two people, two languages</p>
+        <h2 id="conversationTitle">Conversation</h2>
+        <p class="view-intro">Take turns speaking. Each turn is transcribed and translated for the other person.</p>
+        <div class="conversation-languages">
+          <label class="conversation-language" for="conversationLangA"><span>Person A</span><select id="conversationLangA"></select></label>
+          <button id="conversationSwap" class="conversation-swap secondary" type="button" aria-label="Swap conversation languages">⇄</button>
+          <label class="conversation-language" for="conversationLangB"><span>Person B</span><select id="conversationLangB"></select></label>
+        </div>
+        <div id="conversationLog" class="conversation-log" role="log" aria-live="polite" aria-label="Conversation transcript">
+          <p class="conversation-empty">Choose who is speaking, then tap their microphone.</p>
+        </div>
+        <div class="conversation-controls">
+          <button id="conversationRecordA" class="conversation-record" type="button"><span>Person A</span><strong>Speak English</strong></button>
+          <button id="conversationRecordB" class="conversation-record" type="button"><span>Person B</span><strong>Speak German</strong></button>
+        </div>
+        <p id="conversationStatus" class="hint" role="status" aria-live="polite"></p>
+        <button id="clearConversation" class="secondary conversation-clear" type="button">Clear conversation</button>
+      </section>
+
       <section class="view" id="viewModels" hidden aria-labelledby="modelsTitle">
         <p class="page-kicker">Choose your engine</p>
         <h2 id="modelsTitle">Model</h2>
@@ -418,6 +438,34 @@
         <button id="navModels" type="button" class="nav-item" data-view="viewModels"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="m12 3 9 5-9 5-9-5 9-5Zm-9 9 9 5 9-5m-18 5 9 5 9-5"/></svg><span>Model</span></button>
         <button id="navAccount" type="button" class="nav-item" data-view="viewAccount"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="7" r="4"/><path d="M4 22v-3a8 8 0 0 1 16 0v3Z"/></svg><span>Settings</span><span id="requestBadge" class="request-badge" hidden aria-label="Pending access requests"></span></button>
       </nav>
+
+      <button id="toolTrayHandle" class="tool-tray-handle" type="button" aria-expanded="false" aria-controls="toolTraySheet">
+        <span aria-hidden="true"></span><span class="sr-only">Open tools</span>
+      </button>
+      <div id="toolTrayScrim" class="tool-tray-scrim" hidden></div>
+      <section id="toolTraySheet" class="tool-tray-sheet" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="toolTrayTitle" hidden>
+        <button id="toolTraySheetHandle" class="tool-tray-sheet-handle" type="button"><span aria-hidden="true"></span><span class="sr-only">Close tools</span></button>
+        <div class="tool-tray-heading">
+          <div><h2 id="toolTrayTitle">Tools</h2><p>Your shortcuts, always within reach</p></div>
+          <button id="toolArrange" class="tool-tray-arrange secondary" type="button" aria-pressed="false">Arrange</button>
+        </div>
+        <p id="toolArrangeHint" class="sr-only">Use drag and drop, or hold Alt and press an arrow key, to move this tool.</p>
+        <aside id="toolCoachmark" class="tool-coachmark" hidden>
+          <strong>Arrange your tools</strong>
+          <p>Press and hold any tool, then drag it where you want. Your order is saved automatically.</p>
+          <div><button id="toolCoachTry" type="button">Try it now</button><button id="toolCoachGot" class="secondary" type="button">Got it</button></div>
+        </aside>
+        <div id="toolGrid" class="tool-grid">
+          <button class="tool-tile tool-featured" type="button" data-tool="conversation"><span class="tool-grip" aria-hidden="true">⠿</span><span class="tool-icon" aria-hidden="true">↔</span><span><strong>Conversation</strong><small>Two-way live mode</small></span></button>
+          <button class="tool-tile" type="button" data-tool="import"><span class="tool-grip" aria-hidden="true">⠿</span><span class="tool-icon" aria-hidden="true">↑</span><span><strong>Import media</strong><small>Audio or a picture</small></span></button>
+          <button class="tool-tile" type="button" data-tool="history"><span class="tool-grip" aria-hidden="true">⠿</span><span class="tool-icon" aria-hidden="true">◷</span><span><strong>History</strong><small>Recent results</small></span></button>
+          <button class="tool-tile" type="button" data-tool="saved"><span class="tool-grip" aria-hidden="true">⠿</span><span class="tool-icon" aria-hidden="true">◇</span><span><strong>Saved</strong><small>On this device</small></span></button>
+        </div>
+        <div id="toolArrangeFooter" class="tool-arrange-footer" hidden>
+          <button id="toolReset" class="secondary" type="button">Reset order</button>
+          <button id="toolDone" type="button">Done</button>
+        </div>
+      </section>
     </div>
 
     <footer id="pageFooter">Private pilot · Account approval required</footer>

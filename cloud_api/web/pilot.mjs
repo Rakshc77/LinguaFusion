@@ -10,6 +10,7 @@ import { createReadAloudController } from './read-aloud.mjs';
 import { clearLocalHistory, historyEnabled, localHistory, recentPairs,
          rememberRecentPair, removeHistoryEntry, saveHistoryEntry,
          setHistoryEnabled } from './local-workflow.mjs';
+import { createToolTray } from './tool-tray.mjs';
 
 const $ = id => document.getElementById(id);
 const auth = createCloudAuth();
@@ -38,6 +39,7 @@ let captureStarting = false;
 let captureGeneration = 0;
 let transcribing = false;
 let nativeRecording = null;
+let conversationTurn = null;
 const ready = { translate: false, pronounce: false, transcribe: false, ocr: false };
 let translationModels = [];
 let translationLimit = 6000;
@@ -83,7 +85,11 @@ const languages = [['en', 'English'], ['de', 'German'], ['fr', 'French'],
                    ['es', 'Spanish'], ['hi', 'Hindi'], ['ar', 'Arabic'], ['or', 'Odia']];
 const readLanguages = languages;
 for (const [value, text] of languages) { $('source').add(new Option(text, value)); $('target').add(new Option(text, value)); }
+$('conversationLangA').replaceChildren(...languages.map(([value, text]) => new Option(text, value)));
+$('conversationLangB').replaceChildren(...languages.map(([value, text]) => new Option(text, value)));
 $('target').value = 'de';
+$('conversationLangA').value = 'en';
+$('conversationLangB').value = 'de';
 
 try {
   const pair = JSON.parse(localStorage.getItem('lf-language-pair'));
@@ -276,6 +282,105 @@ function showView(id) {
 for (const item of document.querySelectorAll('.nav-item')) {
   item.addEventListener('click', () => showView(item.dataset.view));
 }
+
+function rememberConversationLanguages() {
+  try {
+    localStorage.setItem('lf-conversation-languages-v1', JSON.stringify({
+      a:$('conversationLangA').value, b:$('conversationLangB').value,
+    }));
+  } catch { /* device storage is optional */ }
+}
+
+function updateConversationControls() {
+  const a = languageName($('conversationLangA').value);
+  const b = languageName($('conversationLangB').value);
+  const active = Boolean(capture || nativeRecording || captureStarting || transcribing);
+  const aButton = $('conversationRecordA');
+  const bButton = $('conversationRecordB');
+  aButton.querySelector('strong').textContent = conversationTurn?.side === 'a' && active ? 'Stop and translate' : `Speak ${a}`;
+  bButton.querySelector('strong').textContent = conversationTurn?.side === 'b' && active ? 'Stop and translate' : `Speak ${b}`;
+  aButton.classList.toggle('is-recording', conversationTurn?.side === 'a' && Boolean(capture || nativeRecording));
+  bButton.classList.toggle('is-recording', conversationTurn?.side === 'b' && Boolean(capture || nativeRecording));
+  aButton.disabled = !ready.transcribe || !ready.translate || (active && conversationTurn?.side !== 'a');
+  bButton.disabled = !ready.transcribe || !ready.translate || (active && conversationTurn?.side !== 'b');
+}
+
+function appendConversationTurn(turn, original, translated) {
+  $('conversationLog').querySelector('.conversation-empty')?.remove();
+  const card = document.createElement('article');
+  card.className = 'conversation-turn';
+  card.dataset.speaker = turn.side;
+  const head = document.createElement('header');
+  const person = document.createElement('strong'); person.textContent = turn.side === 'a' ? 'Person A' : 'Person B';
+  const route = document.createElement('span'); route.textContent = `${languageName(turn.source)} → ${languageName(turn.target)}`;
+  head.append(person, route);
+  const source = document.createElement('p'); source.className = 'conversation-original'; source.lang = turn.source; source.textContent = original;
+  const translation = document.createElement('p'); translation.className = 'conversation-translation'; translation.lang = turn.target; translation.textContent = translated;
+  card.append(head, source, translation);
+  $('conversationLog').append(card);
+  card.scrollIntoView({ block:'nearest', behavior:getMotion() === 'lively' ? 'smooth' : 'auto' });
+}
+
+async function startConversationTurn(side) {
+  if (!ready.transcribe || !ready.translate) {
+    $('conversationStatus').textContent = 'Conversation needs both speech and translation access.';
+    return;
+  }
+  if (conversationTurn && conversationTurn.side !== side) return;
+  if (!conversationTurn) {
+    const source = $(side === 'a' ? 'conversationLangA' : 'conversationLangB').value;
+    const target = $(side === 'a' ? 'conversationLangB' : 'conversationLangA').value;
+    if (source === target) {
+      $('conversationStatus').textContent = 'Choose two different languages first.';
+      return;
+    }
+    conversationTurn = { side, source, target };
+    $('conversationStatus').textContent = `Listening to ${side === 'a' ? 'Person A' : 'Person B'}…`;
+  }
+  if (typeof updateConversationControls === 'function') updateConversationControls();
+  $('recordToggle').click();
+}
+
+for (const id of ['conversationLangA', 'conversationLangB']) {
+  $(id).addEventListener('change', () => { rememberConversationLanguages(); updateConversationControls(); });
+}
+$('conversationSwap').addEventListener('click', () => {
+  const a = $('conversationLangA').value;
+  $('conversationLangA').value = $('conversationLangB').value;
+  $('conversationLangB').value = a;
+  rememberConversationLanguages(); updateConversationControls();
+});
+$('conversationRecordA').addEventListener('click', () => void startConversationTurn('a'));
+$('conversationRecordB').addEventListener('click', () => void startConversationTurn('b'));
+$('clearConversation').addEventListener('click', () => {
+  $('conversationLog').replaceChildren(Object.assign(document.createElement('p'), {
+    className:'conversation-empty', textContent:'Choose who is speaking, then tap their microphone.',
+  }));
+  $('conversationStatus').textContent = 'Conversation cleared from this screen.';
+});
+try {
+  const pair = JSON.parse(localStorage.getItem('lf-conversation-languages-v1'));
+  if (pair && targetCodes.includes(pair.a) && targetCodes.includes(pair.b)) {
+    $('conversationLangA').value = pair.a; $('conversationLangB').value = pair.b;
+  }
+} catch { /* keep English and German defaults */ }
+updateConversationControls();
+
+const toolTray = createToolTray({ document, storage:localStorage, onAction:tool => {
+  if (tool === 'conversation') {
+    showView('viewConversation'); updateConversationControls();
+  } else if (tool === 'import') {
+    showView('viewSpeech');
+    $('speechStatus').textContent = 'Choose an audio recording to transcribe.';
+    $('speechAudioFile').click();
+  } else if (tool === 'history' || tool === 'saved') {
+    showView('viewAccount');
+    requestAnimationFrame(() => $('historyTitle').scrollIntoView({ block:'start', behavior:getMotion() === 'lively' ? 'smooth' : 'auto' }));
+    $('historyStatus').textContent = tool === 'saved'
+      ? 'Saved results stay only on this device.' : 'Your recent on-device results are shown here.';
+  }
+}});
+
 function showOwnerRequests() {
   showView('viewAccount');
   $('requestsHeading').scrollIntoView({ block:'start' });
@@ -436,6 +541,7 @@ function stopCapture() {
   capture = null;
   $('recordToggle').textContent = 'Start recording';
   $('recordCaption').textContent = 'Tap to start · up to 20 minutes';
+  if (typeof updateConversationControls === 'function') updateConversationControls();
 }
 
 function clearPrivateText() {
@@ -447,6 +553,11 @@ function clearPrivateText() {
   $('pronounceResult').hidden = true; $('pronounceStatus').textContent = '';
   $('pronounceNative').textContent = ''; $('pronounceRoman').textContent = '';
   $('transcript').textContent = ''; $('speechStatus').textContent = '';
+  conversationTurn = null;
+  $('conversationLog').replaceChildren(Object.assign(document.createElement('p'), {
+    className:'conversation-empty', textContent:'Choose who is speaking, then tap their microphone.',
+  }));
+  $('conversationStatus').textContent = '';
   $('ocrResult').textContent = ''; $('ocrStatus').textContent = '';
   for (const id of ['transcriptReadStatus', 'translationReadStatus', 'ocrReadStatus']) $(id).textContent = '';
   $('ocrFile').value = '';
@@ -461,6 +572,7 @@ function clearPrivateText() {
   if (requestPollTimer) clearInterval(requestPollTimer);
   requestPollTimer = null;
   stopCapture();
+  updateConversationControls();
 }
 
 // --- capability gating -------------------------------------------------------
@@ -477,6 +589,7 @@ function applyReadiness() {
   $('translationFields').disabled = translating || !ready.translate;
   $('pronounceFields').disabled = pronouncing || !ready.pronounce;
   $('pronounce').disabled = pronouncing || !ready.pronounce;
+  updateConversationControls();
 }
 
 // --- owner -------------------------------------------------------------------
@@ -1393,8 +1506,12 @@ $('cancelRecording').addEventListener('click', () => {
     return;
   }
   if (!capture) return;
+  const wasConversation = typeof conversationTurn !== 'undefined' && Boolean(conversationTurn);
   stopCapture();
+  if (typeof conversationTurn !== 'undefined') conversationTurn = null;
+  if (typeof updateConversationControls === 'function') updateConversationControls();
   $('speechStatus').textContent = 'Recording cancelled. No audio was sent.';
+  if (wasConversation) $('conversationStatus').textContent = 'Recording cancelled. No audio was sent.';
 });
 $('recordToggle').addEventListener('click', async () => {
   if (captureStarting || transcribing) return;
@@ -1418,6 +1535,7 @@ $('recordToggle').addEventListener('click', async () => {
     $('recordCaption').textContent = 'Listening · tap the microphone to finish';
     haptic(30);
     $('speechStatus').textContent = 'Recording… silence for one minute stops automatically.';
+    if (typeof updateConversationControls === 'function') updateConversationControls();
     window.location.href = `linguafusion-record://capture?id=${id}`;
     return;
   }
@@ -1437,6 +1555,11 @@ $('recordToggle').addEventListener('click', async () => {
   } catch (error) {
     if (generation === captureGeneration) showRecordingRecovery(microphoneProblem(error));
     captureStarting = false;
+    if (typeof conversationTurn !== 'undefined' && conversationTurn) {
+      $('conversationStatus').textContent = microphoneProblem(error);
+      conversationTurn = null;
+      if (typeof updateConversationControls === 'function') updateConversationControls();
+    }
     return;
   }
   if (generation !== captureGeneration) {
@@ -1518,6 +1641,7 @@ $('recordToggle').addEventListener('click', async () => {
     $('recordCaption').textContent = 'Listening · tap to finish';
     haptic(30);
     $('speechStatus').textContent = 'Recording…';
+    if (typeof updateConversationControls === 'function') updateConversationControls();
   } catch (error) {
     // The microphone opened but the audio graph did not. Release it rather than
     // leaving the recording indicator lit with nothing listening.
@@ -1595,8 +1719,20 @@ window.addEventListener('lf-native-recording', async event => {
   $('recordToggle').textContent = 'Start recording';
   $('recordCaption').textContent = 'Tap to start · up to 20 minutes';
   haptic([20,40,20]);
-  if (kind === 'cancel') { $('speechStatus').textContent = 'Recording cancelled.'; return; }
-  if (kind !== 'ready') { $('speechStatus').textContent = String(data || 'Recording failed.'); return; }
+  if (kind === 'cancel') {
+    $('speechStatus').textContent = 'Recording cancelled.';
+    if (typeof conversationTurn !== 'undefined' && conversationTurn) $('conversationStatus').textContent = 'Recording cancelled.';
+    if (typeof conversationTurn !== 'undefined') conversationTurn = null;
+    if (typeof updateConversationControls === 'function') updateConversationControls();
+    return;
+  }
+  if (kind !== 'ready') {
+    const message = String(data || 'Recording failed.'); $('speechStatus').textContent = message;
+    if (typeof conversationTurn !== 'undefined' && conversationTurn) $('conversationStatus').textContent = message;
+    if (typeof conversationTurn !== 'undefined') conversationTurn = null;
+    if (typeof updateConversationControls === 'function') updateConversationControls();
+    return;
+  }
   try {
     if (!Number.isInteger(total) || total < 1 || total > 4) throw new Error('The phone returned an invalid recording.');
     await transcribeRecording(await readNativeRecording(pending.id, total));
@@ -1615,9 +1751,20 @@ async function finishRecording(reason = 'manual') {
   const { chunks } = capture;
   stopCapture();
   haptic([20,40,20]);
-  if (!chunks.length) { $('speechStatus').textContent = 'Nothing was recorded.'; return; }
-  if (reason === 'silence') $('speechStatus').textContent = 'One minute of silence detected. Preparing the recording…';
-  else if (reason === 'limit') $('speechStatus').textContent = 'Twenty-minute limit reached. Preparing the recording…';
+  if (!chunks.length) {
+    $('speechStatus').textContent = 'Nothing was recorded.';
+    if (typeof conversationTurn !== 'undefined' && conversationTurn) $('conversationStatus').textContent = 'Nothing was recorded.';
+    if (typeof conversationTurn !== 'undefined') conversationTurn = null;
+    if (typeof updateConversationControls === 'function') updateConversationControls();
+    return;
+  }
+  if (reason === 'silence') {
+    $('speechStatus').textContent = 'One minute of silence detected. Preparing the recording…';
+    if (typeof conversationTurn !== 'undefined' && conversationTurn) $('conversationStatus').textContent = 'One minute of silence detected. Preparing this turn…';
+  } else if (reason === 'limit') {
+    $('speechStatus').textContent = 'Twenty-minute limit reached. Preparing the recording…';
+    if (typeof conversationTurn !== 'undefined' && conversationTurn) $('conversationStatus').textContent = 'Twenty-minute limit reached. Preparing this turn…';
+  }
 
   let audio;
   try { audio = segmentPcm16(chunks, TARGET_SAMPLE_RATE); }
@@ -1631,10 +1778,12 @@ async function transcribeRecording(audio) {
   const current = epoch;
   transcribing = true;
   setProcessing($('recordToggle'), true);
+  if (typeof updateConversationControls === 'function') updateConversationControls();
   $('recordCaption').textContent = 'Turning speech into text…';
 
   $('speechStatus').textContent = 'Transcribing…';
-  $('transcript').textContent = '';
+  if (typeof conversationTurn !== 'undefined' && conversationTurn) $('conversationStatus').textContent = 'Transcribing this turn…';
+  else $('transcript').textContent = '';
   const parts = Array.isArray(audio) ? audio : [audio];
   try {
     const texts = [];
@@ -1650,15 +1799,42 @@ async function transcribeRecording(audio) {
       if (result.spending) showSpending(result.spending);
     }
     const text = texts.join('\n\n');
-    $('transcript').textContent = text;
-    if (text) revealResult($('transcript'));
-    if (text) rememberResult({kind:'transcript',title:'Transcript',output:text});
-    $('speechStatus').textContent = text ? 'Done.' : 'No speech was detected in that recording.';
-  } catch (error) { if (current === epoch) $('speechStatus').textContent = error.message; }
+    if (typeof conversationTurn !== 'undefined' && conversationTurn) {
+      const turn = conversationTurn;
+      if (!text) {
+        $('conversationStatus').textContent = 'No speech was detected in that turn.';
+      } else {
+        $('conversationStatus').textContent = `Translating into ${languageName(turn.target)}…`;
+        const body = new FormData();
+        body.set('text', text); body.set('target_lang', turn.target); body.set('model', chosenModel); body.set('paid_consent', 'true');
+        const translated = await api.request('/api/translate', body);
+        if (current !== epoch) return;
+        if (translated.ok !== true || typeof translated.translated_text !== 'string') throw new Error('Unexpected translation response.');
+        appendConversationTurn(turn, text, translated.translated_text);
+        rememberResult({kind:'translation',title:'Conversation',input:text,output:translated.translated_text,
+          source:turn.source,target:turn.target});
+        if (translated.spending) showSpending(translated.spending);
+        $('conversationStatus').textContent = 'Turn translated. Pass the phone to the other person.';
+      }
+      $('speechStatus').textContent = text ? 'Conversation turn complete.' : 'No speech was detected in that recording.';
+    } else {
+      $('transcript').textContent = text;
+      if (text) revealResult($('transcript'));
+      if (text) rememberResult({kind:'transcript',title:'Transcript',output:text});
+      $('speechStatus').textContent = text ? 'Done.' : 'No speech was detected in that recording.';
+    }
+  } catch (error) {
+    if (current === epoch) {
+      $('speechStatus').textContent = error.message;
+      if (typeof conversationTurn !== 'undefined' && conversationTurn) $('conversationStatus').textContent = error.message;
+    }
+  }
   finally {
     transcribing = false;
     setProcessing($('recordToggle'), false);
     $('recordCaption').textContent = 'Tap to start · up to 20 minutes';
+    if (typeof conversationTurn !== 'undefined') conversationTurn = null;
+    if (typeof updateConversationControls === 'function') updateConversationControls();
   }
 }
 
