@@ -81,6 +81,7 @@ let recording = false;
 let busy = false;
 let recordingTimer = null;
 let conversationTurn = null;
+let toolTray = null;
 const MAX_RECORDING_SECONDS = 1200;
 let readRate = (() => {
   try {
@@ -648,11 +649,12 @@ function show(view) {
       element.classList.add('view-enter');
     }
   }
-  for (const button of document.querySelectorAll('nav button')) {
+  for (const button of document.querySelectorAll('.nav-item[data-view]')) {
     const here = button.dataset.view === view;
     button.classList.toggle('active', here);
     button.setAttribute('aria-current', String(here));
   }
+  toolTray?.setActiveView(view);
 }
 
 function start() {
@@ -699,7 +701,7 @@ function start() {
     $('conversationLog').replaceChildren(empty); say('conversationStatus','Conversation cleared from this screen.');
   };
 
-  createToolTray({document,storage:localStorage,onAction:tool=>{
+  toolTray = createToolTray({document,storage:localStorage,onAction:tool=>{
     if (tool==='conversation') { show('viewConversation'); updateConversationControls(); }
     else if (tool==='import') { show('viewRead'); say('readStatus','Choose a picture to read on this phone.'); }
     else if (tool==='history'||tool==='saved') {
@@ -709,7 +711,7 @@ function start() {
     }
   }});
 
-  for (const button of document.querySelectorAll('nav button')) {
+  for (const button of document.querySelectorAll('.nav-item[data-view]')) {
     button.onclick = () => show(button.dataset.view);
   }
 

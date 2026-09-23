@@ -40,6 +40,7 @@ let captureGeneration = 0;
 let transcribing = false;
 let nativeRecording = null;
 let conversationTurn = null;
+let toolTray = null;
 const ready = { translate: false, pronounce: false, transcribe: false, ocr: false };
 let translationModels = [];
 let translationLimit = 6000;
@@ -277,6 +278,7 @@ function showView(id) {
     item.classList.toggle('active', active);
     item.setAttribute('aria-current', active ? 'page' : 'false');
   }
+  toolTray?.setActiveView(id);
   window.scrollTo(0, 0);
 }
 for (const item of document.querySelectorAll('.nav-item')) {
@@ -366,7 +368,7 @@ try {
 } catch { /* keep English and German defaults */ }
 updateConversationControls();
 
-const toolTray = createToolTray({ document, storage:localStorage, onAction:tool => {
+toolTray = createToolTray({ document, storage:localStorage, onAction:tool => {
   if (tool === 'conversation') {
     showView('viewConversation'); updateConversationControls();
   } else if (tool === 'import') {

@@ -54,6 +54,11 @@ Conversation screen alternates between two chosen languages and uses the same
 transcription/translation pipeline. Offline language packs are grouped under
 Settings.
 
+Android 1.28 lets users swipe the handle up to open the tray and swipe its
+header down to close it. Arrange mode exposes the native bottom bar alongside
+the tray: long-press an icon on either side, then drag it onto another slot to
+swap tools between them. The chosen bar and tray layout persists on the phone.
+
 Android 1.21 fixes engines that advertise an unavailable high-quality/network
 voice. Read Aloud now prefers an installed local voice, retries Online playback
 once through the phone's preferred system voice, and opens voice settings only
