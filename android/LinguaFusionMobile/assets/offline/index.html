@@ -149,18 +149,38 @@
       <div class="actions result-actions"><button id="copySay" class="secondary" type="button">Copy</button><button id="shareSay" class="secondary" type="button">Share</button></div>
     </section>
 
+    <section class="view conversation-view" id="viewConversation" hidden aria-labelledby="conversationTitle">
+      <p class="page-kicker">Two people, two languages</p>
+      <h2 id="conversationTitle">Conversation</h2>
+      <p class="view-intro">Take turns speaking. Everything stays on this phone.</p>
+      <div class="conversation-languages">
+        <label class="conversation-language" for="conversationLangA"><span>Person A</span><select id="conversationLangA"></select></label>
+        <button id="conversationSwap" class="conversation-swap secondary" type="button" aria-label="Swap conversation languages">⇄</button>
+        <label class="conversation-language" for="conversationLangB"><span>Person B</span><select id="conversationLangB"></select></label>
+      </div>
+      <div id="conversationLog" class="conversation-log" role="log" aria-live="polite" aria-label="Conversation transcript">
+        <p class="conversation-empty">Choose who is speaking, then tap their microphone.</p>
+      </div>
+      <div class="conversation-controls">
+        <button id="conversationRecordA" class="conversation-record" type="button"><span>Person A</span><strong>Speak English</strong></button>
+        <button id="conversationRecordB" class="conversation-record" type="button"><span>Person B</span><strong>Speak German</strong></button>
+      </div>
+      <p id="conversationStatus" class="hint" role="status" aria-live="polite"></p>
+      <button id="clearConversation" class="secondary conversation-clear" type="button">Clear conversation</button>
+    </section>
+
     <section class="view" id="viewStorage" hidden aria-labelledby="storageTitle">
       <p class="page-kicker">Make it yours</p>
-      <h2 id="storageTitle">Storage</h2>
-      <p class="view-intro">Models, language packs and app settings.</p>
+      <h2 id="storageTitle">Settings</h2>
+      <p class="view-intro">Offline languages, models and app preferences.</p>
       <p class="hint">Download once over Wi-Fi, then use without a signal.</p>
 
-      <h3>Speech model</h3>
+      <h3>Offline speech model</h3>
       <p class="hint">One model covers every language below, so adding a language
         later needs no new download.</p>
       <div id="models"></div>
 
-      <h3>Translation packs</h3>
+      <h3>Offline languages</h3>
       <p class="hint">About 30 MB each. English is required by all the others and cannot be removed.</p>
       <div id="packs"></div>
       <p class="hint" id="storageStatus" role="status" aria-live="polite"></p>
@@ -198,8 +218,36 @@
       <button id="navTranslate" type="button" class="nav-item" data-view="viewTranslate"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M3 5h12M9 2v3m-4 3c2 4 5 7 9 9M13 5c0 6-4 10-10 12m12 5 4-11 4 11m-6-4h4"/></svg><span>Translate</span></button>
       <button id="navRead" type="button" class="nav-item" data-view="viewRead"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="3"/><circle cx="8" cy="8" r="1"/><path d="m3 17 5-5 4 4 4-6 5 7"/></svg><span>Read</span></button>
       <button id="navSay" type="button" class="nav-item" data-view="viewSay"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><path d="M4 10v4m4-7v10m4-14v18m4-14v10m4-7v4"/></svg><span>Say it</span></button>
-      <button id="navStorage" type="button" class="nav-item" data-view="viewStorage"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><ellipse cx="12" cy="6" rx="8" ry="3"/><path d="M4 6v12c0 1.7 3.6 3 8 3s8-1.3 8-3V6M4 12c0 1.7 3.6 3 8 3s8-1.3 8-3"/></svg><span>Storage</span></button>
+      <button id="navStorage" type="button" class="nav-item" data-view="viewStorage"><svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 0 0-1.88-.34 1.7 1.7 0 0 0-1.03 1.56V21h-4v-.08A1.7 1.7 0 0 0 9 19.37a1.7 1.7 0 0 0-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 0 0 4.63 15a1.7 1.7 0 0 0-1.55-1.03H3v-4h.08A1.7 1.7 0 0 0 4.63 9a1.7 1.7 0 0 0-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 0 0 9 4.63a1.7 1.7 0 0 0 1.03-1.55V3h4v.08A1.7 1.7 0 0 0 15 4.63a1.7 1.7 0 0 0 1.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0 0 19.37 9a1.7 1.7 0 0 0 1.55 1.03H21v4h-.08A1.7 1.7 0 0 0 19.4 15Z"/></svg><span>Settings</span></button>
     </nav>
+
+    <button id="toolTrayHandle" class="tool-tray-handle" type="button" aria-expanded="false" aria-controls="toolTraySheet">
+      <span aria-hidden="true"></span><span class="sr-only">Open tools</span>
+    </button>
+    <div id="toolTrayScrim" class="tool-tray-scrim" hidden></div>
+    <section id="toolTraySheet" class="tool-tray-sheet" tabindex="-1" role="dialog" aria-modal="true" aria-labelledby="toolTrayTitle" hidden>
+      <button id="toolTraySheetHandle" class="tool-tray-sheet-handle" type="button"><span aria-hidden="true"></span><span class="sr-only">Close tools</span></button>
+      <div class="tool-tray-heading">
+        <div><h2 id="toolTrayTitle">Tools</h2><p>Your shortcuts, always within reach</p></div>
+        <button id="toolArrange" class="tool-tray-arrange secondary" type="button" aria-pressed="false">Arrange</button>
+      </div>
+      <p id="toolArrangeHint" class="sr-only">Use drag and drop, or hold Alt and press an arrow key, to move this tool.</p>
+      <aside id="toolCoachmark" class="tool-coachmark" hidden>
+        <strong>Arrange your tools</strong>
+        <p>Press and hold any tool, then drag it where you want. Your order is saved automatically.</p>
+        <div><button id="toolCoachTry" type="button">Try it now</button><button id="toolCoachGot" class="secondary" type="button">Got it</button></div>
+      </aside>
+      <div id="toolGrid" class="tool-grid">
+        <button class="tool-tile tool-featured" type="button" data-tool="conversation"><span class="tool-grip" aria-hidden="true">⠿</span><span class="tool-icon" aria-hidden="true">↔</span><span><strong>Conversation</strong><small>Two-way live mode</small></span></button>
+        <button class="tool-tile" type="button" data-tool="import"><span class="tool-grip" aria-hidden="true">⠿</span><span class="tool-icon" aria-hidden="true">↑</span><span><strong>Import media</strong><small>Choose a picture</small></span></button>
+        <button class="tool-tile" type="button" data-tool="history"><span class="tool-grip" aria-hidden="true">⠿</span><span class="tool-icon" aria-hidden="true">◷</span><span><strong>History</strong><small>Recent results</small></span></button>
+        <button class="tool-tile" type="button" data-tool="saved"><span class="tool-grip" aria-hidden="true">⠿</span><span class="tool-icon" aria-hidden="true">◇</span><span><strong>Saved</strong><small>On this phone</small></span></button>
+      </div>
+      <div id="toolArrangeFooter" class="tool-arrange-footer" hidden>
+        <button id="toolReset" class="secondary" type="button">Reset order</button>
+        <button id="toolDone" type="button">Done</button>
+      </div>
+    </section>
   </div>
 </main>
 <script type="module" src="app.js"></script>

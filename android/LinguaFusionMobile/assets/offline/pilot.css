@@ -472,6 +472,98 @@ main { width:min(100%,700px); padding-left:max(22px,env(safe-area-inset-left));
 .history-item .actions button { min-height:36px; padding:6px 11px; font-size:12px; }
 .history-settings > #clearHistory { width:100%; }
 
+/* Hybrid pull-up tool tray. The visible handle stays deliberately quiet while
+   its touch target remains large enough to grab comfortably on a phone. */
+.sr-only { position:absolute!important; width:1px!important; height:1px!important; padding:0!important;
+  margin:-1px!important; overflow:hidden!important; clip:rect(0,0,0,0)!important;
+  white-space:nowrap!important; border:0!important; }
+.tool-tray-handle {
+  position:fixed; z-index:12; left:50%; bottom:max(79px,calc(env(safe-area-inset-bottom) + 73px));
+  width:64px; min-height:44px; margin:0; padding:0 0 8px; transform:translateX(-50%);
+  display:grid; place-items:end center; border:0; background:transparent; box-shadow:none;
+}
+.tool-tray-handle > span:first-child,.tool-tray-sheet-handle > span:first-child {
+  display:block; width:40px; height:5px; border-radius:999px; background:rgba(90,82,76,.62); background:color-mix(in srgb,var(--text) 42%,transparent);
+  transition:width var(--motion-fast) var(--motion-ease),background var(--motion-fast) var(--motion-ease);
+}
+.tool-tray-handle:hover > span:first-child,.tool-tray-handle:focus-visible > span:first-child { width:46px; background:var(--accent); }
+.tool-tray-scrim { position:fixed; z-index:30; inset:0; background:rgba(24,18,15,.32); -webkit-backdrop-filter:blur(1.5px); backdrop-filter:blur(1.5px); }
+.tool-tray-sheet {
+  position:fixed; z-index:31; left:50%; bottom:0; width:min(100%,680px); max-height:min(78vh,620px);
+  overflow:auto; transform:translateX(-50%); padding:10px max(20px,env(safe-area-inset-right)) max(24px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left));
+  border:1px solid var(--line); border-bottom:0; border-radius:28px 28px 0 0;
+  color:var(--text); background:var(--panel); box-shadow:0 -18px 48px rgba(25,18,14,.18);
+  animation:tool-sheet-in var(--motion-base) var(--motion-ease) both;
+}
+@keyframes tool-sheet-in { from { opacity:0; transform:translate(-50%,24px); } to { opacity:1; transform:translate(-50%,0); } }
+.tool-tray-sheet-handle { display:grid; place-items:center; width:72px; min-height:36px; margin:0 auto 3px; padding:0; border:0; background:transparent; box-shadow:none; }
+.tool-tray-heading { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; margin:0 0 14px; }
+.tool-tray-heading h2 { margin:0; font-size:clamp(25px,7vw,32px); }
+.tool-tray-heading p { margin:2px 0 0; color:var(--muted); font-size:12px; }
+.tool-tray-arrange { min-height:38px; margin:2px 0 0; padding:6px 13px; border-radius:999px; font-size:12px; }
+.tool-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:11px; }
+.tool-tile {
+  position:relative; min-height:116px; margin:0; padding:15px; display:flex; flex-direction:column;
+  align-items:flex-start; justify-content:space-between; gap:10px; border:1.5px solid var(--line);
+  border-radius:18px; color:var(--text); background:var(--bg); box-shadow:var(--lf-surface-shadow);
+  font-family:var(--lf-font-body); text-align:left; touch-action:pan-y;
+  transition:transform var(--motion-fast) var(--motion-ease),box-shadow var(--motion-fast) var(--motion-ease),border-color var(--motion-fast) var(--motion-ease);
+}
+.tool-tile:hover { transform:translateY(-2px); }
+.tool-tile.tool-featured { border-color:var(--accent); border-color:color-mix(in srgb,var(--accent) 34%,var(--line)); background:var(--lf-chip-bg); }
+.tool-tile.is-dragging { z-index:2; transform:translateY(-7px) rotate(-1deg); border-color:var(--accent); box-shadow:0 18px 34px rgba(25,18,14,.2); }
+.tool-icon { width:39px; height:39px; display:grid; place-items:center; border-radius:12px;
+  color:var(--accent); background:var(--lf-chip-bg); font:700 20px/1 system-ui,sans-serif; }
+.tool-featured .tool-icon { color:var(--lf-on-accent); background:var(--accent); }
+.tool-tile strong { display:block; color:var(--text); font-size:14px; }
+.tool-tile small { display:block; margin-top:2px; color:var(--muted); font-size:10px; font-weight:500; }
+.tool-grip { position:absolute; top:10px; right:12px; color:var(--muted); opacity:0; font:18px/1 system-ui,sans-serif; }
+.tool-tray-sheet.is-arranging .tool-grip { opacity:1; }
+.tool-tray-sheet.is-arranging .tool-tile { cursor:grab; }
+.tool-arrange-footer { display:flex; align-items:center; justify-content:space-between; gap:12px; margin-top:15px; }
+.tool-arrange-footer button { min-height:40px; margin:0; padding:7px 17px; border-radius:999px; font-size:12px; }
+.tool-coachmark { position:relative; margin:0 0 13px; padding:14px 15px; border:1px solid var(--line); border-color:color-mix(in srgb,var(--accent) 28%,var(--line));
+  border-radius:17px; background:var(--panel); box-shadow:0 14px 32px rgba(30,20,15,.13); font-size:12px; }
+.tool-coachmark strong { display:block; font-size:13px; }
+.tool-coachmark p { margin:4px 0 10px; color:var(--muted); line-height:1.45; }
+.tool-coachmark > div { display:flex; gap:8px; }
+.tool-coachmark button { min-height:34px; margin:0; padding:5px 13px; border-radius:999px; font-size:11px; }
+.tool-tray-open { overflow:hidden; }
+
+/* Two-person voice conversation reuses the proven recorder and provider
+   pipeline, but presents each turn as a compact, readable exchange. */
+.conversation-languages { display:grid; grid-template-columns:1fr 44px 1fr; align-items:end; gap:8px; }
+.conversation-language > span { display:block; margin-bottom:5px; color:var(--muted); font-size:11px; font-weight:700; letter-spacing:.08em; text-transform:uppercase; }
+.conversation-language select { margin:0; }
+.conversation-swap { width:44px; min-height:48px; margin:0; padding:0; border-radius:999px; }
+.conversation-log { min-height:250px; max-height:42vh; overflow:auto; display:flex; flex-direction:column; gap:11px;
+  margin:18px 0; padding:17px; border:1px solid var(--line); border-radius:calc(var(--radius) + 4px); background:var(--panel); }
+.conversation-empty { margin:auto; max-width:240px; color:var(--muted); text-align:center; font-size:13px; }
+.conversation-turn { width:min(88%,460px); padding:13px 15px; border:1px solid var(--line); border-radius:17px 17px 17px 5px; background:var(--bg); }
+.conversation-turn[data-speaker="b"] { align-self:flex-end; border-radius:17px 17px 5px 17px; background:var(--lf-chip-bg); }
+.conversation-turn header { display:flex; justify-content:space-between; gap:10px; margin:0 0 5px; color:var(--muted); font-size:10px; }
+.conversation-turn p { margin:3px 0; line-height:1.45; }
+.conversation-turn .conversation-original { color:var(--muted); font-size:12px; }
+.conversation-turn .conversation-translation { font-size:15px; }
+.conversation-controls { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
+.conversation-record { min-height:72px; margin:0; padding:10px 12px; border-radius:18px; }
+.conversation-record span,.conversation-record strong { display:block; }
+.conversation-record span { opacity:.78; font-size:10px; text-transform:uppercase; letter-spacing:.08em; }
+.conversation-record strong { font-size:13px; }
+.conversation-record.is-recording { animation:record-pulse var(--motion-slow) ease-in-out infinite alternate; }
+.conversation-clear { width:100%; margin-top:10px; }
+
+html[data-embed="desktop"] .tool-tray-handle,html[data-embed="desktop"] .tool-tray-sheet,html[data-embed="desktop"] .tool-tray-scrim { display:none!important; }
+@media(max-width:520px) {
+  .tool-tray-handle { bottom:max(75px,calc(env(safe-area-inset-bottom) + 69px)); }
+  .tool-tray-sheet { width:100%; }
+}
+@media(max-width:360px) {
+  .tool-tile { min-height:105px; padding:13px; }
+  .conversation-controls { grid-template-columns:1fr; }
+  .conversation-log { min-height:210px; }
+}
+
 /* Photo choice becomes a calm drop-zone while retaining the native picker. */
 #ocrFile {
   min-height:118px; padding:38px 18px 18px; border:1px dashed var(--line);

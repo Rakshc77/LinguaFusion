@@ -413,7 +413,7 @@ def test_both_modes_share_one_appearance():
     import filecmp
     web = PROJECT.parent.parent / 'cloud_api' / 'web'
     offline = PROJECT / 'assets' / 'offline'
-    for name in ['linguafusion-themes.css', 'pilot.css', 'themes.mjs', 'read-aloud.mjs']:
+    for name in ['linguafusion-themes.css', 'pilot.css', 'themes.mjs', 'read-aloud.mjs', 'tool-tray.mjs']:
         assert (offline / name).is_file(), f'{name} is not bundled in the APK'
         assert filecmp.cmp(web / name, offline / name, shallow=False), (
             f'{name} has drifted from the online app. '
@@ -425,6 +425,17 @@ def test_both_modes_share_one_appearance():
     # A private palette is what caused the drift; catch its return.
     assert '--lf-app-bg:#' not in page and '--accent:#' not in page, \
         'the offline page redefines theme colours instead of inheriting them'
+
+
+def test_offline_hybrid_tray_and_conversation_are_bundled():
+    page = (PROJECT / 'assets' / 'offline' / 'index.html').read_text(encoding='utf-8')
+    script = (PROJECT / 'assets' / 'offline' / 'app.js').read_text(encoding='utf-8')
+    assert [item for item in re.findall(r'data-tool="([^"]+)"', page)] == [
+        'conversation', 'import', 'history', 'saved']
+    assert 'id="viewConversation"' in page
+    assert "import { createToolTray } from './tool-tray.mjs'" in script
+    assert "await toggleRecording()" in script and 'appendConversationTurn' in script
+    assert '<span>Settings</span>' in page and '<h3>Offline languages</h3>' in page
 
 
 def test_an_update_is_never_pushed_at_launch():

@@ -20,6 +20,7 @@ import { createReadAloudController } from './read-aloud.mjs';
 import { clearLocalHistory, historyEnabled, localHistory, recentPairs,
          rememberRecentPair, removeHistoryEntry, saveHistoryEntry,
          setHistoryEnabled } from './local-workflow.mjs';
+import { createToolTray } from './tool-tray.mjs';
 
 const native = window.LinguaFusionOffline;
 const $ = (id) => document.getElementById(id);
@@ -79,6 +80,7 @@ let state = { languages: [], models: [], installedPacks: new Set() };
 let recording = false;
 let busy = false;
 let recordingTimer = null;
+let conversationTurn = null;
 const MAX_RECORDING_SECONDS = 1200;
 let readRate = (() => {
   try {
@@ -194,6 +196,48 @@ function renderOfflineHistory() {
   if (!entries.length) { const empty=document.createElement('p'); empty.className='hint'; empty.textContent=historyEnabled(localStorage)?'New results will appear here.':'History is off.'; list.append(empty); }
 }
 
+function updateConversationControls() {
+  if (!state.languages.length) return;
+  const a = nameOf($('conversationLangA').value);
+  const b = nameOf($('conversationLangB').value);
+  const active = recording || busy;
+  const aButton = $('conversationRecordA');
+  const bButton = $('conversationRecordB');
+  aButton.querySelector('strong').textContent = conversationTurn?.side === 'a' && active ? 'Stop and translate' : `Speak ${a}`;
+  bButton.querySelector('strong').textContent = conversationTurn?.side === 'b' && active ? 'Stop and translate' : `Speak ${b}`;
+  aButton.classList.toggle('is-recording', conversationTurn?.side === 'a' && recording);
+  bButton.classList.toggle('is-recording', conversationTurn?.side === 'b' && recording);
+  aButton.disabled = !state.transcriptionSupported || (active && conversationTurn?.side !== 'a');
+  bButton.disabled = !state.transcriptionSupported || (active && conversationTurn?.side !== 'b');
+}
+
+function appendConversationTurn(turn, original, translated) {
+  $('conversationLog').querySelector('.conversation-empty')?.remove();
+  const card=document.createElement('article'); card.className='conversation-turn'; card.dataset.speaker=turn.side;
+  const head=document.createElement('header');
+  const person=document.createElement('strong'); person.textContent=turn.side==='a'?'Person A':'Person B';
+  const route=document.createElement('span'); route.textContent=`${nameOf(turn.source)} → ${nameOf(turn.target)}`;
+  head.append(person,route);
+  const source=document.createElement('p'); source.className='conversation-original'; source.lang=turn.source; source.textContent=original;
+  const translation=document.createElement('p'); translation.className='conversation-translation'; translation.lang=turn.target; translation.textContent=translated;
+  card.append(head,source,translation); $('conversationLog').append(card); card.scrollIntoView({block:'nearest'});
+}
+
+async function conversationRecord(side) {
+  if (conversationTurn && conversationTurn.side !== side) return;
+  if (!conversationTurn) {
+    const source=$(side==='a'?'conversationLangA':'conversationLangB').value;
+    const target=$(side==='a'?'conversationLangB':'conversationLangA').value;
+    if (source===target) { say('conversationStatus','Choose two different languages first.'); return; }
+    conversationTurn={side,source,target};
+    $('fromLang').value=source; $('toLang').value=target; $('alsoTranslate').checked=true;
+    say('conversationStatus',`Listening to ${side==='a'?'Person A':'Person B'}…`);
+  }
+  updateConversationControls();
+  await toggleRecording();
+  updateConversationControls();
+}
+
 function updatePivotWarning() {
   const from = $('fromLang').value;
   const to = $('toLang').value;
@@ -222,6 +266,7 @@ async function toggleRecording(reason = 'manual') {
       if (seconds >= MAX_RECORDING_SECONDS) void toggleRecording('limit');
     },1000);
     say('speakStatus', 'Recording… speak now.');
+    updateConversationControls();
     return;
   }
 
@@ -241,8 +286,14 @@ async function toggleRecording(reason = 'manual') {
     : reason === 'limit'
       ? 'Twenty-minute limit reached. Transcribing on this phone…'
       : 'Transcribing on this phone. This can take a while.');
-  $('transcript').textContent = '';
-  $('translationWrap').hidden = true;
+  if (!conversationTurn) {
+    $('transcript').textContent = '';
+    $('translationWrap').hidden = true;
+  } else {
+    say('conversationStatus', reason === 'silence'
+      ? 'One minute of silence detected. Preparing this turn…'
+      : reason === 'limit' ? 'Twenty-minute limit reached. Preparing this turn…' : 'Transcribing and translating this turn…');
+  }
 
   const result = await ask('stopAndProcess', null,
     $('fromLang').value, $('toLang').value, $('alsoTranslate').checked);
@@ -253,7 +304,24 @@ async function toggleRecording(reason = 'manual') {
   document.querySelector('.record-caption').textContent = 'Tap to start · up to 20 minutes';
   setProcessing($('record'), false);
 
-  if (result.error) { say('speakStatus', result.error); return; }
+  if (result.error) {
+    say('speakStatus', result.error);
+    if (conversationTurn) say('conversationStatus', result.error);
+    conversationTurn=null; updateConversationControls(); return;
+  }
+
+  if (conversationTurn) {
+    const turn=conversationTurn;
+    if (result.transcript && result.translation) {
+      appendConversationTurn(turn,result.transcript,result.translation);
+      rememberOfflineResult({kind:'translation',title:'Conversation',input:result.transcript,output:result.translation,
+        source:turn.source,target:turn.target});
+      say('conversationStatus','Turn translated. Pass the phone to the other person.');
+    } else if (result.translationError) say('conversationStatus',result.translationError);
+    else say('conversationStatus','No speech was detected in that turn.');
+    conversationTurn=null; updateConversationControls();
+    return;
+  }
 
   $('transcript').textContent = result.transcript || '';
   if (result.transcript) revealResult($('transcript'));
@@ -534,6 +602,10 @@ async function refresh() {
   fill($('textFrom'), state.languages, { selected: state.sourceLanguage === 'auto' ? 'en' : state.sourceLanguage });
   fill($('textTo'), state.languages, { selected: state.targetLanguage });
   fill($('pictureReadLanguage'), state.languages, { selected:$('pictureReadLanguage').value || 'en' });
+  const conversationA=$('conversationLangA').value || $('conversationLangA').dataset.preferred || 'en';
+  const conversationB=$('conversationLangB').value || $('conversationLangB').dataset.preferred || 'de';
+  fill($('conversationLangA'), state.languages, { selected:conversationA });
+  fill($('conversationLangB'), state.languages, { selected:conversationB });
 
   if (!state.transcriptionSupported) {
     $('record').disabled = true;
@@ -561,11 +633,12 @@ async function refresh() {
   const packs = await ask('listTranslationLanguages', null);
   state.installedPacks = new Set(packs.installed || []);
   renderPacks();
+  updateConversationControls();
 }
 
 function show(view) {
   readAloud.stop({ quiet:true });
-  for (const section of ['viewSpeak', 'viewTranslate', 'viewRead', 'viewSay', 'viewStorage']) {
+  for (const section of ['viewSpeak', 'viewTranslate', 'viewRead', 'viewSay', 'viewConversation', 'viewStorage']) {
     const element = $(section);
     const active = section === view;
     element.hidden = !active;
@@ -600,6 +673,41 @@ function start() {
   };
   $('modeToggle').onclick = () => showMode(getMode() === 'dark' ? 'light' : 'dark');
   $('leave').onclick = () => native.leaveOfflineMode();
+
+  try {
+    const pair=JSON.parse(localStorage.getItem('lf-conversation-languages-v1'));
+    if (pair) {
+      $('conversationLangA').dataset.preferred=pair.a||'en';
+      $('conversationLangB').dataset.preferred=pair.b||'de';
+    }
+  } catch { /* keep the defaults */ }
+  for (const id of ['conversationLangA','conversationLangB']) {
+    $(id).onchange=()=>{
+      try { localStorage.setItem('lf-conversation-languages-v1',JSON.stringify({a:$('conversationLangA').value,b:$('conversationLangB').value})); }
+      catch { /* optional */ }
+      updateConversationControls();
+    };
+  }
+  $('conversationSwap').onclick=()=>{
+    const a=$('conversationLangA').value; $('conversationLangA').value=$('conversationLangB').value; $('conversationLangB').value=a;
+    $('conversationLangA').onchange();
+  };
+  $('conversationRecordA').onclick=()=>void conversationRecord('a');
+  $('conversationRecordB').onclick=()=>void conversationRecord('b');
+  $('clearConversation').onclick=()=>{
+    const empty=document.createElement('p'); empty.className='conversation-empty'; empty.textContent='Choose who is speaking, then tap their microphone.';
+    $('conversationLog').replaceChildren(empty); say('conversationStatus','Conversation cleared from this screen.');
+  };
+
+  createToolTray({document,storage:localStorage,onAction:tool=>{
+    if (tool==='conversation') { show('viewConversation'); updateConversationControls(); }
+    else if (tool==='import') { show('viewRead'); say('readStatus','Choose a picture to read on this phone.'); }
+    else if (tool==='history'||tool==='saved') {
+      show('viewStorage');
+      setTimeout(()=>document.querySelector('.history-settings')?.scrollIntoView({block:'start'}),0);
+      say('offlineHistoryStatus',tool==='saved'?'Saved results stay only on this phone.':'Your recent on-device results are shown here.');
+    }
+  }});
 
   for (const button of document.querySelectorAll('nav button')) {
     button.onclick = () => show(button.dataset.view);
