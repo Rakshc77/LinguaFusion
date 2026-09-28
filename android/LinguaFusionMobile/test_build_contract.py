@@ -17,7 +17,7 @@ GRADLE = (PROJECT / 'build.gradle').read_text(encoding='utf-8')
 # the keystore with keytool. Android identifies an app by package name AND
 # signature: sign with anything else and the only way to install is to
 # uninstall first, which throws away everything stored on the device.
-EXPECTED_SIGNER = '2cdb19692817f5c591f3f92fd07b657779e204496a57c23f159983ae6dc8514e'
+EXPECTED_SIGNER = json.loads((PROJECT.parents[1] / 'release' / 'manifest.json').read_text(encoding='utf-8'))['android']['sideload_signer_sha256']
 
 
 def test_the_app_is_still_signed_with_the_original_debug_keystore():

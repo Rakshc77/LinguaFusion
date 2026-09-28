@@ -14,6 +14,7 @@ function harness(rate = 48000, native = false) {
   const contexts = [];
   const events = {};
   const requests = [];
+  let failRequest = 0;
   const $ = id => {
     if (!elements.has(id)) elements.set(id, {
       checked: true, textContent: '', hidden: true, value: '',
@@ -55,17 +56,40 @@ function harness(rate = 48000, native = false) {
     crypto: { randomUUID: () => 'test-request' }, buildWav, segmentPcm16, toMono, toPcm16,
     MAX_RECORDING_SECONDS, MAX_SECONDS, SILENCE_SECONDS, TARGET_SAMPLE_RATE, VOICE_RMS_THRESHOLD,
     readAloud: { stop() {} },
-    api: { async request(path, body) { requests.push({ path, body }); return { text: 'Test' }; } },
+    draftStore: { async save() { return true; }, async load() { return null; }, async remove() {} },
+    api: { async request(path, body) {
+      requests.push({ path, body });
+      if (requests.length === failRequest) throw new Error('Temporary transcription failure');
+      return { text: 'Test' };
+    } },
     showSpending() {}, revealResult() {}, rememberResult() {}, setProcessing() {}, haptic() {}, formatClock:value => String(value),
     microphoneProblem: error => error.name, isIosDevice: () => false,
     isIosStandalone: () => false, clearTimeout });
   const stop = source.slice(source.indexOf('function stopCapture()'), source.indexOf('function clearPrivateText()'));
-  const recording = source.slice(source.indexOf('async function openMicrophone()'), source.indexOf('// --- picture reading'));
+  const recording = source.slice(source.indexOf('function draftTranscript('), source.indexOf('// --- picture reading'));
   vm.runInContext(`let capture=null,captureStarting=false,captureGeneration=0,transcribing=false,nativeRecording=null,epoch=0;
+    let currentUserUid='test-account',pendingRecordingDraft=null,conversationTurn=null;
     const ready={transcribe:true}; ${stop} ${recording}`, sandbox);
-  return { $, sandbox, pending, streams, contexts, events, requests, click: () => $('recordToggle').click(),
+  return { $, sandbox, pending, streams, contexts, events, requests,
+    failOnRequest: number => { failRequest = number; }, click: () => $('recordToggle').click(),
     stop: () => vm.runInContext('stopCapture()', sandbox) };
 }
+
+test('a failed later part keeps completed text and retry sends only that part', async () => {
+  const h = harness();
+  h.failOnRequest(2);
+  h.sandbox.audioParts = [buildWav([new Float32Array(16000).fill(0.1)], 16000),
+    buildWav([new Float32Array(16000).fill(0.1)], 16000)];
+  await vm.runInContext('transcribeRecording(audioParts)', h.sandbox);
+  assert.equal(h.requests.length, 2);
+  assert.equal(h.$('transcript').textContent, 'Test');
+  assert.equal(h.$('recordingDraft').hidden, false);
+  h.failOnRequest(0);
+  await vm.runInContext('transcribeRecording(null,pendingRecordingDraft)', h.sandbox);
+  assert.equal(h.requests.length, 3);
+  assert.equal(h.$('transcript').textContent, 'Test\n\nTest');
+  assert.equal(h.$('recordingDraft').hidden, true);
+});
 
 test('rapid Start taps open only one microphone and Stop releases it', async () => {
   const h = harness(); const first = h.click(); await h.click();

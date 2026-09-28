@@ -11,6 +11,7 @@ import { clearLocalHistory, historyEnabled, localHistory, recentPairs,
          rememberRecentPair, removeHistoryEntry, saveHistoryEntry,
          setHistoryEnabled } from './local-workflow.mjs';
 import { createToolTray } from './tool-tray.mjs';
+import { createRecordingDraftStore } from './recording-draft.mjs';
 
 const $ = id => document.getElementById(id);
 const auth = createCloudAuth();
@@ -40,6 +41,9 @@ let captureGeneration = 0;
 let transcribing = false;
 let nativeRecording = null;
 let conversationTurn = null;
+let currentUserUid = '';
+const draftStore = createRecordingDraftStore();
+let pendingRecordingDraft = null;
 const ready = { translate: false, pronounce: false, transcribe: false, ocr: false };
 let translationModels = [];
 let translationLimit = 6000;
@@ -1066,6 +1070,8 @@ async function checkAccess() {
     ownerActive = Boolean(caps.is_owner);
     // Fetched only when asked: it calls out to a provider.
     applyReadiness();
+    await restoreRecordingDraft();
+    if (current !== epoch) return;
 
     const spending = await api.request('/usage');
     if (current !== epoch) return;
@@ -1194,6 +1200,13 @@ async function setup() {
     unsubscribe?.();
     unsubscribe = await auth.observe(user => {
       ++epoch; api.cancel(); clearPrivateText();
+      const nextUid = user?.uid || '';
+      if (nextUid !== currentUserUid) {
+        pendingRecordingDraft = null;
+        draftStore.forgetMemory();
+        renderRecordingDraft();
+      }
+      currentUserUid = nextUid;
       translating = false; pronouncing = false;
       for (const key of Object.keys(ready)) ready[key] = false;
       signedIn = Boolean(user);
@@ -1380,6 +1393,47 @@ $('pronounceForm').addEventListener('submit', async event => {
 
 // --- speech ------------------------------------------------------------------
 
+function draftTranscript(draft) { return draft.texts.filter(value => value !== null).filter(Boolean).join('\n\n'); }
+async function saveRecordingDraft(draft) {
+  draft.persistent = true;
+  if (!await draftStore.save(draft)) draft.persistent = false;
+}
+function renderRecordingDraft() {
+  const draft = pendingRecordingDraft;
+  $('recordingDraft').hidden = !draft;
+  if (!draft) return;
+  const completed = draft.texts.filter(value => value !== null).length;
+  $('recordingDraftStatus').textContent = draft.stage === 'translating'
+    ? 'Transcription complete. Translation still needs to finish.'
+    : `${completed} of ${draft.parts.length} recording parts transcribed. The remaining audio is saved locally.`;
+  if (draft.persistent === false) $('recordingDraftStatus').textContent += ' Device storage is unavailable: keep this app open until finished.';
+  $('retryDraft').textContent = draft.stage === 'translating' ? 'Retry translation' : 'Retry remaining parts';
+  $('retryDraft').disabled = transcribing;
+  $('discardDraft').disabled = transcribing;
+  if (draft.mode === 'speech') $('transcript').textContent = draftTranscript(draft);
+}
+
+async function restoreRecordingDraft() {
+  if (!currentUserUid || !ready.transcribe) return;
+  const draft = await draftStore.load(currentUserUid);
+  if (!draft || draft.uid !== currentUserUid || !Array.isArray(draft.texts) || !Array.isArray(draft.parts)) return;
+  pendingRecordingDraft = draft;
+  renderRecordingDraft();
+  $('speechStatus').textContent = 'An unfinished recording was restored on this device. Retry when ready.';
+}
+
+$('retryDraft').addEventListener('click', () => {
+  if (pendingRecordingDraft && !transcribing) void transcribeRecording(null, pendingRecordingDraft);
+});
+$('discardDraft').addEventListener('click', async () => {
+  if (!pendingRecordingDraft || transcribing) return;
+  const uid = pendingRecordingDraft.uid;
+  pendingRecordingDraft = null;
+  await draftStore.remove(uid);
+  renderRecordingDraft();
+  $('speechStatus').textContent = 'The unfinished recording was removed from this device.';
+});
+
 $('copyTranscript').addEventListener('click', () => void copyText($('transcript').textContent, 'Transcript', $('speechStatus')));
 $('shareTranscript').addEventListener('click', () => void shareText($('transcript').textContent, 'Transcript', $('speechStatus')));
 
@@ -1515,6 +1569,10 @@ $('cancelRecording').addEventListener('click', () => {
 });
 $('recordToggle').addEventListener('click', async () => {
   if (captureStarting || transcribing) return;
+  if (pendingRecordingDraft && !capture && !nativeRecording) {
+    $('speechStatus').textContent = 'Finish or discard the saved recording before starting another.';
+    return;
+  }
   if (nativeRecording) {
     if (nativeRecording.stopping) return;
     nativeRecording.stopping = true;
@@ -1773,7 +1831,7 @@ async function finishRecording(reason = 'manual') {
   await transcribeRecording(audio);
 }
 
-async function transcribeRecording(audio) {
+async function transcribeRecording(audio, resumedDraft = null) {
   if (transcribing || !ready.transcribe) return;
   const current = epoch;
   transcribing = true;
@@ -1783,11 +1841,21 @@ async function transcribeRecording(audio) {
 
   $('speechStatus').textContent = 'Transcribing…';
   if (typeof conversationTurn !== 'undefined' && conversationTurn) $('conversationStatus').textContent = 'Transcribing this turn…';
-  else $('transcript').textContent = '';
-  const parts = Array.isArray(audio) ? audio : [audio];
+  else if (!resumedDraft) $('transcript').textContent = '';
+  const parts = resumedDraft?.parts || (Array.isArray(audio) ? audio : [audio]);
+  let draft = resumedDraft;
   try {
-    const texts = [];
+    if (!draft) {
+      if (!currentUserUid) throw new Error('Sign in again before transcribing this recording.');
+      draft = { uid:currentUserUid, createdAt:Date.now(), parts:parts.map(part => new Blob([part], {type:'audio/wav'})),
+        texts:parts.map(() => null), stage:'transcribing', mode:conversationTurn ? 'conversation' : 'speech',
+        turn:conversationTurn ? {...conversationTurn} : null };
+      pendingRecordingDraft = draft;
+      await saveRecordingDraft(draft);
+      renderRecordingDraft();
+    }
     for (let index = 0; index < parts.length; index++) {
+      if (draft.texts[index] !== null) continue;
       $('speechStatus').textContent = parts.length > 1
         ? `Transcribing part ${index + 1} of ${parts.length}…` : 'Transcribing…';
       const body = new FormData();
@@ -1795,15 +1863,20 @@ async function transcribeRecording(audio) {
       body.set('paid_consent', 'true');
       const result = await api.request('/api/transcribe', body);
       if (current !== epoch) return;
-      if (result.text?.trim()) texts.push(result.text.trim());
+      draft.texts[index] = result.text?.trim() || '';
+      await saveRecordingDraft(draft);
+      renderRecordingDraft();
       if (result.spending) showSpending(result.spending);
     }
-    const text = texts.join('\n\n');
-    if (typeof conversationTurn !== 'undefined' && conversationTurn) {
-      const turn = conversationTurn;
+    const text = draftTranscript(draft);
+    if (draft.mode === 'conversation' && draft.turn) {
+      const turn = draft.turn;
       if (!text) {
         $('conversationStatus').textContent = 'No speech was detected in that turn.';
       } else {
+        draft.stage = 'translating';
+        await saveRecordingDraft(draft);
+        renderRecordingDraft();
         $('conversationStatus').textContent = `Translating into ${languageName(turn.target)}…`;
         const body = new FormData();
         body.set('text', text); body.set('target_lang', turn.target); body.set('model', chosenModel); body.set('paid_consent', 'true');
@@ -1823,15 +1896,20 @@ async function transcribeRecording(audio) {
       if (text) rememberResult({kind:'transcript',title:'Transcript',output:text});
       $('speechStatus').textContent = text ? 'Done.' : 'No speech was detected in that recording.';
     }
+    await draftStore.remove(draft.uid);
+    pendingRecordingDraft = null;
+    renderRecordingDraft();
   } catch (error) {
     if (current === epoch) {
-      $('speechStatus').textContent = error.message;
-      if (typeof conversationTurn !== 'undefined' && conversationTurn) $('conversationStatus').textContent = error.message;
+      $('speechStatus').textContent = `${error.message} Your recording and completed parts are saved here. Retry the unfinished step when ready.`;
+      if (draft?.mode === 'conversation') $('conversationStatus').textContent = error.message;
+      renderRecordingDraft();
     }
   }
   finally {
     transcribing = false;
     setProcessing($('recordToggle'), false);
+    renderRecordingDraft();
     $('recordCaption').textContent = 'Tap to start · up to 20 minutes';
     if (typeof conversationTurn !== 'undefined') conversationTurn = null;
     if (typeof updateConversationControls === 'function') updateConversationControls();

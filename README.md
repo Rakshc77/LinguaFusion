@@ -15,9 +15,10 @@ Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 
 ## Current release and next source
 
-- Published baseline: Online `2026.09.16.3`; Android `1.21` / versionCode `22`.
-- Current source: Online `2026.09.18.1`; Android `1.22` / versionCode `23`;
-  Windows desktop `1.0-rc2.17-streamlined-motion`.
+- Published before this work: Online `2026.09.22.1`; Android `1.27` / versionCode `28`.
+- Current candidate source: Online `2026.09.28.1`; Android remains `1.27` /
+  versionCode `28`; native iOS `1.5` / build `5` is source-only and needs a Mac
+  build plus real-device testing. `release/manifest.json` is the version ledger.
 - Android provides phone-only Offline translation and transcription for English,
   German, Arabic, Spanish and French.
 - Android selected-text translation works from WhatsApp and other apps through
@@ -43,8 +44,8 @@ minute without detected speech finishes the recording automatically. The hosted
 Android app records from the animated round microphone without a native screen
 overlay; long sessions are divided on-device into independently validated
 five-minute WAV uploads so Cloud Run and the transcription provider never
-receive an oversized request. Source versions are Online `2026.09.22.1` and
-Android 1.27/versionCode 28.
+receive an oversized request. Candidate source versions are Online `2026.09.28.1`
+and Android 1.27/versionCode 28.
 
 The phone shell also has a pull-only tool handle above the navigation bar. It
 opens a reorderable two-by-two tray for Conversation, Import media, History and

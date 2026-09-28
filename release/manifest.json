@@ -1,0 +1,20 @@
+{
+  "schema": 1,
+  "cloud": {
+    "source_version": "2026.09.28.1",
+    "published_version_at_preparation": "2026.09.22.1",
+    "workspace_url": "https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/"
+  },
+  "android": {
+    "version_name": "1.27",
+    "version_code": 28,
+    "published_apk_sha256": "f4833abd328a38b4c1b730b8635784a4df49858b5d88e350c7c83eb48f6f6fe6",
+    "sideload_signer_sha256": "2cdb19692817f5c591f3f92fd07b657779e204496a57c23f159983ae6dc8514e"
+  },
+  "ios": {
+    "version_name": "1.5",
+    "build_number": 5,
+    "bundle_identifier": "com.linguafusion.mobile",
+    "status": "source-only; Mac/Xcode signing and device validation required"
+  }
+}

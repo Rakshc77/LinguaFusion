@@ -1,0 +1,22 @@
+name: iOS source build (manual)
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  simulator-build:
+    runs-on: macos-15
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check release versions
+        run: python3 scripts/check_release_manifest.py
+      - name: Compile the iPhone source without signing
+        run: >-
+          xcodebuild
+          -project ios/LinguaFusionMobile/LinguaFusionMobile.xcodeproj
+          -target LinguaFusionMobile
+          -configuration Debug
+          -sdk iphonesimulator
+          CODE_SIGNING_ALLOWED=NO
+          build

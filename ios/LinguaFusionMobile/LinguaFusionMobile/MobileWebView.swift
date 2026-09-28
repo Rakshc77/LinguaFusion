@@ -2,184 +2,247 @@ import SwiftUI
 import WebKit
 import AVFoundation
 
-struct MobileWebView: UIViewRepresentable {
-    let serverURL: String
-    let apiKey: String
-    let onConnectionFailure: (String) -> Void
+// Native shell for the same authenticated Cloud Run workspace as Android.
+struct CloudWebView: UIViewRepresentable {
+    static let workspace = URL(string: "https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/")!
+    let reloadToken: Int
+    let onConnection: (String?) -> Void
 
-    func makeCoordinator() -> Coordinator { Coordinator(serverURL: serverURL, onConnectionFailure: onConnectionFailure) }
+    func makeCoordinator() -> Coordinator { Coordinator(onConnection: onConnection) }
     func makeUIView(context: Context) -> WKWebView {
-        let configuration = WKWebViewConfiguration()
-        configuration.allowsInlineMediaPlayback = true
-        configuration.mediaTypesRequiringUserActionForPlayback = []
-        configuration.userContentController.add(context.coordinator, name: "linguafusionAudio")
-        let serverJSON = jsonString(serverURL), keyJSON = jsonString(apiKey)
-        let injection = "localStorage.setItem('lf.server', \(serverJSON)); localStorage.setItem('lf.key', \(keyJSON));"
-        configuration.userContentController.addUserScript(WKUserScript(source: injection, injectionTime: .atDocumentStart, forMainFrameOnly: true))
-        let view = WKWebView(frame: .zero, configuration: configuration)
-        view.uiDelegate = context.coordinator
+        let config = WKWebViewConfiguration()
+        config.allowsInlineMediaPlayback = true
+        config.userContentController.add(context.coordinator, name: "linguafusionAudio")
+        config.userContentController.addUserScript(WKUserScript(source: """
+            window.LFNativeCloudRecording = true;
+            window.LinguaFusionNativeAudio = {
+              onmessage: null,
+              postMessage: function(body) { window.webkit.messageHandlers.linguafusionAudio.postMessage(body); }
+            };
+            """, injectionTime: .atDocumentStart, forMainFrameOnly: true))
+        let view = WKWebView(frame: .zero, configuration: config)
+        context.coordinator.webView = view
         view.navigationDelegate = context.coordinator
-        view.allowsBackForwardNavigationGestures = true
+        view.uiDelegate = context.coordinator
+        view.scrollView.contentInsetAdjustmentBehavior = .never
         view.scrollView.keyboardDismissMode = .interactive
-        if let url = URL(string: serverURL + "/mobile/") { view.load(URLRequest(url: url)) }
+        view.load(URLRequest(url: Self.workspace))
         return view
     }
-    func updateUIView(_ view: WKWebView, context: Context) {}
+    func updateUIView(_ view: WKWebView, context: Context) {
+        guard context.coordinator.reloadToken != reloadToken else { return }
+        context.coordinator.reloadToken = reloadToken
+        view.load(URLRequest(url: Self.workspace, cachePolicy: .reloadIgnoringLocalCacheData))
+    }
     static func dismantleUIView(_ view: WKWebView, coordinator: Coordinator) {
-        coordinator.cancelAudioRecording()
+        coordinator.cancelRecording()
         view.configuration.userContentController.removeScriptMessageHandler(forName: "linguafusionAudio")
-        view.navigationDelegate = nil
-        view.uiDelegate = nil
-        view.stopLoading()
-    }
-    private func jsonString(_ value: String) -> String {
-        let data = try! JSONSerialization.data(withJSONObject: [value])
-        let array = String(data: data, encoding: .utf8)!
-        return String(array.dropFirst().dropLast())
+        view.stopLoading(); view.navigationDelegate = nil; view.uiDelegate = nil
     }
 
-    final class Coordinator: NSObject, WKUIDelegate, WKNavigationDelegate, WKScriptMessageHandler {
-        let serverURL: String
-        let onConnectionFailure: (String) -> Void
-        private var audioRecorder: AVAudioRecorder?
-        private var audioURL: URL?
+    final class Coordinator: NSObject, WKNavigationDelegate, WKUIDelegate, WKScriptMessageHandler, AVAudioRecorderDelegate {
+        let onConnection: (String?) -> Void
+        var reloadToken = 0
+        weak var webView: WKWebView?
+        private var recorder: AVAudioRecorder?
+        private var recordingURL: URL?
+        private var activeID: String?
+        private var readyID: String?
+        private var audioParts: [Data] = []
+        private var timer: Timer?
 
-        init(serverURL: String, onConnectionFailure: @escaping (String) -> Void) {
-            self.serverURL = serverURL
-            self.onConnectionFailure = onConnectionFailure
+        init(onConnection: @escaping (String?) -> Void) { self.onConnection = onConnection }
+
+        func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
+            DispatchQueue.main.async { self.onConnection(nil) }
+        }
+        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
+            if (error as NSError).code != NSURLErrorCancelled {
+                DispatchQueue.main.async { self.onConnection("Check your internet connection, then try again.") }
+            }
+        }
+        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
+            if (error as NSError).code != NSURLErrorCancelled {
+                DispatchQueue.main.async { self.onConnection("The cloud workspace could not load. Try again shortly.") }
+            }
+        }
+        func webView(_ webView: WKWebView, decidePolicyFor response: WKNavigationResponse,
+                     decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
+            if let http = response.response as? HTTPURLResponse, http.statusCode >= 400 {
+                DispatchQueue.main.async { self.onConnection("Cloud service returned HTTP \(http.statusCode). Try again shortly.") }
+                decisionHandler(.cancel)
+            } else { decisionHandler(.allow) }
         }
 
-        private func report(_ message: String) {
-            cancelAudioRecording()
-            DispatchQueue.main.async { self.onConnectionFailure(message) }
+        private func trusted(_ url: URL?) -> Bool {
+            guard let url else { return false }
+            return url.scheme == CloudWebView.workspace.scheme && url.host == CloudWebView.workspace.host
+                && (url.port ?? 443) == 443
         }
-
-        private func trustedOrigin(_ origin: WKSecurityOrigin) -> Bool {
-            guard let expected = URLComponents(string: serverURL),
-                  let scheme = expected.scheme, let host = expected.host else { return false }
-            let expectedPort = expected.port ?? (scheme.lowercased() == "https" ? 443 : 80)
-            return origin.protocol.lowercased() == scheme.lowercased()
-                && origin.host.lowercased() == host.lowercased()
-                && origin.port == expectedPort
+        func webView(_ webView: WKWebView, decidePolicyFor action: WKNavigationAction,
+                     decisionHandler: @escaping (WKNavigationActionPolicy) -> Void) {
+            guard let url = action.request.url else { decisionHandler(.cancel); return }
+            if url.scheme == "linguafusion-record" {
+                if trusted(webView.url), action.sourceFrame.isMainFrame,
+                   let id = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems?.first(where: { $0.name == "id" })?.value {
+                    switch url.host {
+                    case "capture": startRecording(id: id)
+                    case "stop": stopRecording(id: id)
+                    case "cancel": cancelRecording(); emit(id: id, kind: "cancel")
+                    default: break
+                    }
+                }
+                decisionHandler(.cancel); return
+            }
+            if trusted(url) { decisionHandler(.allow) }
+            else {
+                if action.navigationType == .linkActivated { UIApplication.shared.open(url) }
+                decisionHandler(.cancel)
+            }
         }
-
-        func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
+        func webView(_ webView: WKWebView, createWebViewWith configuration: WKWebViewConfiguration,
+                     for action: WKNavigationAction, windowFeatures: WKWindowFeatures) -> WKWebView? {
+            if let url = action.request.url {
+                if trusted(url) { webView.load(URLRequest(url: url)) }
+                else { UIApplication.shared.open(url) }
+            }
+            return nil
+        }
+        @available(iOS 15.0, *)
+        func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin,
+                     initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType,
+                     decisionHandler: @escaping (WKPermissionDecision) -> Void) {
+            decisionHandler(origin.host == CloudWebView.workspace.host && frame.isMainFrame ? .grant : .deny)
+        }
+        func userContentController(_ controller: WKUserContentController, didReceive message: WKScriptMessage) {
             guard message.name == "linguafusionAudio", message.frameInfo.isMainFrame,
-                  trustedOrigin(message.frameInfo.securityOrigin),
-                  let body = message.body as? [String: Any],
-                  let action = body["action"] as? String,
-                  let id = body["id"] as? String else {
-                return
-            }
-            switch action {
-            case "start": requestAndStartRecording(webView: message.webView, id: id)
-            case "stop": stopAudioRecording(webView: message.webView, id: id)
-            case "cancel": cancelAudioRecording()
-            default: reply(webView: message.webView, id: id, ok: false, value: "Unsupported microphone action.")
-            }
+                  message.frameInfo.securityOrigin.host == CloudWebView.workspace.host,
+                  let raw = message.body as? String, let data = raw.data(using: .utf8),
+                  let object = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
+                  object["type"] as? String == "read", let id = object["id"] as? String,
+                  let part = object["part"] as? Int, let offset = object["offset"] as? Int else { return }
+            readPacket(id: id, part: part, offset: offset)
         }
-
-        private func requestAndStartRecording(webView: WKWebView?, id: String) {
+        private func startRecording(id: String) {
+            guard recorder == nil else { emit(id: id, kind: "error", data: "Recording is already active."); return }
             let session = AVAudioSession.sharedInstance()
             switch session.recordPermission {
-            case .granted:
-                beginAudioRecording(webView: webView, id: id)
-            case .denied:
-                reply(webView: webView, id: id, ok: false, value: "Microphone permission was denied. Enable it in iOS Settings.")
+            case .granted: beginRecording(id: id)
+            case .denied: emit(id: id, kind: "error", data: "Enable microphone access in iPhone Settings.")
             case .undetermined:
                 session.requestRecordPermission { [weak self] granted in
                     DispatchQueue.main.async {
                         guard let self else { return }
-                        if granted { self.beginAudioRecording(webView: webView, id: id) }
-                        else { self.reply(webView: webView, id: id, ok: false, value: "Microphone permission was denied.") }
+                        if granted { self.beginRecording(id: id) }
+                        else { self.emit(id: id, kind: "error", data: "Microphone permission was denied.") }
                     }
                 }
-            @unknown default:
-                reply(webView: webView, id: id, ok: false, value: "Microphone permission is unavailable.")
+            @unknown default: emit(id: id, kind: "error", data: "Microphone permission is unavailable.")
             }
         }
-
-        private func beginAudioRecording(webView: WKWebView?, id: String) {
-            guard audioRecorder == nil else { reply(webView: webView, id: id, ok: false, value: "Recording is already active."); return }
+        private func beginRecording(id: String) {
             do {
                 let session = AVAudioSession.sharedInstance()
                 try session.setCategory(.playAndRecord, mode: .measurement, options: [.defaultToSpeaker, .allowBluetooth])
                 try session.setActive(true)
                 let url = FileManager.default.temporaryDirectory.appendingPathComponent("linguafusion-\(UUID().uuidString).wav")
-                let settings: [String: Any] = [
-                    AVFormatIDKey: kAudioFormatLinearPCM,
-                    AVSampleRateKey: 16_000.0,
-                    AVNumberOfChannelsKey: 1,
-                    AVLinearPCMBitDepthKey: 16,
-                    AVLinearPCMIsFloatKey: false,
-                    AVLinearPCMIsBigEndianKey: false
-                ]
-                let recorder = try AVAudioRecorder(url: url, settings: settings)
-                guard recorder.prepareToRecord(), recorder.record() else { throw NSError(domain: "LinguaFusionAudio", code: 1, userInfo: [NSLocalizedDescriptionKey: "The iPhone microphone could not start."]) }
-                audioURL = url; audioRecorder = recorder
-                reply(webView: webView, id: id, ok: true, value: "OK")
-            } catch {
-                cancelAudioRecording()
-                reply(webView: webView, id: id, ok: false, value: error.localizedDescription)
-            }
+                let settings: [String: Any] = [AVFormatIDKey: kAudioFormatLinearPCM, AVSampleRateKey: 16_000.0,
+                    AVNumberOfChannelsKey: 1, AVLinearPCMBitDepthKey: 16,
+                    AVLinearPCMIsFloatKey: false, AVLinearPCMIsBigEndianKey: false]
+                let next = try AVAudioRecorder(url: url, settings: settings)
+                next.delegate = self
+                guard next.prepareToRecord(), next.record(forDuration: 1200) else { throw NSError(domain: "LinguaFusionAudio", code: 1) }
+                recordingURL = url; recorder = next; activeID = id; readyID = nil; audioParts = []
+                timer = Timer.scheduledTimer(withTimeInterval: 1200, repeats: false) { [weak self] _ in self?.stopRecording(id: id) }
+                emit(id: id, kind: "started")
+            } catch { cancelRecording(); emit(id: id, kind: "error", data: "The microphone could not start: \(error.localizedDescription)") }
         }
-
-        private func stopAudioRecording(webView: WKWebView?, id: String) {
-            guard let recorder = audioRecorder, let url = audioURL else { reply(webView: webView, id: id, ok: false, value: "No recording is active."); return }
-            recorder.stop(); audioRecorder = nil; audioURL = nil
+        private func stopRecording(id: String) {
+            guard id == activeID, let recorder, let url = recordingURL else { return }
+            recorder.stop(); self.recorder = nil; activeID = nil
+            timer?.invalidate(); timer = nil; recordingURL = nil
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
             defer { try? FileManager.default.removeItem(at: url) }
             do {
-                let data = try Data(contentsOf: url)
-                guard data.count > 44 else { throw NSError(domain: "LinguaFusionAudio", code: 2, userInfo: [NSLocalizedDescriptionKey: "No speech was recorded."]) }
-                reply(webView: webView, id: id, ok: true, value: data.base64EncodedString())
-            } catch { reply(webView: webView, id: id, ok: false, value: error.localizedDescription) }
+                audioParts = try Self.splitWav(Data(contentsOf: url))
+                readyID = id
+                emit(id: id, kind: "ready", total: audioParts.count)
+            } catch { audioParts = []; readyID = nil; emit(id: id, kind: "error", data: "The recording could not be prepared.") }
         }
-
-        func cancelAudioRecording() {
-            audioRecorder?.stop(); audioRecorder = nil
-            if let url = audioURL { try? FileManager.default.removeItem(at: url) }
-            audioURL = nil
+        func audioRecorderDidFinishRecording(_ recorder: AVAudioRecorder, successfully flag: Bool) {
+            if let id = activeID { stopRecording(id: id) }
+        }
+        func cancelRecording() {
+            recorder?.stop(); recorder = nil; activeID = nil; readyID = nil; audioParts = []
+            timer?.invalidate(); timer = nil
+            if let url = recordingURL { try? FileManager.default.removeItem(at: url) }; recordingURL = nil
             try? AVAudioSession.sharedInstance().setActive(false, options: .notifyOthersOnDeactivation)
         }
-
-        private func reply(webView: WKWebView?, id: String, ok: Bool, value: String) {
-            guard let webView else { return }
-            let idJSON = jsonLiteral(id), valueJSON = jsonLiteral(value)
-            webView.evaluateJavaScript("window.LFNativeIOSAudioResult && window.LFNativeIOSAudioResult(\(idJSON),\(ok ? "true" : "false"),\(valueJSON));")
-        }
-
-        private func jsonLiteral(_ value: String) -> String {
-            guard let data = try? JSONSerialization.data(withJSONObject: [value]),
-                  let array = String(data: data, encoding: .utf8) else { return "\"\"" }
-            return String(array.dropFirst().dropLast())
-        }
-
-        func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
-            report("The PC backend stopped responding: \(error.localizedDescription)")
-        }
-
-        func webView(_ webView: WKWebView, didFailProvisionalNavigation navigation: WKNavigation!, withError error: Error) {
-            report("Could not reach \(serverURL): \(error.localizedDescription)")
-        }
-
-        func webView(_ webView: WKWebView, decidePolicyFor navigationResponse: WKNavigationResponse, decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void) {
-            if let response = navigationResponse.response as? HTTPURLResponse, response.statusCode >= 400 {
-                if [502, 503, 504].contains(response.statusCode) {
-                    report("The PC backend is offline (HTTP \(response.statusCode)). Start LinguaFusion on the PC and retry.")
-                } else {
-                    report("The PC returned HTTP \(response.statusCode) for the mobile app.")
+        private static func splitWav(_ data: Data) throws -> [Data] {
+            guard data.count > 44, data.prefix(4) == Data("RIFF".utf8), data[8..<12] == Data("WAVE".utf8) else {
+                throw NSError(domain: "LinguaFusionAudio", code: 2)
+            }
+            var cursor = 12
+            var pcm: Data?
+            var expectedFormat = false
+            while cursor + 8 <= data.count {
+                let size = Int(UInt32(data[cursor + 4]) | UInt32(data[cursor + 5]) << 8 |
+                    UInt32(data[cursor + 6]) << 16 | UInt32(data[cursor + 7]) << 24)
+                let start = cursor + 8
+                guard start <= data.count, size <= data.count - start else { break }
+                if data[cursor..<cursor + 4] == Data("fmt ".utf8), size >= 16 {
+                    let format = UInt16(data[start]) | UInt16(data[start + 1]) << 8
+                    let channels = UInt16(data[start + 2]) | UInt16(data[start + 3]) << 8
+                    let rate = UInt32(data[start + 4]) | UInt32(data[start + 5]) << 8 |
+                        UInt32(data[start + 6]) << 16 | UInt32(data[start + 7]) << 24
+                    let bits = UInt16(data[start + 14]) | UInt16(data[start + 15]) << 8
+                    expectedFormat = format == 1 && channels == 1 && rate == 16_000 && bits == 16
                 }
-                decisionHandler(.cancel)
-            } else {
-                decisionHandler(.allow)
+                if data[cursor..<cursor + 4] == Data("data".utf8) { pcm = data.subdata(in: start..<start + size); break }
+                cursor = start + size + (size % 2)
+            }
+            guard expectedFormat, let pcm, !pcm.isEmpty else { throw NSError(domain: "LinguaFusionAudio", code: 3) }
+            let partSize = 300 * 16_000 * 2
+            let length = min(pcm.count, partSize * 4)
+            return stride(from: 0, to: length, by: partSize).map { offset in
+                let segment = pcm.subdata(in: offset..<min(offset + partSize, length))
+                var wav = Data("RIFF".utf8)
+                wav.appendLE(UInt32(36 + segment.count)); wav.append(Data("WAVEfmt ".utf8))
+                wav.appendLE(UInt32(16)); wav.appendLE(UInt16(1)); wav.appendLE(UInt16(1))
+                wav.appendLE(UInt32(16_000)); wav.appendLE(UInt32(32_000))
+                wav.appendLE(UInt16(2)); wav.appendLE(UInt16(16)); wav.append(Data("data".utf8))
+                wav.appendLE(UInt32(segment.count)); wav.append(segment)
+                return wav
             }
         }
-
-        @available(iOS 15.0, *)
-        func webView(_ webView: WKWebView, requestMediaCapturePermissionFor origin: WKSecurityOrigin, initiatedByFrame frame: WKFrameInfo, type: WKMediaCaptureType, decisionHandler: @escaping (WKPermissionDecision) -> Void) {
-            guard trustedOrigin(origin) else { decisionHandler(.deny); return }
-            decisionHandler(type == .microphone || type == .cameraAndMicrophone ? .grant : .prompt)
+        private func readPacket(id: String, part: Int, offset: Int) {
+            guard id == readyID, part >= 0, part < audioParts.count,
+                  offset >= 0, offset < audioParts[part].count else { return }
+            let bytes = audioParts[part]
+            let end = min(offset + 48_000, bytes.count)
+            let reply: [String: Any] = ["id":id, "part":part, "offset":offset,
+                "data":bytes.subdata(in: offset..<end).base64EncodedString(), "nextOffset":end, "done":end == bytes.count]
+            if end == bytes.count { audioParts[part] = Data() }
+            if audioParts.allSatisfy({ $0.isEmpty }) { readyID = nil }
+            sendJavaScript("window.LinguaFusionNativeAudio.onmessage({data:\(json(reply))});")
         }
+        private func emit(id: String, kind: String, data: String = "", total: Int = 0) {
+            sendJavaScript("window.dispatchEvent(new CustomEvent('lf-native-recording',{detail:\(json(["id":id,"kind":kind,"data":data,"total":total]))}));")
+        }
+        private func sendJavaScript(_ script: String) {
+            DispatchQueue.main.async { [weak self] in self?.webView?.evaluateJavaScript(script) }
+        }
+        private func json(_ value: Any) -> String {
+            guard let data = try? JSONSerialization.data(withJSONObject: value, options: [.fragmentsAllowed]),
+                  let text = String(data: data, encoding: .utf8) else { return "null" }
+            return text
+        }
+    }
+}
+
+private extension Data {
+    mutating func appendLE<T: FixedWidthInteger>(_ value: T) {
+        var little = value.littleEndian
+        Swift.withUnsafeBytes(of: &little) { append(contentsOf: $0) }
     }
 }

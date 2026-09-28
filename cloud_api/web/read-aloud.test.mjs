@@ -13,7 +13,7 @@ test('requests validate result id, language, speed, emptiness and length', () =>
   assert.match(prepareReadAloudRequest({ id:'x', text:' ', language:'en', rate:1 }).error, /nothing/);
   assert.match(prepareReadAloudRequest({ id:'x', text:'Hello', language:'xx', rate:1 }).error, /language/);
   assert.match(prepareReadAloudRequest({ id:'x', text:'Hello', language:'en', rate:2 }).error, /speed/);
-  assert.match(prepareReadAloudRequest({ id:'x', text:'a'.repeat(12001), language:'en', rate:1 }).error, /12,000/);
+  assert.match(prepareReadAloudRequest({ id:'x', text:'a'.repeat(12001), language:'en', rate:1 }).error, /12[,.]000/);
 });
 
 function browserHarness() {

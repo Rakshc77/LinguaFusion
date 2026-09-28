@@ -1,30 +1,34 @@
-# LinguaFusion Mobile for iPhone and iPad
+# LinguaFusion iPhone / iPad cloud app
 
-The version 1.3 SwiftUI/WKWebView client uses the same PC-hosted mobile
-interface as Android and keeps all inference on the LinguaFusion PC. It accepts
-the one-use `linguafusion://pair` QR link, stores its per-device credential in
-the iOS Keychain, reconnects automatically, and uses AVFoundation for reliable
-native microphone recording. A stable HTTPS reverse-tunnel address lets an
-approved friend connect over the internet without sharing the PC's network.
+The 1.5 source uses the same Firebase-approved Cloud Run workspace as Android.
+The old PC pairing screen and stored PC device key are removed on upgrade. The
+app requires internet, and speech/OCR/translation may use paid APIs only after
+the in-app consent step. The native AVFoundation microphone supplies five-minute
+WAV parts to the authenticated workspace; no separate provider key is embedded.
 
-## Build the native app
+This is **source only**. It has not been compiled, signed, installed, or tested
+on an iPhone from this Windows workstation. Do not invite iPhone testers or
+describe it as a released app until the checks below pass on a Mac and device.
 
-1. Copy or clone this repository to a Mac with Xcode 15 or newer.
-2. Open `LinguaFusionMobile.xcodeproj`.
-3. Select the app target, choose your Apple Development team and a unique bundle identifier.
-4. Connect the iPhone/iPad and press Run, or Archive for TestFlight/App Store distribution.
+## Mac / TestFlight checklist
 
-Windows cannot compile or Apple-sign an `.ipa`; Xcode and an Apple signing
-identity are required by Apple. Until then, the installable PWA is available:
-start friend access, open the browser fallback from the invitation, then in
-Safari tap Share and **Add to Home Screen**. The browser stores its own
-credential after the one-use pairing exchange and reconnects automatically.
+1. Clone the repository on a Mac with a current Xcode and open
+   `LinguaFusionMobile.xcodeproj`. Keep the existing bundle identifier if you
+   control it; select your Apple Development team and signing profile.
+2. Build for a real iPhone. Fix any SDK/compiler diagnostics, then test first
+   launch, email sign-in, account approval, sign-out and sign-in, and an offline
+   launch followed by **Try again**.
+3. Test microphone permission (allow and deny), a short recording, 6+ minute
+   recording, interruption by a call, and a failed later transcription part.
+   Verify that retry sends only unfinished parts and no audio is sent after
+   Cancel. Test translation, OCR, pronunciation and paid-consent prompts.
+4. Confirm status-bar/home-indicator spacing, camera/photo selection, keyboard
+   dismissal, external verification links, and VoiceOver on a real device.
+5. Archive and distribute through TestFlight only after those checks and a
+   privacy review. Keep the same bundle identifier and signing team for app
+   updates. Never include Firebase service-account or provider secrets in the
+   iOS project.
 
-Browsers require HTTPS for live microphone capture from a non-local address.
-The configured internet hostname provides that secure context. With plain LAN
-HTTP, the PWA still supports translation, OCR, Reader and imported audio; use
-the native app or the HTTPS hostname for live recording.
-
-Do not expose port 8000 directly to the public internet. Use the documented
-HTTPS reverse-tunnel setup, one-use invitations, and the local owner dashboard
-to pause or revoke each friend independently.
+Release metadata is checked against `release/manifest.json` by
+`scripts/check_release_manifest.py`. Online changes still require a separate
+Cloud Run deployment; this project build does not deploy them.

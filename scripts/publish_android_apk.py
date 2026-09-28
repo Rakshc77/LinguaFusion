@@ -27,6 +27,7 @@ ROOT = pathlib.Path(__file__).resolve().parents[1]
 SOURCE = ROOT / 'android' / 'LinguaFusionMobile' / 'dist' / 'LinguaFusionMobile-debug.apk'
 TARGET = ROOT / 'cloud_api' / 'web' / 'linguafusion-android.apk'
 DETAILS = ROOT / 'cloud_api' / 'web' / 'android-app.json'
+MANIFEST = ROOT / 'release' / 'manifest.json'
 
 # Values that must never leave the build machine inside a published binary.
 SECRET_PATTERNS = [
@@ -40,6 +41,8 @@ REQUIRED_ENTRIES = {'AndroidManifest.xml', 'classes.dex'}
 
 
 def main():
+    release = json.loads(MANIFEST.read_text(encoding='utf-8'))
+    android = release['android']
     if not SOURCE.is_file():
         raise SystemExit(f'No APK at {SOURCE}. Build it first with '
                          'android/LinguaFusionMobile/build_apk.ps1')
@@ -57,9 +60,13 @@ def main():
         raise SystemExit('Android apksigner is required to verify the APK before publishing.')
     env = os.environ.copy()
     env.setdefault('JAVA_HOME', r'C:\Program Files\Android\Android Studio\jbr')
-    verified = subprocess.run([str(verifiers[0]), 'verify', str(SOURCE)], env=env, capture_output=True)
+    verified = subprocess.run([str(verifiers[0]), 'verify', '--print-certs', str(SOURCE)],
+                              env=env, capture_output=True, text=True)
     if verified.returncode:
         raise SystemExit('APK cryptographic signature verification failed.')
+    signer = re.search(r'Signer #1 certificate SHA-256 digest:\s*([0-9a-fA-F:]+)', verified.stdout)
+    if not signer or signer.group(1).replace(':', '').lower() != android['sideload_signer_sha256']:
+        raise SystemExit('APK signing certificate differs from the installed sideload app; refusing to publish.')
 
     with zipfile.ZipFile(SOURCE) as archive:
         for name in archive.namelist():
@@ -75,6 +82,8 @@ def main():
     if not version:
         raise SystemExit('Could not read the version out of the APK; refusing to '
                          'publish metadata the updater would misread.')
+    if int(version.group(1)) != android['version_code'] or version.group(2) != android['version_name']:
+        raise SystemExit('APK version differs from release/manifest.json; refusing to publish.')
 
     digest = hashlib.sha256(payload).hexdigest()
     shutil.copy2(SOURCE, TARGET)
@@ -87,6 +96,8 @@ def main():
         'published_at': datetime.now(timezone.utc).strftime('%Y-%m-%d'),
         'signing': 'debug keystore',
     }, indent=1) + '\n', encoding='utf-8')
+    release['android']['published_apk_sha256'] = digest
+    MANIFEST.write_text(json.dumps(release, indent=2) + '\n', encoding='utf-8')
 
     print(json.dumps({'copied_to': str(TARGET), 'bytes': len(payload),
                       'sha256': digest, 'entries': len(names)}, indent=1))

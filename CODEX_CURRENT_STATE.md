@@ -1,5 +1,9 @@
 # LinguaFusion — current Codex handover
 
+> Historical handover below. For current release versions and deployment gates,
+> use `release/manifest.json` and `release/README.md`. The September 18 branch
+> description is retained for context, not as a current deployment instruction.
+
 ## Streamlined interface and cohesive motion — September 18, 2026
 
 Branch `codex/streamlined-motion` starts from published `main` commit `c67b966`
