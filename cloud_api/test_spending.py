@@ -7,7 +7,7 @@ from cloud_api.app import Settings, create_app
 from cloud_api.models import usage_cost, reserve_cost, budget_micro, catalog
 from cloud_api.policy import LocalPolicy
 
-def test_prices_cached_usage_and_missing_usage():
+def test_prices_cached_usage_and_missing_usage(reviewed_model_prices):
     assert usage_cost('gpt-5.6-luna', {'input_tokens':1000, 'output_tokens':1000, 'input_tokens_details':{'cached_tokens':500}}) == 1310
     assert usage_cost('gpt-5.6-luna', None) is None
     assert usage_cost('gpt-5.6-luna', {'input_tokens':-1,'output_tokens':0}) is None
@@ -33,7 +33,7 @@ def test_atomic_money_budget_and_persistent_unresolved_holds(tmp_path):
     assert policy.spending('friend')['estimated_spent_usd'] == '0.001000'
     assert policy.spending('friend')['remaining_usd'] == '0.005000'
 
-def test_selection_consent_cost_recording_and_zero_budget(tmp_path):
+def test_selection_consent_cost_recording_and_zero_budget(tmp_path, reviewed_model_prices):
     policy = LocalPolicy(tmp_path / 'policy.db', ['friend'])
     settings = Settings(enabled=True,model='gpt-5.6-luna',api_key='fake', allowed_models=frozenset({'gpt-5.6-luna','gpt-5.6-terra'}))
     calls=[]
