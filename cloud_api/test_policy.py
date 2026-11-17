@@ -51,7 +51,7 @@ def test_owner_controls_and_revocation(tmp_path):
         assert client.post('/owner/users/friend', headers=owner, data={'enabled': 'true', 'monthly_limit': -1}).status_code == 422
 
 
-def test_provider_failure_still_consumes_reservation(tmp_path):
+def test_provider_failure_still_consumes_reservation(tmp_path, reviewed_model_prices):
     policy = LocalPolicy(tmp_path / 'policy.db', ['friend'], 1)
     policy.update('owner', 'friend', True, 1, 1_000_000)
     calls = []

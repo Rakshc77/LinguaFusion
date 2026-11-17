@@ -10,6 +10,26 @@ function memory() {
     removeItem:key => values.delete(key) };
 }
 
+test('history preserves complete long source and result text', () => {
+  const store = memory();
+  setHistoryEnabled(store, true);
+  const input = 'Grüße مرحبا नमस्ते ନମସ୍କାର '.repeat(1000);
+  const output = 'Complete transcript. 😀 '.repeat(2000);
+  saveHistoryEntry(store, {kind:'transcript', input, output}, 1, 'long');
+  assert.equal(localHistory(store)[0].input, input);
+  assert.equal(localHistory(store)[0].output, output);
+});
+
+test('storage failure retains previous history and never claims the new result was saved', () => {
+  const store = memory();
+  setHistoryEnabled(store, true);
+  saveHistoryEntry(store, {output:'Previous result'}, 1, 'old');
+  store.setItem = () => { throw new Error('Quota exceeded'); };
+  const returned = saveHistoryEntry(store, {output:'Long result. '.repeat(1000)}, 2, 'new');
+  assert.deepEqual(returned.map(item => item.id), ['old']);
+  assert.deepEqual(localHistory(store).map(item => item.id), ['old']);
+});
+
 test('recent pairs are validated, deduplicated and capped at three', () => {
   const store = memory(); const sources = ['auto','en','de','fr']; const targets = ['en','de','fr'];
   rememberRecentPair(store,{source:'en',target:'de'},sources,targets);

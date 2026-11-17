@@ -64,7 +64,7 @@ def test_unauthorized_calls_never_reach_provider(token, status):
         assert response.status_code == status
 
 
-def test_translation_contract_and_server_side_request(caplog):
+def test_translation_contract_and_server_side_request(caplog, reviewed_model_prices):
     def handler(request):
         assert request.url == 'https://api.openai.com/v1/responses'
         assert request.headers['Authorization'] == 'Bearer test-provider-secret'
@@ -109,13 +109,13 @@ def test_cloud_disabled_and_no_local_auth_bypass():
 
 
 @pytest.mark.parametrize('upstream,status', [(401, 502), (429, 503), (500, 502)])
-def test_provider_errors_are_redacted(upstream, status):
+def test_provider_errors_are_redacted(upstream, status, reviewed_model_prices):
     with make_client(lambda request: httpx.Response(upstream, text='secret provider details')) as client:
         response = client.post('/translate', data={'text': 'hello'}, headers={'Authorization': 'Bearer valid'})
         assert response.status_code == status and 'secret provider details' not in response.text
 
 
-def test_timeout_and_incomplete_response():
+def test_timeout_and_incomplete_response(reviewed_model_prices):
     def timeout(request):
         raise httpx.ReadTimeout('secret internal URL')
     for handler, expected in [(timeout, 504), (lambda r: httpx.Response(200, json={'status': 'incomplete'}), 502)]:
@@ -124,7 +124,7 @@ def test_timeout_and_incomplete_response():
             assert response.status_code == expected
 
 
-def test_rate_limit_and_body_limit():
+def test_rate_limit_and_body_limit(reviewed_model_prices):
     with make_client() as client:
         for _ in range(10):
             assert client.post('/translate', data={'text': 'hello'}, headers={'Authorization': 'Bearer valid'}).status_code == 200
