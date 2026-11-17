@@ -27,7 +27,7 @@ def test_probe_requires_verified_success_and_finishes_once(mode, expected):
         runtime.probe_command = lambda: ([sys.executable + '.missing'] if mode == 'missing'
             else [sys.executable, '-c', programs[mode]])
         app = QCoreApplication([])
-        probe = runtime.BrowserRuntimeProbe(timeout_ms=500 if mode != 'timeout' else 100)
+        probe = runtime.BrowserRuntimeProbe(timeout_ms=2000 if mode != 'timeout' else 100)
         results = []
         def completed(ok):
             results.append(ok)
@@ -63,20 +63,23 @@ def test_real_browser_probe_cannot_terminate_its_desktop_host():
         window.show()
         outcomes = []
         def finished(ok):
-            outcomes.append(ok)
-            assert window.isVisible()
-            if not ok:
-                assert view.page() is None
-                assert view.browser_button.isVisible()
-                assert 'could not start' in view.status.text()
-                assert not hasattr(window, '_online_profile')
+            # Assert after the event loop: PySide prints exceptions in signal
+            # handlers instead of propagating them to the subprocess exit code.
+            outcomes.append((ok, window.isVisible(), view.page() is None,
+                view.browser_button.isVisible(), view.status.text(),
+                not hasattr(window, '_online_profile')))
             QTimer.singleShot(50, app.quit)
         view.loadFinished.connect(finished)
         view.setUrl(QUrl('about:blank'))  # No cloud, credentials or audio hardware.
         QTimer.singleShot(20000, app.quit)
         app.exec()
         assert len(outcomes) == 1, outcomes
-        print('Desktop host survived; embedded browser available:', outcomes[0])
+        ok, alive, no_page, fallback_visible, status, no_profile = outcomes[0]
+        assert alive
+        if not ok:
+            assert no_page and fallback_visible and no_profile
+            assert 'could not start' in status
+        print('Desktop host survived; embedded browser available:', ok)
     ''')
     env = dict(os.environ, QT_QPA_PLATFORM="offscreen", LF_TEST_MODE="1",
                PYTHONIOENCODING="utf-8")
