@@ -72,7 +72,7 @@ session; no replacement designs have been selected here.
 ## Current release and next source
 
 - Published before this work: Online `2026.09.22.1`; Android `1.27` / versionCode `28`.
-- Current candidate source: Online `2026.09.28.1`; Android `1.28` /
+- Current candidate source: Online `2026.11.17.1`; Android `1.28` /
   versionCode `29`; native iOS `1.5` / build `5` is source-only and needs a Mac
   build plus real-device testing. `release/manifest.json` is the version ledger.
 - Android provides phone-only Offline translation and transcription for English,
@@ -130,7 +130,7 @@ minute without detected speech finishes the recording automatically. The hosted
 Android app records from the animated round microphone without a native screen
 overlay; long sessions are divided on-device into independently validated
 five-minute WAV uploads so Cloud Run and the transcription provider never
-receive an oversized request. Candidate source versions are Online `2026.09.28.1`
+receive an oversized request. Candidate source versions are Online `2026.11.17.1`
 and Android 1.28/versionCode 29.
 
 The phone shell also has a pull handle above the navigation bar. Swipe up to
