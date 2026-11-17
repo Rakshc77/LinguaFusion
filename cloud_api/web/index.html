@@ -145,6 +145,15 @@
             <input id="speechAudioFile" type="file" accept="audio/*,.m4a,.mp3,.aac,.caf,.wav" hidden>
           </div>
           <p id="speechStatus" role="status" aria-live="polite"></p>
+          <div id="recordingDraft" class="recording-recovery" hidden>
+            <strong>Recording saved on this device</strong>
+            <p id="recordingDraftStatus" role="status" aria-live="polite"></p>
+            <p class="hint">Completed parts are kept. Retry sends only the unfinished part, but a failed request may already have reached the provider and may be charged again. This draft is removed after completion or when you discard it.</p>
+            <div class="actions">
+              <button id="retryDraft" type="button">Retry remaining parts</button>
+              <button id="discardDraft" type="button" class="secondary">Discard recording</button>
+            </div>
+          </div>
           <h3 id="transcriptHeading">Transcript</h3>
           <div id="transcript" role="region" aria-labelledby="transcriptHeading" dir="auto"></div>
           <div class="actions result-actions">

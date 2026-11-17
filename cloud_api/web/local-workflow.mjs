@@ -44,12 +44,13 @@ export function saveHistoryEntry(storage, entry, now = Date.now(), id = `${now}`
   const clean = {
     id:String(id), kind:String(entry.kind || 'result').slice(0, 24),
     title:String(entry.title || 'Saved result').slice(0, 80),
-    input:String(entry.input || '').slice(0, 6000), output:String(entry.output).slice(0, 6000),
+    input:String(entry.input || ''), output:String(entry.output),
     source:String(entry.source || '').slice(0, 12), target:String(entry.target || '').slice(0, 12),
     language:String(entry.language || '').slice(0, 12), createdAt:Number(now),
   };
   const next = [clean, ...localHistory(storage).filter(item => item.id !== clean.id)].slice(0, 12);
-  try { storage.setItem(HISTORY_KEY, JSON.stringify(next)); } catch { /* optional storage */ }
+  try { storage.setItem(HISTORY_KEY, JSON.stringify(next)); }
+  catch { return localHistory(storage); } // Never claim an unsaved or shortened result.
   return next;
 }
 

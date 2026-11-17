@@ -480,7 +480,7 @@ def create_app(settings=None, verifier=None, transport=None, policy=None, vision
 
     @app.get('/pilot/{asset}')
     def pilot_asset(asset: str):
-        if asset not in {'pilot.mjs', 'pilot.css', 'cloud-auth.mjs', 'firebase-config.mjs',
+        if asset not in {'pilot.mjs', 'pilot.css', 'cloud-auth.mjs', 'recording-draft.mjs', 'firebase-config.mjs',
                          'cloud-client.mjs', 'pronunciation.mjs', 'wav.mjs', 'read-aloud.mjs',
                          'local-workflow.mjs', 'tool-tray.mjs',
                          'manifest.webmanifest', 'icon.svg', 'sw.js',

@@ -167,7 +167,11 @@ async function share(text, title, status) {
 }
 
 function rememberOfflineResult(entry) {
-  saveHistoryEntry(localStorage,entry,Date.now(),`${Date.now()}-${Math.random().toString(36).slice(2,8)}`);
+  const id = `${Date.now()}-${Math.random().toString(36).slice(2,8)}`;
+  const saved = saveHistoryEntry(localStorage,entry,Date.now(),id);
+  if (historyEnabled(localStorage)) $('offlineHistoryStatus').textContent = saved.some(item => item.id === id)
+    ? 'Saved in full on this device.'
+    : 'Could not save this result to history. Copy or export it before leaving.';
   renderOfflineHistory();
 }
 

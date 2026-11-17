@@ -13,11 +13,68 @@ for any active feature branch before changing it.
 
 Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 
+## Approved build roadmap — November 17, 2026
+
+Integration source combines the recording-recovery and long Read Aloud work with
+`main`'s swipe tools tray and customizable bottom navigation. Android source is
+1.28/code 29; the offered APK remains 1.27/code 28 until a signed rebuild is staged.
+
+The owner confirmed **five broad stages**, in this order. This supersedes the
+earlier seven-stage interpretation and the older candidate feature queue below.
+
+| Stage | Focus | Current position |
+|---|---|---|
+| 1 | Reliability | Recording recovery, full transcripts/history and cancellable long Read Aloud; Windows Online workspace added in source; platform acceptance remains. |
+| 2 | Read expansion | Document import, page preparation, editable extraction and export. |
+| 3 | Learning foundations | Opt-in learning cards, phrase packs, short sessions and spaced review. |
+| 4 | The genie experience | Approved visual and interaction requirements below; not implemented. |
+| 5 | Richer practice | Contextual quizzes, role-play and optional spoken answers. |
+
+Stage 1 source now reads results up to 120,000 characters in sequential sections,
+with one result active, Stop, and protection against delayed events from a
+cancelled reading. Android keeps its existing native input limit; the shared
+controller sends smaller sections. Browser and Android Offline share this code.
+Draft saves report durable success only after the local storage transaction
+commits. Existing recording recovery retains completed transcription parts for
+retry without discarding the full transcript.
+Opt-in device history now retains complete source/result text instead of cutting
+it at 6,000 characters. A failed storage write retains existing history and reports
+that the new result needs copying/exporting; it never claims an unsaved result.
+
+The recovered Read expansion scope is JPEG/PNG/WebP, HEIC/HEIF, PDF, TIFF, BMP,
+DOCX, TXT and Markdown; import/preview and page selection; crop, rotate and
+straighten; review/edit extraction; retry failed pages; preserve original and
+extracted text; translate/listen/learn actions; and TXT/DOCX export. Text PDFs
+bypass OCR. Platform support must be labelled honestly as each format is added.
+
+Learning foundations covers opt-in **Save to Learn**, editable cards from selected
+translations/transcripts/OCR, curated phrase packs, 2–5-minute five-question
+sessions, multiple-choice/fill/order/typed/listening exercises, spaced review,
+progress and complete deletion/privacy. Accept valid alternative answers and
+support all seven languages where the relevant device capability exists.
+Richer practice follows later with generated contextual quizzes, role-play and
+optional spoken answers. These are planned features, not current functionality.
+
+Acceptance still requires Android Online/Offline and iPhone tests: long speech,
+Stop/restart, backgrounding, unavailable voices, interrupted multi-part recording,
+reload recovery, account separation, and storage failure. Source changes alone
+do not update the live service or installed APK.
+
+The genie stage retains all four approved character looks and uses Spark's
+approved listening/explaining poses for each. On summoning with the start phrase,
+ask **“What do you wish to translate?”** and wait for the response. Target at least
+60 fps on supported devices, respecting reduced-motion preferences. The genie
+emerges through the lamp's spout. Back, Home or the agreed screen tap dismisses
+it: wave goodbye, open the top lid, jump through the top with smoke, then close
+the lid. The approved reference artwork still needs recovering from the previous
+session; no replacement designs have been selected here.
+
 ## Current release and next source
 
-- Published baseline: Online `2026.09.16.3`; Android `1.21` / versionCode `22`.
-- Current source: Online `2026.09.18.1`; Android `1.22` / versionCode `23`;
-  Windows desktop `1.0-rc2.17-streamlined-motion`.
+- Published before this work: Online `2026.09.22.1`; Android `1.27` / versionCode `28`.
+- Current candidate source: Online `2026.11.17.1`; Android `1.28` /
+  versionCode `29`; native iOS `1.5` / build `5` is source-only and needs a Mac
+  build plus real-device testing. `release/manifest.json` is the version ledger.
 - Android provides phone-only Offline translation and transcription for English,
   German, Arabic, Spanish and French.
 - Android selected-text translation works from WhatsApp and other apps through
@@ -25,7 +82,37 @@ Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 - Owner controls provide single-use join links and QR codes, request badges and
   native Android request notifications.
 
-The Windows app now mirrors the phone's six-section structure: **Speak,
+Windows now offers **Local / Online** in the top bar. Online opens the full
+hosted phone workspace, including Speak, Translate, Read, Say it, history and
+Account/owner tools. Local retains the native desktop workflows. Account, Say it
+and the Online workspace share one desktop browser session and recovery store.
+Switching back to Local stops Online capture/Read Aloud and retains the loaded
+page; local input is not uploaded or copied automatically. Finish a local
+recording before switching modes. Downloads ask where to save; microphone access
+requires permission for the configured HTTPS site. Use **Open in browser** if
+Qt cannot provide a voice, recording or sign-in on your Windows installation.
+Before opening any embedded Online page, a separate, short-lived process checks
+that Qt can load a blank page and execute JavaScript. A crash, missing helper or
+timeout leaves the desktop open and offers **Open in browser**. The check uses
+no account, cloud endpoint or local inference. It keeps Chromium's sandbox
+enabled. A failed result is reused for the current desktop session.
+
+Start directly in Online without launching the local inference backend:
+
+```powershell
+.\scripts\start_desktop.ps1 -Online
+```
+
+Starting without `-Online` keeps the existing local startup. When starting with
+`-Online`, local tools need `scripts/start_backend.ps1` started separately. Follow
+the GPU underclock requirement before starting local GPU inference. The Online
+workspace loads the **deployed** website; the candidate reliability improvements
+reach it only after a separate cloud deployment. Windows microphone, installed
+voices, sign-in persistence, exports and interrupted recording recovery still
+need acceptance in a normal desktop session. No new desktop EXE is published.
+See [DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md) for the remaining checks.
+
+The Windows Local app mirrors the phone's six-section structure: **Speak,
 Translate, Read, Say it, Model and Settings**. Notes, Tasks and the old PC
 Remote Access console are no longer primary navigation. Settings embeds the
 same Firebase account and owner console as the phone, so password recovery,
@@ -43,8 +130,8 @@ minute without detected speech finishes the recording automatically. The hosted
 Android app records from the animated round microphone without a native screen
 overlay; long sessions are divided on-device into independently validated
 five-minute WAV uploads so Cloud Run and the transcription provider never
-receive an oversized request. Source versions are Online `2026.09.23.1` and
-Android 1.28/versionCode 29.
+receive an oversized request. Candidate source versions are Online `2026.11.17.1`
+and Android 1.28/versionCode 29.
 
 The phone shell also has a pull handle above the navigation bar. Swipe up to
 open the tools tray, and swipe down on its header to close it. In Arrange mode,

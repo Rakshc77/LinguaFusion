@@ -20,6 +20,7 @@
 !cloud_api/web/pilot.css
 !cloud_api/web/pilot.mjs
 !cloud_api/web/cloud-auth.mjs
+!cloud_api/web/recording-draft.mjs
 !cloud_api/web/cloud-client.mjs
 !cloud_api/web/firebase-config.mjs
 !cloud_api/web/pronunciation.mjs
