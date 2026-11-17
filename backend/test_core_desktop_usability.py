@@ -31,7 +31,9 @@ def test_desktop_responsive_visibility_and_icon_usability():
         window = LinguaFusionWindow()
         window.show()
 
-        def settle(milliseconds=120):
+        # The sidebar transition lasts 200 ms. Wait through it before asserting
+        # final geometry; 120 ms observes an intermediate animation frame.
+        def settle(milliseconds=260):
             app.processEvents()
             QTest.qWait(milliseconds)
             app.processEvents()

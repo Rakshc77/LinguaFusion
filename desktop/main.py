@@ -67,6 +67,7 @@ from PySide6.QtWidgets import (
     QLabel, QLineEdit, QMainWindow, QPushButton, QScrollArea, QSizePolicy, QStackedWidget, QTextEdit,
     QVBoxLayout, QWidget, QCheckBox, QInputDialog, QMessageBox, QStyle, QSystemTrayIcon, QMenu, QGraphicsOpacityEffect
 )
+from desktop.online_workspace import create_online_view
 
 try:
     from desktop.iconography import app_icon
@@ -738,6 +739,7 @@ class LinguaFusionWindow(QMainWindow):
         self.speech_live_timer.timeout.connect(self.live_transcribe_speech_snapshot)
 
         self._is_backend_online = False
+        self.online_mode = False
         self.build_shell()
         self.apply_style()
         self.switch_page("Speech")
@@ -746,8 +748,11 @@ class LinguaFusionWindow(QMainWindow):
         self.backend_poll_timer = QTimer(self)
         self.backend_poll_timer.setInterval(400)
         self.backend_poll_timer.timeout.connect(self._poll_backend_health_on_startup)
-        self.backend_poll_timer.start()
-        QTimer.singleShot(50, self._poll_backend_health_on_startup)
+        if "--online" in sys.argv:
+            self.set_workspace_mode(True)
+        else:
+            self.backend_poll_timer.start()
+            QTimer.singleShot(50, self._poll_backend_health_on_startup)
 
     def setup_system_tray(self):
         if not QSystemTrayIcon.isSystemTrayAvailable():
@@ -938,6 +943,15 @@ class LinguaFusionWindow(QMainWindow):
         layout.setSpacing(18)
 
         topbar = QHBoxLayout()
+        self.local_mode_button = QPushButton("Local")
+        self.online_mode_button = QPushButton("Online")
+        for button in (self.local_mode_button, self.online_mode_button):
+            button.setCheckable(True)
+            button.setObjectName("SecondaryButton")
+            topbar.addWidget(button)
+        self.local_mode_button.setChecked(True)
+        self.local_mode_button.clicked.connect(lambda: self.set_workspace_mode(False))
+        self.online_mode_button.clicked.connect(lambda: self.set_workspace_mode(True))
         self.search_box = QLineEdit()
         self.search_box.setObjectName("SearchBox")
         self.search_box.setMinimumWidth(0)
@@ -1000,6 +1014,9 @@ class LinguaFusionWindow(QMainWindow):
         self.page_scroll = SmoothScrollArea()
         self.page_scroll.setWidget(self.pages)
         layout.addWidget(self.page_scroll, 1)
+        self.online_workspace = self.build_online_workspace()
+        self.online_workspace.hide()
+        layout.addWidget(self.online_workspace, 1)
 
         self.scroll_hint = QLabel("↓ More controls below")
         self.scroll_hint.setObjectName("ScrollHint")
@@ -1819,6 +1836,8 @@ class LinguaFusionWindow(QMainWindow):
                     on_error(exc)
                     return
                 exc_str = str(exc)
+                if self.online_mode and "localhost" in exc_str:
+                    return
                 if not getattr(self, "_is_backend_online", False) and any(
                     err_msg in exc_str for err_msg in ("ConnectionRefused", "Max retries", "Failed to establish a new connection")
                 ):
@@ -2481,7 +2500,7 @@ class LinguaFusionWindow(QMainWindow):
         self.search_box.setPlaceholderText(
             "Search recent activity" if mode == "medium" else "Search recent activity  •  Ctrl+K"
         )
-        self.system_badge.setText("● Offline ready")
+        self.system_badge.setText("Online workspace" if self.online_mode else "● Offline ready")
         inspector_label = "Hide details panel" if show_inspector else "Show details panel"
         self.inspector_toggle_btn.setToolTip(inspector_label)
         self.inspector_toggle_btn.setAccessibleName(inspector_label)
@@ -2625,10 +2644,14 @@ class LinguaFusionWindow(QMainWindow):
             if widget is not None:
                 widget.setVisible(mode == "wide")
 
-        self.scroll_hint.setVisible(mode == "medium" and self.current_page_name in {"Reader", "Speech"})
+        self.scroll_hint.setVisible(not self.online_mode and mode == "medium" and self.current_page_name in {"Reader", "Speech"})
         self.footer.setFixedHeight(44 if mode == "medium" else 46)
         self.footer_center.setVisible(True)
         self.footer_right.setVisible(mode == "wide" and width >= 1420)
+        if self.online_mode:
+            self.footer_right.setText("Account and cloud tools")
+        else:
+            self.footer_right.setText("Local-first · Private · Seven languages")
         self.refresh_interface_icons()
 
     def clear_layout(self, layout):
@@ -6359,12 +6382,83 @@ class LinguaFusionWindow(QMainWindow):
         ollama_test_btn.clicked.connect(lambda: self.test_ai_provider("ollama"))
         ai_layout.addWidget(ollama_test_btn)
         layout.addWidget(ai_card)
-        QTimer.singleShot(300, self.load_ai_provider_settings)
+        QTimer.singleShot(300, lambda: self.load_ai_provider_settings() if not self.online_mode else None)
         return page
 
     def _online_feature_url(self, view):
         safe_view = view if view in {"account", "say"} else "account"
         return QUrl(f"{CLOUD_APP_URL}/pilot/?embed=desktop&view={safe_view}")
+
+    def build_online_workspace(self):
+        page = QWidget()
+        layout = QVBoxLayout(page)
+        layout.setContentsMargins(0, 0, 0, 0)
+        row = QHBoxLayout()
+        self.online_workspace_status = QLabel("Sign in with the same account as your phone.")
+        self.online_workspace_status.setWordWrap(True)
+        row.addWidget(self.online_workspace_status, 1)
+        reload_button = QPushButton("Reload")
+        reload_button.clicked.connect(self.reload_online_workspace)
+        row.addWidget(reload_button)
+        browser_button = QPushButton("Open in browser")
+        browser_button.clicked.connect(lambda: QDesktopServices.openUrl(QUrl(f"{CLOUD_APP_URL}/pilot/")))
+        row.addWidget(browser_button)
+        layout.addLayout(row)
+        self.online_workspace_view = create_online_view(self, CLOUD_APP_URL)
+        self._online_workspace_loaded = False
+        if hasattr(self.online_workspace_view, "loadFinished"):
+            self.online_workspace_view.loadFinished.connect(self.online_workspace_load_finished)
+        layout.addWidget(self.online_workspace_view, 1)
+        return page
+
+    def online_workspace_load_finished(self, ok):
+        self.online_workspace_status.setText(
+            "Online uses your account and the same tools as your phone."
+            if ok else "Could not load Online. Check your connection, Reload or Open in browser."
+        )
+
+    def reload_online_workspace(self):
+        if not hasattr(self.online_workspace_view, "setUrl"):
+            return
+        self.online_workspace_status.setText("Loading Online...")
+        self._online_workspace_loaded = True
+        self.online_workspace_view.setUrl(QUrl(f"{CLOUD_APP_URL}/pilot/"))
+
+    def set_workspace_mode(self, online):
+        if online and self.speech_is_recording:
+            self.online_mode_button.setChecked(False)
+            self.local_mode_button.setChecked(True)
+            self.set_status("Stop the local recording before switching to Online", error=True)
+            return
+        if online and not self.online_mode:
+            self.stop_audio()
+        if not online and self.online_mode and hasattr(self.online_workspace_view, "page"):
+            # Stop microphone and Read Aloud before hiding the shared page.
+            # Preserve the document, typed text, history and recoverable drafts.
+            self.online_workspace_view.page().runJavaScript(
+                "window.dispatchEvent(new Event('pagehide'));"
+            )
+        self.online_mode = bool(online)
+        if hasattr(self, "backend_poll_timer"):
+            if online:
+                self.backend_poll_timer.stop()
+            elif "--online" not in sys.argv and not self._is_backend_online:
+                self.backend_poll_timer.start()
+        self.local_mode_button.setChecked(not online)
+        self.online_mode_button.setChecked(online)
+        self.sidebar.setVisible(not online)
+        self.page_scroll.setVisible(not online)
+        self.online_workspace.setVisible(online)
+        self.theme_toggle.setVisible(not online)
+        self.footer_center.setText(
+            "Online workspace - sign-in and owner approval required"
+            if online else "Local workflows stay on this desktop - Say it and Account are Online"
+        )
+        self.update_responsive_layout()
+        if online and not self._online_workspace_loaded:
+            self.reload_online_workspace()
+        elif not online and "--online" in sys.argv:
+            self.set_status("Local tools need the local backend. Start scripts/start_backend.ps1 to use them.")
 
     def build_say_page(self):
         page = QWidget()
@@ -6398,7 +6492,7 @@ class LinguaFusionWindow(QMainWindow):
         notice_layout.addWidget(browser_button)
         layout.addWidget(notice)
 
-        self.online_say_view = QWebEngineView()
+        self.online_say_view = create_online_view(self, CLOUD_APP_URL)
         self.online_say_view.setObjectName("OnlineAccountView")
         self.online_say_view.setMinimumHeight(560)
         self._online_say_loaded = False
@@ -6450,7 +6544,7 @@ class LinguaFusionWindow(QMainWindow):
         notice_layout.addWidget(browser_button)
         layout.addWidget(notice)
 
-        self.online_account_view = QWebEngineView()
+        self.online_account_view = create_online_view(self, CLOUD_APP_URL)
         self.online_account_view.setObjectName("OnlineAccountView")
         self.online_account_view.setMinimumHeight(560)
         self._online_account_loaded = False
@@ -7354,7 +7448,7 @@ if __name__ == "__main__":
         sys.exit(0)
 
     # Primary instance: launch backend server and initialize UI
-    backend_process = ensure_backend_running()
+    backend_process = None if "--online" in sys.argv else ensure_backend_running()
 
     icon_path = app_icon_path()
     if icon_path.exists():

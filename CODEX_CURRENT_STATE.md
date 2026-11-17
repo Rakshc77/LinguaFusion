@@ -1,5 +1,53 @@
 # LinguaFusion — current Codex handover
 
+## Windows Online workspace - November 17, 2026
+
+Publication: the owner explicitly approved publishing these Windows changes to
+the existing public PR #23 on November 17, following the automatic-review block.
+The continuation is based on `109c40c35a467e9e15011ed2abc0b46e5b4fe629`, whose
+cloud and Android workflows passed. Verify the PR head and its new checks before
+merge; publication of source does not deploy the cloud app or rebuild the EXE.
+
+Continuation on the PR #23 integrated source adds a Local/Online switch to the
+Windows top bar. Online loads the complete hosted `/pilot/` interface; the native
+sidebar is hidden while that interface supplies its own navigation. Local text
+is preserved and is never copied/uploaded automatically. Active local recording
+blocks a switch. Returning to Local dispatches the shared pagehide cleanup to
+stop capture and speech without reloading the Online document.
+
+Account, Say it and the full Online workspace use one lazily initialized named
+Qt profile, with storage/cache under ignored backend/storage paths. This keeps
+Firebase identity, recording drafts and opt-in history in the same session.
+Microphone requests require the configured HTTPS origin, a visible view and user
+approval; other capture permissions are denied. Exports use an explicit Save
+dialog; untrusted-origin downloads and cancelled dialogs do not save anything.
+
+`scripts/start_desktop.ps1 -Online` / `python -m desktop.main --online` skips
+launching the local backend and its startup polling. Selecting Local after that
+requires starting the backend separately, with the existing GPU safety condition.
+The normal local startup remains the default. Chromium profile initialization
+is deferred until navigation to an Online surface. The browser fallback remains
+available for Qt voice/recording/sign-in limitations.
+
+Validation: all 13 desktop startup, mode/permission/export, responsive layout and
+embedded-route contracts pass; all 96 browser tests and release metadata checks
+pass. The responsive test's old 120 ms wait failed on the original source too:
+its sidebar animation takes 200 ms, so the test now waits through the animation.
+The initial browser setup failed native startup; retaining the established Qt
+import order and deferring profile initialization passes. Actual browser
+navigation still exits with native status 0x80000003 here, including a minimal
+unmodified QWebEngineView navigating to about:blank. The cause is unproven; a
+normal Windows session must validate the embedded workspace. These checks do
+not verify physical microphone, installed voices or a real Firebase sign-in.
+The full local cloud-suite attempt was interrupted after
+stalling; GitHub's Linux cloud workflow must validate the published revision.
+
+Still pending: normal Windows-session Online sign-in/restart, microphone allow
+and deny, recording and background interruption, voices/Stop/restart, export and
+reload recovery; physical Android/iPhone acceptance; merge and deployment.
+The workspace loads the deployed website, so unpublished cloud reliability code
+is not made live by this desktop change. No EXE, APK or cloud deployment here.
+
 ## Current integration — November 17, 2026
 
 Source baseline: `codex/reliability-main-integration`, combining remote `main`

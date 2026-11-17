@@ -24,7 +24,7 @@ earlier seven-stage interpretation and the older candidate feature queue below.
 
 | Stage | Focus | Current position |
 |---|---|---|
-| 1 | Reliability | Recording recovery, full transcripts/history and cancellable long Read Aloud; device acceptance and Windows cloud parity remain. |
+| 1 | Reliability | Recording recovery, full transcripts/history and cancellable long Read Aloud; Windows Online workspace added in source; platform acceptance remains. |
 | 2 | Read expansion | Document import, page preparation, editable extraction and export. |
 | 3 | Learning foundations | Opt-in learning cards, phrase packs, short sessions and spaced review. |
 | 4 | The genie experience | Approved visual and interaction requirements below; not implemented. |
@@ -82,7 +82,31 @@ session; no replacement designs have been selected here.
 - Owner controls provide single-use join links and QR codes, request badges and
   native Android request notifications.
 
-The Windows app now mirrors the phone's six-section structure: **Speak,
+Windows now offers **Local / Online** in the top bar. Online opens the full
+hosted phone workspace, including Speak, Translate, Read, Say it, history and
+Account/owner tools. Local retains the native desktop workflows. Account, Say it
+and the Online workspace share one desktop browser session and recovery store.
+Switching back to Local stops Online capture/Read Aloud and retains the loaded
+page; local input is not uploaded or copied automatically. Finish a local
+recording before switching modes. Downloads ask where to save; microphone access
+requires permission for the configured HTTPS site. Use **Open in browser** if
+Qt cannot provide a voice, recording or sign-in on your Windows installation.
+
+Start directly in Online without launching the local inference backend:
+
+```powershell
+.\scripts\start_desktop.ps1 -Online
+```
+
+Starting without `-Online` keeps the existing local startup. When starting with
+`-Online`, local tools need `scripts/start_backend.ps1` started separately. Follow
+the GPU underclock requirement before starting local GPU inference. The Online
+workspace loads the **deployed** website; the candidate reliability improvements
+reach it only after a separate cloud deployment. Windows microphone, installed
+voices, sign-in persistence, exports and interrupted recording recovery still
+need acceptance in a normal desktop session. No new desktop EXE is published.
+
+The Windows Local app mirrors the phone's six-section structure: **Speak,
 Translate, Read, Say it, Model and Settings**. Notes, Tasks and the old PC
 Remote Access console are no longer primary navigation. Settings embeds the
 same Firebase account and owner console as the phone, so password recovery,
