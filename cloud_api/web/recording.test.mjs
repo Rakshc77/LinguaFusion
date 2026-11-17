@@ -91,6 +91,17 @@ test('a failed later part keeps completed text and retry sends only that part', 
   assert.equal(h.$('recordingDraft').hidden, true);
 });
 
+test('multi-part transcription preserves the full long multilingual result', async () => {
+  const h = harness();
+  const first = 'Grüße مرحبا नमस्ते ନମସ୍କାର. '.repeat(900).trim();
+  const last = 'Last section: 12345, 끝. '.repeat(300).trim();
+  const responses = [first, last];
+  h.sandbox.api.request = async () => ({text:responses.shift()});
+  await vm.runInContext('transcribeRecording([new Uint8Array([1]),new Uint8Array([2])])', h.sandbox);
+  assert.equal(h.$('transcript').textContent, `${first}\n\n${last}`);
+  assert.equal(h.$('recordingDraft').hidden, true);
+});
+
 test('rapid Start taps open only one microphone and Stop releases it', async () => {
   const h = harness(); const first = h.click(); await h.click();
   assert.equal(h.pending.length, 1);

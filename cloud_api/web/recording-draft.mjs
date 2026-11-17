@@ -21,7 +21,8 @@ async function operation(mode, action) {
     return await new Promise((resolve, reject) => {
       const tx = db.transaction(STORE, mode);
       const request = action(tx.objectStore(STORE));
-      request.onsuccess = () => resolve(request.result);
+      // A request can succeed before its transaction is rolled back.
+      tx.oncomplete = () => resolve(request.result);
       request.onerror = () => reject(request.error);
       tx.onabort = () => reject(tx.error);
     });

@@ -1,5 +1,42 @@
 # LinguaFusion — current Codex handover
 
+## Current continuation — November 17, 2026
+
+The confirmed roadmap is five broad stages: **Reliability → Read expansion →
+Learning foundations → The genie experience → Richer practice**. See README.md
+for current status and the approved genie requirements. Do not infer an A–G plan
+from earlier assistant messages. Detailed scope for stages 2, 3 and 5 has not yet
+been recovered.
+
+This continuation starts from local recording-recovery commit `c84b37e`.
+The remote `main` and `codex/genie-roadmap-foundation` were observed at `f9b5002`,
+which predates the local recovery source. The interrupted session's alleged
+publication and 96 passing tests were not verified; check actual source and tests.
+
+Implemented in this continuation: sequential Read Aloud for up to 120,000
+characters, browser/native cancellation and stale-event isolation, Android
+Offline synchronization, and recording-draft transaction-commit confirmation.
+Native speech validation and cloud provider/budget controls remain unchanged.
+No GPU inference or paid provider calls are needed for these changes.
+
+Validation: all **91 browser tests** and **35 Android build-contract tests** pass;
+`scripts/check_release_manifest.py` and `git diff --check` pass. The browser suite
+includes long multilingual transcript preservation, sequential browser/native
+speech, stale-event isolation, and draft transaction commit/rollback checks.
+These use simulated browser/native APIs, not physical-device speech engines.
+
+Changes are in the local working tree on `codex/recording-recovery-ios-release`.
+Local Git metadata is read-only, so publication uses the connected GitHub account
+on `codex/reliability-roadmap-continuation`, based on remote recovery source
+`c84b37e`. The review targets `codex/recording-recovery-ios-release`, not `main`:
+`main` has a separate navigation commit and needs integration before release.
+Verify the remote branch before treating publication as complete.
+The two pre-existing untracked Git bundles are unrelated and were not modified.
+ADB failed to start in this environment, so attached-device availability and
+physical-phone behavior could not be verified here.
+Device acceptance and publishing/deployment are pending. Preserve the Android
+signing key and use release/manifest.json and release/README.md for release gates.
+
 > Historical handover below. For current release versions and deployment gates,
 > use `release/manifest.json` and `release/README.md`. The September 18 branch
 > description is retained for context, not as a current deployment instruction.

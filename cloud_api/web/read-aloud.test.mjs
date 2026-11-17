@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
-import { createReadAloudController, normaliseReadLanguage, prepareReadAloudRequest } from './read-aloud.mjs';
+import { createReadAloudController, normaliseReadLanguage, prepareReadAloudRequest, splitReadAloudText, MAX_READ_ALOUD_CHARACTERS } from './read-aloud.mjs';
 
 test('requests validate result id, language, speed, emptiness and length', () => {
   assert.equal(normaliseReadLanguage('AR-SA'), 'ar');
@@ -13,7 +13,8 @@ test('requests validate result id, language, speed, emptiness and length', () =>
   assert.match(prepareReadAloudRequest({ id:'x', text:' ', language:'en', rate:1 }).error, /nothing/);
   assert.match(prepareReadAloudRequest({ id:'x', text:'Hello', language:'xx', rate:1 }).error, /language/);
   assert.match(prepareReadAloudRequest({ id:'x', text:'Hello', language:'en', rate:2 }).error, /speed/);
-  assert.match(prepareReadAloudRequest({ id:'x', text:'a'.repeat(12001), language:'en', rate:1 }).error, /12[,.]000/);
+  assert.equal(prepareReadAloudRequest({ id:'x', text:'a'.repeat(12001), language:'en', rate:1 }).text.length, 12001);
+  assert.match(prepareReadAloudRequest({ id:'x', text:'a'.repeat(MAX_READ_ALOUD_CHARACTERS + 1), language:'en', rate:1 }).error, /120[,.]000/);
 });
 
 function browserHarness() {
@@ -66,10 +67,11 @@ test('native messages carry only the validated narrow speech contract', () => {
   const native = { postMessage:value => sent.push(JSON.parse(value)), onmessage:null };
   const controller = createReadAloudController({ scope:{ LinguaFusionReadAloud:native }, onState:value => states.push(value) });
   controller.read({ id:'ocr', text:'Bonjour', language:'fr', rate:0.75, ignored:'secret' });
-  assert.deepEqual(sent.at(-1), { type:'speak', id:'ocr', text:'Bonjour', language:'fr', rate:0.75 });
+  const wireId = sent.at(-1).id;
+  assert.deepEqual(sent.at(-1), { type:'speak', id:wireId, text:'Bonjour', language:'fr', rate:0.75 });
   native.onmessage({ data:JSON.stringify({ id:'wrong', state:'done' }) });
   assert.equal(controller.activeId, 'ocr');
-  native.onmessage({ data:JSON.stringify({ id:'ocr', state:'done', message:'Finished.' }) });
+  native.onmessage({ data:JSON.stringify({ id:wireId, state:'done', message:'Finished.' }) });
   assert.equal(controller.activeId, '');
   assert.equal(states.at(-1).message, 'Finished.');
 });
@@ -93,4 +95,77 @@ test('all three online results expose the shared local action without a paid API
   assert.doesNotMatch(app, /api\.request\([^\n]*read.?aloud/i);
   const cleanup = app.slice(app.indexOf('function clearPrivateText()'), app.indexOf('// --- capability gating'));
   assert.match(cleanup, /readAloud\.stop/);
+});
+
+test('long multilingual results keep every character and do not split surrogate pairs', () => {
+  for (const text of ['Hello. Grüße! مرحبا नमस्ते ନମସ୍କାର '.repeat(500), 'a'.repeat(999) + '😀'.repeat(800)]) {
+    const chunks = splitReadAloudText(text);
+    assert.equal(chunks.join(''), text);
+    assert.ok(chunks.every(chunk => chunk.length <= 1000 && chunk.isWellFormed()));
+  }
+});
+
+test('browser reads all sections sequentially and ignores duplicate completion callbacks', () => {
+  const h = browserHarness();
+  const text = 'Hello world. '.repeat(2000).trim();
+  h.controller.read({ id:'transcript', text, language:'en', rate:1 });
+  assert.equal(h.spoken.length, 1);
+  let count = 0;
+  while (h.controller.activeId) {
+    const current = h.spoken.at(-1);
+    current.onend();
+    current.onend();
+    assert.ok(++count < 100);
+  }
+  assert.equal(h.spoken.map(value => value.text).join(''), text);
+  assert.equal(h.states.filter(value => value.state === 'done').length, 1);
+});
+
+test('Stop and restarting the same result reject old browser events', () => {
+  const h = browserHarness();
+  const request = { id:'transcript', text:'A long sentence. '.repeat(2000), language:'en', rate:1 };
+  h.controller.read(request);
+  const old = h.spoken[0];
+  h.controller.stop();
+  old.onend();
+  assert.equal(h.spoken.length, 1);
+  h.controller.read(request);
+  old.onerror(); old.onstart(); old.onend();
+  assert.equal(h.controller.activeId, 'transcript');
+  assert.equal(h.spoken.length, 2);
+  h.controller.dispose();
+  h.spoken.at(-1).onend();
+  assert.equal(h.controller.read(request), false);
+  assert.equal(h.controller.available, false);
+});
+
+test('native long results keep the bridge limit and ignore stale replies after restart', () => {
+  const sent = [], states = [];
+  const native = { postMessage:value => sent.push(JSON.parse(value)) };
+  const controller = createReadAloudController({ scope:{LinguaFusionReadAloud:native}, onState:value => states.push(value) });
+  const text = 'Bonjour le monde. '.repeat(2000).trim();
+  const request = {id:'ocr', text, language:'fr', rate:1};
+  controller.read(request);
+  const oldId = sent.at(-1).id;
+  controller.stop();
+  controller.read(request);
+  const start = sent.length - 1;
+  native.onmessage({data:JSON.stringify({id:oldId,state:'done'})});
+  assert.equal(sent.length, start + 1);
+  while (controller.activeId) {
+    const chunk = sent.at(-1);
+    assert.ok(chunk.text.length <= 12000);
+    native.onmessage({data:JSON.stringify({id:chunk.id,state:'done'})});
+    native.onmessage({data:JSON.stringify({id:chunk.id,state:'error'})});
+  }
+  assert.equal(sent.slice(start).map(value => value.text).join(''), text);
+  assert.equal(states.filter(value => value.state === 'done').length, 1);
+});
+
+test('speech failures stop the sequence and leave it restartable', () => {
+  const h = browserHarness();
+  h.synthesis.speak = () => { throw new Error('engine failed'); };
+  assert.equal(h.controller.read({id:'ocr',text:'Hello',language:'en',rate:1}), false);
+  assert.equal(h.controller.activeId, '');
+  assert.equal(h.states.at(-1).state, 'error');
 });

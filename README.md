@@ -13,6 +13,41 @@ for any active feature branch before changing it.
 
 Cloud app: https://linguafusion-cloud-pilot-jl77ipbeua-ey.a.run.app/pilot/
 
+## Approved build roadmap — November 17, 2026
+
+The owner confirmed **five broad stages**, in this order. This supersedes the
+earlier seven-stage interpretation and the older candidate feature queue below.
+
+| Stage | Focus | Current position |
+|---|---|---|
+| 1 | Reliability | In progress: interrupted-recording recovery, complete transcripts, cancellable long Read Aloud; physical-device acceptance remains. |
+| 2 | Read expansion | Next after reliability acceptance; detailed scope must be recovered before implementation. |
+| 3 | Learning foundations | Planned; detailed scope must be recovered before implementation. |
+| 4 | The genie experience | Approved visual and interaction requirements below; not implemented. |
+| 5 | Richer practice | Planned; detailed scope must be recovered before implementation. |
+
+Stage 1 source now reads results up to 120,000 characters in sequential sections,
+with one result active, Stop, and protection against delayed events from a
+cancelled reading. Android keeps its existing native input limit; the shared
+controller sends smaller sections. Browser and Android Offline share this code.
+Draft saves report durable success only after the local storage transaction
+commits. Existing recording recovery retains completed transcription parts for
+retry without discarding the full transcript.
+
+Acceptance still requires Android Online/Offline and iPhone tests: long speech,
+Stop/restart, backgrounding, unavailable voices, interrupted multi-part recording,
+reload recovery, account separation, and storage failure. Source changes alone
+do not update the live service or installed APK.
+
+The genie stage retains all four approved character looks and uses Spark's
+approved listening/explaining poses for each. On summoning with the start phrase,
+ask **“What do you wish to translate?”** and wait for the response. Target at least
+60 fps on supported devices, respecting reduced-motion preferences. The genie
+emerges through the lamp's spout. Back, Home or the agreed screen tap dismisses
+it: wave goodbye, open the top lid, jump through the top with smoke, then close
+the lid. The approved reference artwork still needs recovering from the previous
+session; no replacement designs have been selected here.
+
 ## Current release and next source
 
 - Published before this work: Online `2026.09.22.1`; Android `1.27` / versionCode `28`.
