@@ -68,11 +68,10 @@ def test_shared_browser_session_permissions_and_export_cancel(monkeypatch, tmp_p
     monkeypatch.setitem(sys.modules, "PySide6.QtWebEngineCore",
                         types.SimpleNamespace(QWebEnginePage=Page, QWebEngineProfile=Profile))
     window = types.SimpleNamespace(_persist_settings=False)
-    first = online.create_online_view(window, "https://app.example")
-    second = online.create_online_view(window, "https://app.example")
+    first, second = View(), View()
     assert not hasattr(window, "_online_profile")
-    first.setUrl(QUrl("https://app.example/pilot/"))
-    second.setUrl(QUrl("https://app.example/pilot/"))
+    online._configure_online_view(first, window, "https://app.example")
+    online._configure_online_view(second, window, "https://app.example")
     assert first.page.profile is second.page.profile
     prompts = []
 

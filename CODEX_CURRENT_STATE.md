@@ -1,5 +1,31 @@
 # LinguaFusion — current Codex handover
 
+## Isolated browser startup and fallback - November 17, 2026
+
+Continuation of PR #23 from `176ab3e` contains Qt startup failures in a disposable
+QProcess before constructing any embedded browser page in the main window.
+The helper loads about:blank and confirms a JavaScript result; only a zero exit
+with its readiness marker passes. Timeout, launch failure and nonzero/native
+exit show Open in browser without closing the desktop. The check is shared by
+Online, Account and Say it, runs once per session and retains Chromium's sandbox.
+No cloud, credentials, disk profile or local inference is used in the check.
+
+All 19 desktop/probe/embedded-route checks pass, including a real Qt startup
+failure with its host window surviving. The probe handles missing executables,
+timeouts and false success reports. Mode switching also handles an unavailable
+browser page safely. Publication/CI on this revision must be verified in PR #23.
+
+Crash dumps show Qt 6.11.1 stopping in Qt6WebEngineCore.dll at offset 0x608d02e
+with status 0x80000003. Resources are present and Windows ICU libraries are
+loaded. A minimal unmodified browser fails too; the cause is still unproven.
+The separate process contains the startup failure rather than claiming to fix
+the engine itself. Normal-session embedded sign-in/audio still needs acceptance.
+
+ADB now starts, but `adb devices -l` returned no attached devices. See
+DEVICE_ACCEPTANCE.md for Windows, Android and iPhone steps and version checks.
+The owner has already approved publication to the existing public repository.
+No source publication deploys the website or creates an APK/EXE release.
+
 ## Windows Online workspace - November 17, 2026
 
 Publication: the owner explicitly approved publishing these Windows changes to

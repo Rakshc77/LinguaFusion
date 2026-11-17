@@ -91,6 +91,11 @@ page; local input is not uploaded or copied automatically. Finish a local
 recording before switching modes. Downloads ask where to save; microphone access
 requires permission for the configured HTTPS site. Use **Open in browser** if
 Qt cannot provide a voice, recording or sign-in on your Windows installation.
+Before opening any embedded Online page, a separate, short-lived process checks
+that Qt can load a blank page and execute JavaScript. A crash, missing helper or
+timeout leaves the desktop open and offers **Open in browser**. The check uses
+no account, cloud endpoint or local inference. It keeps Chromium's sandbox
+enabled. A failed result is reused for the current desktop session.
 
 Start directly in Online without launching the local inference backend:
 
@@ -105,6 +110,7 @@ workspace loads the **deployed** website; the candidate reliability improvements
 reach it only after a separate cloud deployment. Windows microphone, installed
 voices, sign-in persistence, exports and interrupted recording recovery still
 need acceptance in a normal desktop session. No new desktop EXE is published.
+See [DEVICE_ACCEPTANCE.md](DEVICE_ACCEPTANCE.md) for the remaining checks.
 
 The Windows Local app mirrors the phone's six-section structure: **Speak,
 Translate, Read, Say it, Model and Settings**. Notes, Tasks and the old PC

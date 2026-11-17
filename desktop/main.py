@@ -6435,9 +6435,9 @@ class LinguaFusionWindow(QMainWindow):
         if not online and self.online_mode and hasattr(self.online_workspace_view, "page"):
             # Stop microphone and Read Aloud before hiding the shared page.
             # Preserve the document, typed text, history and recoverable drafts.
-            self.online_workspace_view.page().runJavaScript(
-                "window.dispatchEvent(new Event('pagehide'));"
-            )
+            online_page = self.online_workspace_view.page()
+            if online_page is not None:
+                online_page.runJavaScript("window.dispatchEvent(new Event('pagehide'));")
         self.online_mode = bool(online)
         if hasattr(self, "backend_poll_timer"):
             if online:
@@ -7411,6 +7411,10 @@ def handle_single_instance_check() -> tuple[QLocalServer | None, bool]:
 if __name__ == "__main__":
     import multiprocessing
     multiprocessing.freeze_support()
+
+    if "--webengine-probe" in sys.argv:
+        from desktop.webengine_probe import run_probe
+        sys.exit(run_probe())
 
     if "--piper-worker" in sys.argv:
         from backend.services.piper_service import run_frozen_piper_worker
